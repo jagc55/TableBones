@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Key, Users, Play, Clock, Trophy } from 'lucide-react';
+import { Search, Plus, Key, Users, Play, Clock } from 'lucide-react';
 import { Room, GameDefinition, GameId } from '../types';
 import { GAMES_CATALOG } from '../utils/mockData';
 import { AvatarIcon } from '../utils/avatars';
@@ -192,7 +192,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
 
               return (
                 <div key={room.id} className="cel-card room-list-row">
-                  {/* Left Column: Game & Title */}
+                  {/* Column 1: Game & Room Title (Reserved Slot) */}
                   <div className="room-row-main">
                     <div className="room-row-badge-line">
                       <span className="room-game-badge">{game ? game.title : 'Board Game'}</span>
@@ -200,40 +200,37 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                         OPEN LOBBY
                       </div>
                     </div>
-                    <h4 className="room-row-title">{room.title}</h4>
+                    <h4 className="room-row-title" title={room.title}>{room.title}</h4>
                   </div>
 
-                  {/* Middle Column: Host & Specs */}
-                  <div className="room-row-details">
-                    <div className="room-host-info">
-                      <div className="host-avatar-ring">
-                        <AvatarIcon id={host ? host.avatarId : 'boxer'} size={24} />
-                      </div>
-                      <div className="host-text">
-                        <span className="host-label">HOST</span>
-                        <strong className="host-name">{host ? host.name : 'Unknown'}</strong>
-                      </div>
+                  {/* Column 2: Host Info (Reserved Slot) */}
+                  <div className="room-host-info">
+                    <div className="host-avatar-ring">
+                      <AvatarIcon id={host ? host.avatarId : 'boxer'} size={24} />
                     </div>
-
-                    <div className="room-row-specs">
-                      <div className="spec-item" title="Players in room">
-                        <Users size={14} strokeWidth={2.5} />
-                        <span>
-                          {room.players.length}/{room.maxPlayers}
-                        </span>
-                      </div>
-                      <div className="spec-item" title="Round timer">
-                        <Clock size={14} strokeWidth={2.5} />
-                        <span>{room.settings.roundDurationSec}s</span>
-                      </div>
-                      <div className="spec-item" title="Minimum players to start">
-                        <Trophy size={14} strokeWidth={2.5} />
-                        <span>Min {room.minPlayers}</span>
-                      </div>
+                    <div className="host-text">
+                      <span className="host-label">HOST</span>
+                      <strong className="host-name" title={host ? host.name : 'Unknown'}>
+                        {host ? host.name : 'Unknown'}
+                      </strong>
                     </div>
                   </div>
 
-                  {/* Right Column: Action Button */}
+                  {/* Column 3: Specs (Players & Round Timer) */}
+                  <div className="room-row-specs">
+                    <div className="spec-item" title="Players in room">
+                      <Users size={14} strokeWidth={2.5} />
+                      <span>
+                        {room.players.length}/{room.maxPlayers}
+                      </span>
+                    </div>
+                    <div className="spec-item" title="Round timer">
+                      <Clock size={14} strokeWidth={2.5} />
+                      <span>{room.settings.roundDurationSec}s</span>
+                    </div>
+                  </div>
+
+                  {/* Column 4: Action Button */}
                   <div className="room-row-action">
                     <button
                       onClick={() => {
@@ -388,10 +385,10 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
         }
         .room-list-row {
           padding: 12px 18px;
-          display: flex;
+          display: grid;
+          grid-template-columns: 280px 165px 1fr auto;
           align-items: center;
-          justify-content: space-between;
-          gap: 16px;
+          gap: 20px;
           transition: transform 0.08s ease, box-shadow 0.08s ease;
         }
         .room-list-row:hover {
@@ -402,12 +399,15 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           display: flex;
           flex-direction: column;
           gap: 4px;
-          min-width: 260px;
+          width: 280px;
+          min-width: 0;
+          overflow: hidden;
         }
         .room-row-badge-line {
           display: flex;
           align-items: center;
           gap: 8px;
+          white-space: nowrap;
         }
         .room-game-badge {
           font-family: var(--font-theatre-rye);
@@ -440,19 +440,18 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           font-size: 18px;
           letter-spacing: 0.03em;
           color: var(--color-ink-black);
-          line-height: 1.1;
-        }
-        .room-row-details {
-          display: flex;
-          align-items: center;
-          gap: 24px;
-          flex: 1;
+          line-height: 1.15;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .room-host-info {
           display: flex;
           align-items: center;
           gap: 8px;
-          min-width: 140px;
+          width: 165px;
+          min-width: 0;
+          overflow: hidden;
         }
         .host-avatar-ring {
           border: 1.5px solid var(--color-ink-black);
@@ -464,6 +463,8 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
         .host-text {
           display: flex;
           flex-direction: column;
+          min-width: 0;
+          overflow: hidden;
         }
         .host-label {
           font-family: var(--font-theatre-rye);
@@ -476,27 +477,38 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           font-family: var(--font-luckiest-guy);
           font-size: 13px;
           color: var(--color-ink-black);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .room-row-specs {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
+          min-width: 0;
         }
         .spec-item {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 6px;
           font-family: var(--font-typewriter-elite);
           font-size: 13px;
           font-weight: 700;
           color: var(--color-text-main);
           background-color: var(--color-canvas-parchment);
-          padding: 3px 8px;
+          padding: 4px 10px;
           border-radius: 6px;
           border: 1px solid var(--color-ink-stroke);
+          white-space: nowrap;
         }
         .room-row-action {
           flex-shrink: 0;
+          display: flex;
+          justify-content: flex-end;
+        }
+        .room-row-action .btn-cel {
+          min-width: 125px;
+          justify-content: center;
         }
         .empty-rooms-slate {
           padding: 40px 20px;
@@ -523,13 +535,30 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           color: #655444;
         }
 
-        @media (max-width: 768px) {
+        @media (max-width: 840px) {
           .browser-hero-card { flex-direction: column; text-align: center; }
           .hero-cta-group { flex-direction: row; }
           .filter-row-top { flex-direction: column; }
           .filter-select-wrap { width: 100%; }
-          .room-list-row { flex-direction: column; align-items: stretch; gap: 10px; }
-          .room-row-details { justify-content: space-between; }
+          .room-list-row {
+            grid-template-columns: 1fr;
+            gap: 12px;
+          }
+          .room-row-main {
+            width: 100%;
+          }
+          .room-host-info {
+            width: auto;
+          }
+          .room-row-specs {
+            justify-content: flex-start;
+          }
+          .room-row-action {
+            width: 100%;
+          }
+          .room-row-action .btn-cel {
+            width: 100%;
+          }
         }
       `}</style>
     </div>
