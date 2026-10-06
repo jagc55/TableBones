@@ -134,8 +134,8 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-barnaby',
     players: [
-      { id: 'host-barnaby', name: 'Barnaby Roy', avatarId: 'ringmaster', isHost: true, isReady: true, score: 0 },
-      { id: 'player-clara', name: 'Clara Bell', avatarId: 'gambler', isHost: false, isReady: true, score: 0 },
+      { id: 'host-barnaby', name: 'Barnaby Roy', avatarId: 'superman', isHost: true, isReady: true, score: 0 },
+      { id: 'player-clara', name: 'Clara Bell', avatarId: 'nursse', isHost: false, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 120, turnTimeLimitSec: 30, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 3,
@@ -151,9 +151,9 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-saloon',
     players: [
-      { id: 'host-saloon', name: 'Captain Bartholomew', avatarId: 'captain', isHost: true, isReady: true, score: 0 },
-      { id: 'player-monocle', name: 'Baron von Quill', avatarId: 'baron', isHost: false, isReady: false, score: 0 },
-      { id: 'player-dicey', name: 'Dicey McGhee', avatarId: 'diceshark', isHost: false, isReady: true, score: 0 },
+      { id: 'host-saloon', name: 'Captain Bartholomew', avatarId: 'fisherman', isHost: true, isReady: true, score: 0 },
+      { id: 'player-monocle', name: 'Baron von Quill', avatarId: 'scientist', isHost: false, isReady: false, score: 0 },
+      { id: 'player-dicey', name: 'Dicey McGhee', avatarId: 'gymbro', isHost: false, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 180, turnTimeLimitSec: 45, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 8,
@@ -169,7 +169,7 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-victor',
     players: [
-      { id: 'host-victor', name: 'Professor Ticktock', avatarId: 'clockmaker', isHost: true, isReady: true, score: 0 },
+      { id: 'host-victor', name: 'Professor Ticktock', avatarId: 'astronaut', isHost: true, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 300, turnTimeLimitSec: 60, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 1,
@@ -185,8 +185,8 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-mystic',
     players: [
-      { id: 'host-mystic', name: 'Madame Vivienne', avatarId: 'illusionist', isHost: true, isReady: true, score: 0 },
-      { id: 'p2', name: 'Detective Higgins', avatarId: 'diceshark', isHost: false, isReady: true, score: 0 },
+      { id: 'host-mystic', name: 'Madame Vivienne', avatarId: 'magician', isHost: true, isReady: true, score: 0 },
+      { id: 'p2', name: 'Detective Higgins', avatarId: 'chef', isHost: false, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 240, turnTimeLimitSec: 45, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 15,
