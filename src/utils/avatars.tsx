@@ -1,12 +1,45 @@
 import React from 'react';
+import aviatorImg from '../assets/avatars/aviator.png';
 
 export interface AvatarMeta {
   id: string;
   name: string;
   title: string;
+  src?: string;
 }
 
+export interface CustomAvatarDefinition {
+  id: string;
+  name: string;
+  title: string;
+  src: string;
+}
+
+/**
+ * ============================================================================
+ * REGISTRO DE AVATARES PERSONALIZADOS (IMÁGENES)
+ * ============================================================================
+ * Para añadir más avatares en el futuro:
+ * 1. Coloca la imagen en: src/assets/avatars/<nombre>.png
+ * 2. Impórtala arriba y añádela a este array CUSTOM_AVATARS.
+ * ============================================================================
+ */
+export const CUSTOM_AVATARS: CustomAvatarDefinition[] = [
+  {
+    id: 'aviator',
+    name: 'The Flying Ace',
+    title: 'Sky Corsair',
+    src: aviatorImg,
+  },
+];
+
 export const AVATAR_LIST: AvatarMeta[] = [
+  ...CUSTOM_AVATARS.map((ca) => ({
+    id: ca.id,
+    name: ca.name,
+    title: ca.title,
+    src: ca.src,
+  })),
   { id: 'boxer', name: 'The Prizefighter', title: 'Ring Champion' },
   { id: 'ringmaster', name: 'The Ringmaster', title: 'Circus Maestro' },
   { id: 'diceshark', name: 'The Dice Shark', title: 'Saloon Gambler' },
@@ -24,6 +57,49 @@ interface AvatarIconProps {
 }
 
 export const AvatarIcon: React.FC<AvatarIconProps> = ({ id, size = 48, className = '' }) => {
+  // 1. Comprobar si es un avatar personalizado de imagen
+  const customAvatar = CUSTOM_AVATARS.find((ca) => ca.id === id);
+  if (customAvatar) {
+    const radius = Math.max(4, Math.round(size * 0.22));
+    const borderWidth = Math.max(1.5, Math.round(size * 0.05));
+
+    return (
+      <div
+        className={`avatar-badge-frame ${className}`}
+        style={{
+          width: size,
+          height: size,
+          minWidth: size,
+          minHeight: size,
+          borderRadius: radius,
+          backgroundColor: '#f6c445',
+          border: `${borderWidth}px solid #1c1511`,
+          boxShadow: size >= 26 ? '1.5px 1.5px 0px #1c1511' : 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          overflow: 'hidden',
+          position: 'relative',
+          flexShrink: 0,
+        }}
+        title={customAvatar.name}
+      >
+        <img
+          src={customAvatar.src}
+          alt={customAvatar.name}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'contain',
+            transform: 'scale(1.08)',
+            filter: 'drop-shadow(1px 1px 0px rgba(28, 21, 17, 0.35))',
+            pointerEvents: 'none',
+          }}
+        />
+      </div>
+    );
+  }
+
   const strokeColor = '#1c1511';
   const strokeWidth = 3;
 
