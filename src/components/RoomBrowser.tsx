@@ -142,8 +142,8 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
       <div className="rooms-catalog-section">
         {filteredRooms.length === 0 ? (
           <div className="cel-card empty-rooms-slate">
-            <div className="empty-icon-box">
-              <Users size={32} strokeWidth={2.5} />
+            <div className="empty-mascot-box">
+              <img src="/logo.png" alt="TableSkull Mascot" className="empty-mascot-img" />
             </div>
             <h3 className="empty-title">NO ACTIVE PARLORS FOUND</h3>
             <p className="empty-desc">
@@ -479,12 +479,17 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           text-align: center;
           gap: 10px;
         }
-        .empty-icon-box {
-          background-color: var(--color-parchment-deep);
-          border: var(--border-ink-thin);
-          border-radius: 12px;
-          padding: 12px;
-          color: var(--color-ink-black);
+        .empty-mascot-box {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          margin-bottom: 4px;
+        }
+        .empty-mascot-img {
+          width: 80px;
+          height: 80px;
+          object-fit: contain;
+          filter: drop-shadow(3px 3px 0px var(--color-shadow-solid));
         }
         .empty-title {
           font-family: var(--font-luckiest-guy);
