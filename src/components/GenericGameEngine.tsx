@@ -136,7 +136,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
       setBluffResult(`BLUFF CAUGHT! Only ${matchCount} of Face ${currentBid.face} existed. +8 PTS!`);
       onActionNotification(`${currentUserPlayer.name} exposed a treacherous liar!`);
     } else {
-      setBluffResult(`BID WAS HONEST! ${matchCount} dice matched. Bout continues!`);
+      setBluffResult(`BID WAS HONEST! ${matchCount} dice matched. Match continues!`);
       onActionNotification(`${currentUserPlayer.name} called an honest bid.`);
     }
   };
@@ -298,12 +298,12 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         </div>
       )}
 
-      {/* GENERIC TABLETOP BOARD (For Checkers / Phantom Parlor) */}
+      {/* GENERIC TABLETOP BOARD */}
       {gameId !== 'vortilex' && gameId !== 'skull-bones' && (
         <div className="generic-table-stage cel-card">
           <div className="generic-table-header">
-            <h3 className="woodcut-title">TACTICAL PARLOR TABLE</h3>
-            <span className="generic-turn-info">Active bout in progress</span>
+            <h3 className="woodcut-title">TACTICAL GAME TABLE</h3>
+            <span className="generic-turn-info">Active match in progress</span>
           </div>
 
           <div className="generic-board-visual">
@@ -317,7 +317,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
                     onActionNotification(`${currentUserPlayer.name} placed a tactical piece on cell #${i + 1}`);
                   }}
                   className={`board-cell ${i % 2 === 0 ? 'cell-light' : 'cell-dark'}`}
-                  title="Click to execute parlor move"
+                  title="Click to execute move"
                 >
                   <span className="cell-num">{i + 1}</span>
                 </div>
@@ -335,7 +335,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
               className="btn-cel btn-brawl-primary"
             >
               <Sparkles size={16} strokeWidth={2.8} />
-              <span>EXECUTE PARLOR MOVE (+6 PTS)</span>
+              <span>EXECUTE MOVE (+6 PTS)</span>
             </button>
           </div>
         </div>

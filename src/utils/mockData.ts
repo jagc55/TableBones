@@ -14,7 +14,7 @@ export const GAMES_CATALOG: GameDefinition[] = [
   },
   {
     id: 'skull-bones',
-    title: 'Skull & Bones: Dice Duel',
+    title: "Liar's Dice: Duel",
     subtitle: 'Dice Bluffing & Bidding',
     description: 'Roll dice behind your cup, place bids on total faces, and call bluffs against opponents.',
     minPlayers: 2,
@@ -35,7 +35,7 @@ export const GAMES_CATALOG: GameDefinition[] = [
     badge: '2 PLAYERS',
   },
   {
-    id: 'phantom-parlor',
+    id: 'mystery-manor',
     title: 'Mystery Manor',
     subtitle: 'Deduction & Clue Game',
     description: 'Share clues, eliminate suspects, and deduce the mystery before the round ends.',
@@ -60,7 +60,7 @@ export const GAMES_CATALOG: GameDefinition[] = [
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   {
-    id: 'first-bout',
+    id: 'first-match',
     title: 'First Match',
     description: 'Play your first online board game match.',
     category: 'combat',
@@ -136,7 +136,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
 export const INITIAL_PUBLIC_ROOMS: Room[] = [
   {
     id: 'room-pub-101',
-    code: 'BONE-924',
+    code: 'WORD-924',
     title: 'Barnaby’s Word Room',
     gameId: 'vortilex',
     isPrivate: false,
@@ -145,8 +145,8 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-barnaby',
     players: [
-      { id: 'host-barnaby', name: 'Barnaby Roy', avatarId: 'ringmaster', isHost: true, isReady: true, score: 0 },
-      { id: 'player-clara', name: 'Clara Bell', avatarId: 'gambler', isHost: false, isReady: true, score: 0 },
+      { id: 'host-barnaby', name: 'Barnaby Roy', avatarId: 'superman', isHost: true, isReady: true, score: 0 },
+      { id: 'player-clara', name: 'Clara Bell', avatarId: 'nursse', isHost: false, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 120, turnTimeLimitSec: 30, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 3,
@@ -162,9 +162,9 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-saloon',
     players: [
-      { id: 'host-saloon', name: 'Captain Bartholomew', avatarId: 'captain', isHost: true, isReady: true, score: 0 },
-      { id: 'player-monocle', name: 'Baron von Quill', avatarId: 'baron', isHost: false, isReady: false, score: 0 },
-      { id: 'player-dicey', name: 'Dicey McGhee', avatarId: 'diceshark', isHost: false, isReady: true, score: 0 },
+      { id: 'host-saloon', name: 'Captain Bartholomew', avatarId: 'fisherman', isHost: true, isReady: true, score: 0 },
+      { id: 'player-monocle', name: 'Baron von Quill', avatarId: 'scientist', isHost: false, isReady: false, score: 0 },
+      { id: 'player-dicey', name: 'Dicey McGhee', avatarId: 'gymbro', isHost: false, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 180, turnTimeLimitSec: 45, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 8,
@@ -180,7 +180,7 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     status: 'waiting',
     hostId: 'host-victor',
     players: [
-      { id: 'host-victor', name: 'Professor Ticktock', avatarId: 'clockmaker', isHost: true, isReady: true, score: 0 },
+      { id: 'host-victor', name: 'Professor Ticktock', avatarId: 'astronaut', isHost: true, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 300, turnTimeLimitSec: 60, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 1,
@@ -189,15 +189,15 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     id: 'room-pub-104',
     code: 'MANOR-550',
     title: 'Mystery Investigation',
-    gameId: 'phantom-parlor',
+    gameId: 'mystery-manor',
     isPrivate: false,
     minPlayers: 3,
     maxPlayers: 5,
     status: 'waiting',
     hostId: 'host-mystic',
     players: [
-      { id: 'host-mystic', name: 'Madame Vivienne', avatarId: 'illusionist', isHost: true, isReady: true, score: 0 },
-      { id: 'p2', name: 'Detective Higgins', avatarId: 'diceshark', isHost: false, isReady: true, score: 0 },
+      { id: 'host-mystic', name: 'Madame Vivienne', avatarId: 'magician', isHost: true, isReady: true, score: 0 },
+      { id: 'p2', name: 'Detective Higgins', avatarId: 'chef', isHost: false, isReady: true, score: 0 },
     ],
     settings: { roundDurationSec: 240, turnTimeLimitSec: 45, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 15,

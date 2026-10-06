@@ -66,7 +66,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       <div className="chat-messages-viewport">
         {messages.length === 0 ? (
           <div className="chat-empty-slate">
-            <span>No parlor dispatches yet.</span>
+            <span>No messages in the room yet.</span>
           </div>
         ) : (
           messages.map((msg) => {

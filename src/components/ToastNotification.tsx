@@ -36,7 +36,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
           </div>
           <div className="toast-body">
             <span className="toast-eyebrow">
-              {toast.type === 'achievement' ? 'ACHIEVEMENT UNLOCKED!' : 'PARLOR DISPATCH'}
+              {toast.type === 'achievement' ? 'ACHIEVEMENT UNLOCKED!' : 'GAME NOTICE'}
             </span>
             <h4 className="toast-title">{toast.title}</h4>
             <p className="toast-msg">{toast.message}</p>

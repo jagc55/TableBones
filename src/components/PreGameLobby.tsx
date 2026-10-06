@@ -73,20 +73,20 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
             onLeaveLobby();
           }}
           className="btn-cel btn-brawl-neutral btn-sm"
-          title="Return to Parlor Browser"
+          title="Return to Room Browser"
         >
           <ArrowLeft size={16} strokeWidth={2.8} />
           <span>LEAVE LOBBY</span>
         </button>
 
-        {/* Vintage Parlor Admission Ticket */}
-        <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy parlor code">
+        {/* Room Admission Ticket */}
+        <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy room code">
           <div className="ticket-tag">
             <span className="ticket-tag-title">ADMIT ONE</span>
             <span className="ticket-tag-sub">{room.isPrivate ? 'PRIVATE' : 'PUBLIC'}</span>
           </div>
           <div className="ticket-value">{room.code}</div>
-          <button className="ticket-copy-action" aria-label="Copy parlor code">
+          <button className="ticket-copy-action" aria-label="Copy room code">
             {copiedLink ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
           </button>
         </div>
@@ -253,10 +253,10 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                     }`}
                   >
                     <Check size={16} strokeWidth={3} />
-                    <span>{myPlayerState?.isReady ? 'CANCEL READY' : 'READY TO BOUT'}</span>
+                    <span>{myPlayerState?.isReady ? 'CANCEL READY' : 'READY TO PLAY'}</span>
                   </button>
                   <span className="waiting-host-hint">
-                    Waiting for the host to sound the bell...
+                    Waiting for the host to start the match...
                   </span>
                 </div>
               )}

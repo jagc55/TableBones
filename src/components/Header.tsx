@@ -1,10 +1,11 @@
 import React from 'react';
-import { Trophy, Dices } from 'lucide-react';
+import { Trophy } from 'lucide-react';
 import { UserProfile } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { AudioToggle } from './AudioToggle';
 import { ThemeToggle } from './ThemeToggle';
 import { soundstage } from '../utils/audio';
+import logoImg from '../assets/logo.png';
 
 interface HeaderProps {
   userProfile: UserProfile;
@@ -35,8 +36,14 @@ export const Header: React.FC<HeaderProps> = ({
           tabIndex={0}
           title="Home"
         >
-          <div className="brand-icon-box">
-            <Dices size={26} strokeWidth={2.6} className="brand-dice-icon" />
+          <div className="brand-logo-frame">
+            <img
+              src={logoImg}
+              alt="Tablebones Logo"
+              className="brand-logo-img"
+              width={80}
+              height={80}
+            />
           </div>
           <div className="brand-text">
             <span className="brand-ribbon">ONLINE BOARD GAMES</span>
@@ -87,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
           background-color: var(--color-canvas-parchment);
           border-bottom: var(--border-ink-thick);
           box-shadow: 0 3px 0 var(--color-shadow-solid);
-          padding: 8px 16px;
+          padding: 4px 16px;
         }
         .marquee-inner {
           max-width: 1200px;
@@ -100,23 +107,30 @@ export const Header: React.FC<HeaderProps> = ({
         .brand-container {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 14px;
           cursor: pointer;
           user-select: none;
         }
-        .brand-icon-box {
-          background-color: var(--color-golden-buttercup);
-          border: var(--border-ink-standard);
-          box-shadow: var(--shadow-cel-sm);
-          border-radius: 9px;
-          width: 40px;
-          height: 40px;
+        .brand-logo-frame {
+          width: 80px;
+          height: 80px;
           display: flex;
           align-items: center;
           justify-content: center;
+          flex-shrink: 0;
         }
-        .brand-dice-icon {
-          color: var(--color-ink-black);
+        .brand-logo-img {
+          width: 80px;
+          height: 80px;
+          object-fit: contain;
+          filter: drop-shadow(2.5px 2.5px 0px var(--color-shadow-solid));
+          transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .brand-container:hover .brand-logo-img {
+          transform: scale(1.08) rotate(-4deg);
+        }
+        .brand-container:active .brand-logo-img {
+          transform: scale(0.96) rotate(2deg);
         }
         .brand-text {
           display: flex;
@@ -193,8 +207,10 @@ export const Header: React.FC<HeaderProps> = ({
         }
 
         @media (max-width: 600px) {
+          .cuphead-marquee { padding: 4px 12px; }
           .brand-ribbon { display: none; }
           .brand-title { font-size: 20px; }
+          .brand-logo-frame, .brand-logo-img { width: 48px; height: 48px; }
           .profile-pill-meta { display: none; }
           .profile-nav-pill { padding: 4px; }
         }
