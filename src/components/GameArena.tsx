@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Crown, AlertTriangle, UserMinus } from 'lucide-react';
+import { LogOut, Crown, AlertTriangle, UserMinus, HelpCircle } from 'lucide-react';
 import { Room, Player, UserProfile, ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { GenericGameEngine } from './GenericGameEngine';
@@ -39,6 +39,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
   // Round countdown timer
   useEffect(() => {
+    if (room.gameId === 'midnight-alley') return;
     if (timeLeftSec <= 0) {
       soundstage.playVictoryFanfare();
       const sorted = [...room.players].sort((a, b) => b.score - a.score);
@@ -56,6 +57,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
   // Periodic bot scoring to simulate multiplayer action
   useEffect(() => {
+    if (room.gameId === 'midnight-alley') return;
     const botPlayers = room.players.filter((p) => p.isBot && p.id !== currentUser.id);
     if (botPlayers.length === 0) return;
 
@@ -90,33 +92,35 @@ export const GameArena: React.FC<GameArenaProps> = ({
   const strokeDashoffset = circumference - progressRatio * circumference;
 
   return (
-    <div className="arena-page-layout">
+    <div className={`arena-page-layout ${room.gameId === 'midnight-alley' ? 'arena-midnight-layout' : ''}`}>
       {/* Top HUD */}
       <div className="cel-card arena-hud-bar">
-        {/* Left: Stopwatch */}
-        <div className={`brass-stopwatch-housing ${isUrgentTimer ? 'timer-urgent animate-tremble' : ''}`}>
-          <div className="stopwatch-dial">
-            <svg width="72" height="72" viewBox="0 0 72 72" className="stopwatch-svg">
-              <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--color-parchment-deep)" strokeWidth="6" />
-              <circle
-                cx="36"
-                cy="36"
-                r={radius}
-                fill="none"
-                stroke={isUrgentTimer ? 'var(--color-cuphead-red)' : 'var(--color-golden-buttercup)'}
-                strokeWidth="5"
-                strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                transform="rotate(-90 36 36)"
-              />
-            </svg>
-            <div className="stopwatch-digits">
-              <span className="digits-val">{formatTime(timeLeftSec)}</span>
-              <span className="digits-sub">{isUrgentTimer ? 'URGENT' : 'CLOCK'}</span>
+        {/* Left: Stopwatch (Hidden for round-based games like Midnight Alley) */}
+        {room.gameId !== 'midnight-alley' && (
+          <div className={`brass-stopwatch-housing ${isUrgentTimer ? 'timer-urgent animate-tremble' : ''}`}>
+            <div className="stopwatch-dial">
+              <svg width="72" height="72" viewBox="0 0 72 72" className="stopwatch-svg">
+                <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--color-parchment-deep)" strokeWidth="6" />
+                <circle
+                  cx="36"
+                  cy="36"
+                  r={radius}
+                  fill="none"
+                  stroke={isUrgentTimer ? 'var(--color-cuphead-red)' : 'var(--color-golden-buttercup)'}
+                  strokeWidth="5"
+                  strokeDasharray={circumference}
+                  strokeDashoffset={strokeDashoffset}
+                  strokeLinecap="round"
+                  transform="rotate(-90 36 36)"
+                />
+              </svg>
+              <div className="stopwatch-digits">
+                <span className="digits-val">{formatTime(timeLeftSec)}</span>
+                <span className="digits-sub">{isUrgentTimer ? 'URGENT' : 'CLOCK'}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Center: Match Details & Room Code */}
         <div className="hud-center-meta">
@@ -130,8 +134,21 @@ export const GameArena: React.FC<GameArenaProps> = ({
           </span>
         </div>
 
-        {/* Right: Leave Game Action */}
+        {/* Right: Actions */}
         <div className="hud-actions-right">
+          {room.gameId === 'midnight-alley' && (
+            <button
+              onClick={() => {
+                soundstage.playTap();
+                window.dispatchEvent(new CustomEvent('open-midnight-rules'));
+              }}
+              className="btn-cel btn-brawl-neutral btn-sm"
+              title="View Mafia rules & character hierarchy"
+            >
+              <HelpCircle size={15} strokeWidth={2.8} />
+              <span>RULES</span>
+            </button>
+          )}
           <button
             onClick={() => {
               soundstage.playTap();
@@ -150,30 +167,32 @@ export const GameArena: React.FC<GameArenaProps> = ({
       <div className="arena-stage-grid">
         {/* Main Game Stage */}
         <div className="arena-center-stage">
-          {/* Scoreboard */}
-          <div className="cel-card ring-scoreboard-strip">
-            <span className="scoreboard-title">ROUND STANDINGS:</span>
-            <div className="scoreboard-players-row">
-              {room.players.map((p) => {
-                const isMe = p.id === currentUser.id;
-                const isHost = p.id === room.hostId;
-                return (
-                  <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
-                    <div className="score-avatar-wrap">
-                      <AvatarIcon id={p.avatarId} size={22} />
-                      {isHost && (
-                        <div className="chip-crown" title="Host">
-                          <Crown size={8} strokeWidth={3} />
-                        </div>
-                      )}
+          {/* Scoreboard (Only for non-Midnight Alley games) */}
+          {room.gameId !== 'midnight-alley' && (
+            <div className="cel-card ring-scoreboard-strip">
+              <span className="scoreboard-title">ROUND STANDINGS:</span>
+              <div className="scoreboard-players-row">
+                {room.players.map((p) => {
+                  const isMe = p.id === currentUser.id;
+                  const isHost = p.id === room.hostId;
+                  return (
+                    <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
+                      <div className="score-avatar-wrap">
+                        <AvatarIcon id={p.avatarId} size={22} />
+                        {isHost && (
+                          <div className="chip-crown" title="Host">
+                            <Crown size={8} strokeWidth={3} />
+                          </div>
+                        )}
+                      </div>
+                      <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
+                      <strong className="score-chip-pts">{p.score} PTS</strong>
                     </div>
-                    <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
-                    <strong className="score-chip-pts">{p.score} PTS</strong>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Tabletop Board Engine */}
           <GenericGameEngine
@@ -182,6 +201,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
             players={room.players}
             onPlayerScore={onPlayerScore}
             onActionNotification={onDispatchSystemNotice}
+            onLeaveMatch={onLeaveMatch}
           />
 
           {/* Discreet Developer / Testing Harness */}
@@ -327,9 +347,12 @@ export const GameArena: React.FC<GameArenaProps> = ({
           align-items: center;
           gap: 8px;
         }
+        .arena-page-layout.arena-midnight-layout {
+          max-width: 1400px;
+        }
         .arena-stage-grid {
           display: grid;
-          grid-template-columns: 1fr 370px;
+          grid-template-columns: 1fr 350px;
           gap: 14px;
           align-items: start;
         }

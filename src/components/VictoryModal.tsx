@@ -1,6 +1,6 @@
-import React from 'react';
-import { Trophy, Crown, RotateCcw, ArrowLeft, Award } from 'lucide-react';
-import { Player } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Crown, RotateCcw, ArrowLeft, Award, Clock } from 'lucide-react';
+import { Player, AFK_CONFIG } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { soundstage } from '../utils/audio';
 
@@ -21,6 +21,31 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   onRematch,
   onReturnToLobby,
 }) => {
+  const [rematchCountdown, setRematchCountdown] = useState<number>(AFK_CONFIG.REMATCH_TIMEOUT_SEC);
+
+  useEffect(() => {
+    if (!isOpen || !winnerPlayer) return;
+    setRematchCountdown(AFK_CONFIG.REMATCH_TIMEOUT_SEC);
+
+    let timeLeft = AFK_CONFIG.REMATCH_TIMEOUT_SEC;
+    let hasExited = false;
+
+    const timer = setInterval(() => {
+      timeLeft -= 1;
+      setRematchCountdown(timeLeft);
+
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        if (!hasExited) {
+          hasExited = true;
+          onReturnToLobby();
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, winnerPlayer, onReturnToLobby]);
+
   if (!isOpen || !winnerPlayer) return null;
 
   // Sort players by score descending
@@ -91,6 +116,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           )}
         </div>
 
+        {/* Anti-AFK Rematch Notice */}
+        <div className="afk-rematch-notice">
+          <Clock size={12} strokeWidth={2.5} />
+          <span>Auto-forfeit and leave match in <strong>{rematchCountdown}s</strong> if no rematch selected</span>
+        </div>
+
         {/* Footer Actions */}
         <div className="victory-actions-footer">
           <button
@@ -112,7 +143,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>ANOTHER BOUT</span>
+            <span>ANOTHER BOUT ({rematchCountdown}s)</span>
           </button>
         </div>
 
@@ -312,6 +343,19 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             font-family: var(--font-typewriter-elite);
             font-size: 13px;
             color: var(--color-cuphead-red);
+          }
+          .afk-rematch-notice {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-family: var(--font-accent);
+            font-size: 10px;
+            color: var(--color-cuphead-red);
+            background-color: rgba(211, 56, 51, 0.08);
+            border-top: 1px dashed var(--color-ink-stroke);
+            padding: 6px 14px;
+            letter-spacing: 0.03em;
           }
           .victory-actions-footer {
             padding: 12px 18px 16px;

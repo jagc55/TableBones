@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameId, Player } from '../types';
 import { soundstage } from '../utils/audio';
 import { Dices, Swords, Sparkles, Check, RotateCcw, AlertCircle } from 'lucide-react';
-import { MidnightAlleyEngine } from './midnightAlley/MidnightAlleyEngine';
+import { MidnightAlleyEngine } from '../midnight-alley';
 
 interface GenericGameEngineProps {
   gameId: GameId;
@@ -10,6 +10,7 @@ interface GenericGameEngineProps {
   players?: Player[];
   onPlayerScore: (playerId: string, addedScore: number) => void;
   onActionNotification: (text: string) => void;
+  onLeaveMatch?: () => void;
 }
 
 export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
@@ -18,6 +19,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
   players = [],
   onPlayerScore,
   onActionNotification,
+  onLeaveMatch,
 }) => {
   // 1. Vortilex Word Dice State
   const initialLetterGrid = [
@@ -146,6 +148,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         players={players && players.length > 0 ? players : [currentUserPlayer]}
         onPlayerScore={onPlayerScore}
         onActionNotification={onActionNotification}
+        onLeaveMatch={onLeaveMatch}
       />
     );
   }

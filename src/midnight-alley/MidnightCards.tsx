@@ -1,5 +1,5 @@
 import React from 'react';
-import { MidnightCard } from '../../types/midnightAlley';
+import { MidnightCard } from './types';
 
 // SVG Artwork for Special Roles
 
@@ -220,6 +220,7 @@ export const SuitIcon: React.FC<{ suit: 'gold' | 'cyan' | 'ruby' | 'black'; size
 interface MidnightCardViewProps {
   card: MidnightCard;
   isPlayable?: boolean;
+  isDimmed?: boolean;
   onClick?: () => void;
   compact?: boolean;
   chameleonChoice?: 'gangster' | 'alibi';
@@ -228,6 +229,7 @@ interface MidnightCardViewProps {
 export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
   card,
   isPlayable = true,
+  isDimmed = false,
   onClick,
   compact = false,
   chameleonChoice,
@@ -271,15 +273,15 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
     <div
       onClick={isPlayable && onClick ? onClick : undefined}
       className={`midnight-card-item ${compact ? 'card-compact' : ''} ${
-        !isPlayable ? 'card-unplayable' : ''
-      } ${onClick ? 'card-interactive' : ''}`}
+        isDimmed ? 'card-unplayable' : ''
+      } ${onClick && isPlayable ? 'card-interactive' : ''}`}
       style={{ borderColor: getBorderColor() }}
       title={`${card.name}: ${card.description}`}
     >
       {/* Top Banner / Number */}
       <div className="card-top-header" style={{ backgroundColor: getHeaderBg(), color: getHeaderTextColor() }}>
         {isSpecial ? (
-          <span className="card-role-title">
+          <span className={`card-role-title ${role === 'femme-fatale' ? 'title-femme-fatale' : ''}`}>
             {role === 'boss' && 'THE BOSS'}
             {role === 'femme-fatale' && 'FEMME FATALE'}
             {role === 'gangster' && 'GANGSTER'}
@@ -323,8 +325,8 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
 
       <style>{`
         .midnight-card-item {
-          width: 86px;
-          height: 126px;
+          width: 90px;
+          height: 130px;
           background-color: var(--color-glove-ivory);
           border: 3px solid var(--color-ink-stroke);
           border-radius: 10px;
@@ -339,8 +341,8 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
           flex-shrink: 0;
         }
         .midnight-card-item.card-compact {
-          width: 68px;
-          height: 100px;
+          width: 74px;
+          height: 108px;
         }
         .midnight-card-item.card-interactive:hover {
           transform: translateY(-8px);
@@ -353,17 +355,34 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
           cursor: not-allowed !important;
         }
         .card-top-header {
-          padding: 2px 4px;
+          padding: 2.5px 4px;
           border-bottom: 2px solid var(--color-ink-stroke);
           font-family: var(--font-heading);
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 100%;
+          box-sizing: border-box;
+          overflow: hidden;
         }
         .card-role-title {
-          font-size: 9.5px;
-          letter-spacing: 0.04em;
+          font-size: 8.5px;
+          letter-spacing: 0.01em;
           white-space: nowrap;
+          text-align: center;
+          max-width: 100%;
+        }
+        .card-role-title.title-femme-fatale {
+          font-size: 7.5px;
+          letter-spacing: -0.01em;
+        }
+        .card-compact .card-role-title {
+          font-size: 7px;
+          letter-spacing: 0;
+        }
+        .card-compact .card-role-title.title-femme-fatale {
+          font-size: 6.2px;
+          letter-spacing: -0.02em;
         }
         .card-suit-header-row {
           width: 100%;

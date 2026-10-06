@@ -48,10 +48,10 @@ export const GAMES_CATALOG: GameDefinition[] = [
   {
     id: 'midnight-alley',
     title: 'Midnight Alley: The Mob Trick',
-    subtitle: 'Mafia Skeleton Skull King Duel',
+    subtitle: 'Underworld Trick-Taking Duel',
     description: 'A cutthroat trick-taking card game of skeleton mobsters. Predict your tricks, unleash The Boss and Gangsters, and beware the Femme Fatale!',
     minPlayers: 2,
-    maxPlayers: 6,
+    maxPlayers: 8,
     estimatedTimeMin: 7,
     iconName: 'Skull',
     badge: 'NEW',
@@ -209,7 +209,7 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     gameId: 'midnight-alley',
     isPrivate: false,
     minPlayers: 2,
-    maxPlayers: 6,
+    maxPlayers: 8,
     status: 'waiting',
     hostId: 'host-don-bones',
     players: [

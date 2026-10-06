@@ -676,7 +676,7 @@ export const App: React.FC = () => {
             const resetRoom = {
               ...currentRoom,
               status: 'waiting' as const,
-              players: currentRoom.players.map((p) => ({ ...p, score: 0, isReady: p.isHost })),
+              players: currentRoom.players.map((p) => ({ ...p, score: 0, isReady: p.isHost || !!p.isBot })),
             };
             setCurrentRoom(resetRoom);
             setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? resetRoom : r)));

@@ -4,7 +4,7 @@ import {
   PlayedTrickCard,
   TrickResult,
   RoundScoreBreakdown,
-} from '../types/midnightAlley';
+} from './types';
 
 // Build the standard 70-card Midnight Alley deck
 export function createMidnightDeck(): MidnightCard[] {
@@ -45,7 +45,7 @@ export function createMidnightDeck(): MidnightCard[] {
     }
   });
 
-  // 2. The Boss (1 card) - Skull King
+  // 2. The Boss (1 card)
   deck.push({
     id: 'card-boss-1',
     type: 'special',
@@ -56,8 +56,8 @@ export function createMidnightDeck(): MidnightCard[] {
       'Supreme skeleton mobster! Captures all numbered cards and Gangsters (+30 PTS per Gangster captured). Beware the Femme Fatale!',
   });
 
-  // 3. Femme Fatale (2 cards) - Mermaid
-  for (let i = 1; i <= 2; i++) {
+  // 3. Femme Fatale (3 cards)
+  for (let i = 1; i <= 3; i++) {
     deck.push({
       id: `card-femme-${i}`,
       type: 'special',
@@ -69,9 +69,20 @@ export function createMidnightDeck(): MidnightCard[] {
     });
   }
 
-  // 4. Gangsters (5 cards) - Pirates
-  const gangsterAliases = ['Spats McGurk', 'Knuckles Malone', 'Tommy Guns Tony', 'Silencer Sal', 'Vinnie The Jaw'];
-  for (let i = 1; i <= 5; i++) {
+  // 4. Gangsters (10 cards)
+  const gangsterAliases = [
+    'Spats McGurk',
+    'Knuckles Malone',
+    'Tommy Guns Tony',
+    'Silencer Sal',
+    'Vinnie The Jaw',
+    'Mad Dog Moretti',
+    'Two-Tone Frankie',
+    'Big Louie',
+    'Lucky Luciano',
+    'Scarface Sam',
+  ];
+  for (let i = 1; i <= gangsterAliases.length; i++) {
     deck.push({
       id: `card-gangster-${i}`,
       type: 'special',
@@ -83,25 +94,27 @@ export function createMidnightDeck(): MidnightCard[] {
     });
   }
 
-  // 5. The Chameleon (1 card) - Tigress
-  deck.push({
-    id: 'card-chameleon-1',
-    type: 'special',
-    role: 'chameleon',
-    name: 'The Chameleon',
-    subtitle: 'Undercover Infiltrator',
-    description:
-      'Master of disguise! When played, choose whether to strike as a GANGSTER or slip away with an ALIBI.',
-  });
+  // 5. The Chameleon (2 cards)
+  for (let i = 1; i <= 2; i++) {
+    deck.push({
+      id: `card-chameleon-${i}`,
+      type: 'special',
+      role: 'chameleon',
+      name: 'The Chameleon',
+      subtitle: 'Undercover Infiltrator',
+      description:
+        'Master of disguise! When played, choose whether to strike as a GANGSTER or slip away with an ALIBI.',
+    });
+  }
 
-  // 6. Alibi (5 cards) - White Flag / Escape
-  for (let i = 1; i <= 5; i++) {
+  // 6. Alibi (10 cards) - Clean Escape
+  for (let i = 1; i <= 10; i++) {
     deck.push({
       id: `card-alibi-${i}`,
       type: 'special',
       role: 'alibi',
       name: 'Alibi',
-      subtitle: 'Forged Coartada',
+      subtitle: 'Forged Alibi',
       description:
         'Plead innocent and escape the crossfire! Always loses the trick to avoid capturing unwanted points.',
     });
@@ -204,7 +217,7 @@ export function isCardPlayable(
   return !hasLeadSuitInHand;
 }
 
-// Evaluate trick winner and calculate bonus points according to Skull King rules
+// Evaluate trick winner and calculate bonus points
 export function evaluateTrickWinner(trick: PlayedTrickCard[]): TrickResult {
   if (trick.length === 0) {
     throw new Error('Cannot evaluate empty trick');

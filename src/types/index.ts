@@ -83,3 +83,9 @@ export interface UserProfile {
   };
   mutedPlayerIds: string[];
 }
+
+export const AFK_CONFIG = {
+  TURN_TIMEOUT_SEC: 45,
+  BID_TIMEOUT_SEC: 45,
+  REMATCH_TIMEOUT_SEC: 45,
+} as const;

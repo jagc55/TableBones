@@ -1,4 +1,4 @@
-// Types for Midnight Alley (1930s Mafia Skeleton Skull King Card Game)
+// Types for Midnight Alley (1930s Mafia Skeleton Card Game)
 
 export type StandardSuit = 'gold' | 'cyan' | 'ruby';
 export type TrumpSuit = 'black';
@@ -49,4 +49,9 @@ export interface RoundScoreBreakdown {
   bonusScore: number;
   totalRoundScore: number;
   cumulativeScore: number;
+}
+
+export interface PlayerRoundRecord {
+  roundScore: number;       // The delta gained or lost in that round
+  cumulativeScore: number;  // The total score after that round
 }

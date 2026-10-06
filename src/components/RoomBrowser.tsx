@@ -200,9 +200,9 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                       </span>
                       <small className="spec-sub">({openSlots > 0 ? `${openSlots} open` : 'full'})</small>
                     </div>
-                    <div className="spec-item" title="Round timer">
+                    <div className="spec-item" title={room.gameId === 'midnight-alley' ? 'Tournament format' : 'Round timer'}>
                       <Clock size={14} strokeWidth={2.5} />
-                      <span>{room.settings.roundDurationSec}s</span>
+                      <span>{room.gameId === 'midnight-alley' ? '10 Rounds' : `${room.settings.roundDurationSec}s`}</span>
                     </div>
                   </div>
 

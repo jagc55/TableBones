@@ -40,7 +40,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
 
   const canStart =
     room.players.length >= room.minPlayers &&
-    room.players.every((p) => p.isReady || p.isHost);
+    room.players.every((p) => p.isReady || p.isHost || p.isBot);
 
   const handleCopyCode = () => {
     soundstage.playTap();
@@ -113,7 +113,15 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                 <strong>Capacity:</strong> {room.minPlayers}–{room.maxPlayers} Contenders
               </span>
               <span className="meta-chip">
-                <strong>Round Clock:</strong> {room.settings.roundDurationSec}s
+                {room.gameId === 'midnight-alley' ? (
+                  <>
+                    <strong>Format:</strong> 10 Rounds
+                  </>
+                ) : (
+                  <>
+                    <strong>Round Clock:</strong> {room.settings.roundDurationSec}s
+                  </>
+                )}
               </span>
               <span className="meta-chip">
                 <strong>Access:</strong> {room.isPrivate ? 'Ticket Code' : 'Public Lobby'}
@@ -147,7 +155,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
               {room.players.map((player) => {
                 const isThisPlayerHost = player.id === room.hostId;
                 const isMe = player.id === currentUser.id;
-                const isReady = player.isReady || isThisPlayerHost;
+                const isReady = player.isReady || isThisPlayerHost || player.isBot;
 
                 return (
                   <div
