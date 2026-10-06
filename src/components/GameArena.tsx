@@ -121,7 +121,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
         {/* Center: Match Details & Room Code */}
         <div className="hud-center-meta">
           <div className="ticket-stub">
-            <span className="ticket-stub-label">PARLOR</span>
+            <span className="ticket-stub-label">ROOM</span>
             <span className="ticket-stub-code">{room.code}</span>
           </div>
           <h2 className="woodcut-title hud-room-title">{room.title}</h2>
@@ -138,10 +138,10 @@ export const GameArena: React.FC<GameArenaProps> = ({
               setShowForfeitModal(true);
             }}
             className="btn-cel btn-brawl-primary btn-sm"
-            title="Leave this bout"
+            title="Leave this match"
           >
             <LogOut size={15} strokeWidth={3} />
-            <span>FORFEIT BOUT</span>
+            <span>LEAVE MATCH</span>
           </button>
         </div>
       </div>
@@ -223,13 +223,13 @@ export const GameArena: React.FC<GameArenaProps> = ({
           <div className="modal-content forfeit-modal" onClick={(e) => e.stopPropagation()}>
             <div className="forfeit-header">
               <AlertTriangle size={28} strokeWidth={2.8} className="forfeit-icon" />
-              <h3 className="woodcut-title forfeit-title">FORFEIT THIS BOUT?</h3>
+              <h3 className="woodcut-title forfeit-title">LEAVE THIS MATCH?</h3>
             </div>
 
             <p className="forfeit-warning-text">
-              Leaving the ring now will surrender your score.
+              Leaving the game now will surrender your current score.
               {currentUserPlayer.isHost && (
-                <strong> Room leadership will pass to the next active contender.</strong>
+                <strong> Room host will pass to the next active player.</strong>
               )}
             </p>
 
@@ -238,13 +238,13 @@ export const GameArena: React.FC<GameArenaProps> = ({
                 onClick={() => setShowForfeitModal(false)}
                 className="btn-cel btn-brawl-neutral btn-sm"
               >
-                STAY IN RING
+                STAY IN GAME
               </button>
               <button
                 onClick={handleConfirmForfeit}
                 className="btn-cel btn-brawl-primary btn-sm"
               >
-                FORFEIT & LEAVE
+                LEAVE MATCH
               </button>
             </div>
           </div>

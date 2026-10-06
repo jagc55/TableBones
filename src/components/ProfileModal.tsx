@@ -151,7 +151,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="career-ledger cel-card">
               <div className="ledger-cell">
                 <span className="ledger-num">{userProfile.stats.matchesPlayed}</span>
-                <span className="ledger-lbl">BOUTS</span>
+                <span className="ledger-lbl">MATCHES</span>
               </div>
               <div className="ledger-cell cell-gold">
                 <span className="ledger-num">{userProfile.stats.matchesWon}</span>
@@ -201,7 +201,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="achievements-header">
               <div>
                 <span className="section-subheading">HONORS & TROPHIES</span>
-                <p className="achievements-subtext">Unlock achievements through parlor gameplay.</p>
+                <p className="achievements-subtext">Unlock achievements by playing matches.</p>
               </div>
               <div className="ticket-stub">
                 <span className="ticket-stub-label">POINTS</span>

@@ -35,7 +35,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
       onClose();
     } else {
       soundstage.playSlideDown();
-      setErrorMessage(`No parlor found with ticket code "${cleanCode}". Confirm code with host.`);
+      setErrorMessage(`No room found with code "${cleanCode}". Confirm code with host.`);
     }
   };
 
@@ -45,8 +45,8 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
         {/* Header */}
         <div className="modal-header-strip">
           <div>
-            <span className="ribbon-banner">PARLOR ACCESS</span>
-            <h2 className="woodcut-title modal-title">ENTER TICKET CODE</h2>
+            <span className="ribbon-banner">ROOM ACCESS</span>
+            <h2 className="woodcut-title modal-title">ENTER ROOM CODE</h2>
           </div>
           <button onClick={onClose} className="btn-cel btn-brawl-neutral btn-icon-sq" aria-label="Close">
             <X size={18} strokeWidth={3} />
@@ -55,7 +55,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
 
         <form onSubmit={handleJoin} className="join-code-form">
           <p className="join-instruction">
-            Enter the private room admission code shared by your host (e.g. <code>TB-8491</code> or <code>BONE-924</code>).
+            Enter the private room code shared by your host (e.g. <code>TB-8491</code> or <code>GAME-924</code>).
           </p>
 
           <div className="ticket-input-container">

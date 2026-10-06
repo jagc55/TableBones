@@ -14,7 +14,7 @@ export const GAMES_CATALOG: GameDefinition[] = [
   },
   {
     id: 'skull-bones',
-    title: 'Skull & Bones: Dice Duel',
+    title: "Liar's Dice: Duel",
     subtitle: 'Dice Bluffing & Bidding',
     description: 'Roll dice behind your cup, place bids on total faces, and call bluffs against opponents.',
     minPlayers: 2,
@@ -35,7 +35,7 @@ export const GAMES_CATALOG: GameDefinition[] = [
     badge: '2 PLAYERS',
   },
   {
-    id: 'phantom-parlor',
+    id: 'mystery-manor',
     title: 'Mystery Manor',
     subtitle: 'Deduction & Clue Game',
     description: 'Share clues, eliminate suspects, and deduce the mystery before the round ends.',
@@ -49,7 +49,7 @@ export const GAMES_CATALOG: GameDefinition[] = [
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   {
-    id: 'first-bout',
+    id: 'first-match',
     title: 'First Match',
     description: 'Play your first online board game match.',
     category: 'combat',
@@ -125,7 +125,7 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
 export const INITIAL_PUBLIC_ROOMS: Room[] = [
   {
     id: 'room-pub-101',
-    code: 'BONE-924',
+    code: 'WORD-924',
     title: 'Barnaby’s Word Room',
     gameId: 'vortilex',
     isPrivate: false,
@@ -178,7 +178,7 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     id: 'room-pub-104',
     code: 'MANOR-550',
     title: 'Mystery Investigation',
-    gameId: 'phantom-parlor',
+    gameId: 'mystery-manor',
     isPrivate: false,
     minPlayers: 3,
     maxPlayers: 5,

@@ -31,17 +31,17 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
       <div className="modal-content victory-modal-card">
         {/* Top Theatrical Banner */}
         <div className="victory-banner-top">
-          <span className="ribbon-banner">THE JUDGES’ VERDICT</span>
-          <h2 className="woodcut-title victory-main-title">KNOCKOUT!</h2>
-          <span className="victory-subtitle">CHAMPION DECLARED</span>
+          <span className="ribbon-banner">MATCH RESULTS</span>
+          <h2 className="woodcut-title victory-main-title">VICTORY!</h2>
+          <span className="victory-subtitle">WINNER DECLARED</span>
         </div>
 
-        {/* Walkover / Specific Bout Outcome Banner */}
+        {/* Walkover / Outcome Banner */}
         {winReason && (
           <div className="win-reason-strip">
             <Award size={18} strokeWidth={2.8} className="win-award-icon" />
             <div className="win-reason-text">
-              <strong>JUDGES' NOTICE:</strong>
+              <strong>NOTICE:</strong>
               <span>{winReason}</span>
             </div>
           </div>
@@ -59,7 +59,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             </div>
 
             <div className="champion-details">
-              <span className="champion-title-tag">PARLOR VICTOR</span>
+              <span className="champion-title-tag">MATCH WINNER</span>
               <h3 className="woodcut-title champion-name">{winnerPlayer.name}</h3>
               <div className="champion-score-pill">
                 <Trophy size={14} strokeWidth={2.8} />
@@ -112,7 +112,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>ANOTHER BOUT</span>
+            <span>PLAY AGAIN</span>
           </button>
         </div>
 

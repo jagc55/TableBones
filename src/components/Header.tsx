@@ -39,7 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="brand-logo-frame">
             <img
               src={logoImg}
-              alt="Tablebones Skull Mascot"
+              alt="Tablebones Logo"
               className="brand-logo-img"
               width={80}
               height={80}
