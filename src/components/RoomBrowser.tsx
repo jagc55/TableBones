@@ -20,17 +20,13 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
 }) => {
   const [selectedGameFilter, setSelectedGameFilter] = useState<GameId | 'all'>('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'waiting' | 'in_progress'>('all');
   const [onlyOpenSlots, setOnlyOpenSlots] = useState(false);
 
-  // Filter public rooms only
-  const publicRooms = rooms.filter((r) => !r.isPrivate);
+  // Only show public rooms that are waiting for players (in-progress games are removed from the list)
+  const availableRooms = rooms.filter((r) => !r.isPrivate && r.status === 'waiting');
 
-  const filteredRooms = publicRooms.filter((room) => {
+  const filteredRooms = availableRooms.filter((room) => {
     if (selectedGameFilter !== 'all' && room.gameId !== selectedGameFilter) {
-      return false;
-    }
-    if (statusFilter !== 'all' && room.status !== statusFilter) {
       return false;
     }
     if (onlyOpenSlots && room.players.length >= room.maxPlayers) {
@@ -113,28 +109,12 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
               }}
               className="ink-select"
             >
-              <option value="all">All Games ({publicRooms.length})</option>
+              <option value="all">All Games ({availableRooms.length})</option>
               {GAMES_CATALOG.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.title}
                 </option>
               ))}
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div className="filter-select-wrap">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                soundstage.playTap();
-                setStatusFilter(e.target.value as 'all' | 'waiting' | 'in_progress');
-              }}
-              className="ink-select"
-            >
-              <option value="all">All Statuses</option>
-              <option value="waiting">Waiting in Lobby</option>
-              <option value="in_progress">In Progress</option>
             </select>
           </div>
         </div>
@@ -209,7 +189,6 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
               const game = getGameDef(room.gameId);
               const host = room.players.find((p) => p.isHost) || room.players[0];
               const isFull = room.players.length >= room.maxPlayers;
-              const isWaiting = room.status === 'waiting';
 
               return (
                 <div key={room.id} className="cel-card room-list-row">
@@ -217,8 +196,8 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                   <div className="room-row-main">
                     <div className="room-row-badge-line">
                       <span className="room-game-badge">{game ? game.title : 'Board Game'}</span>
-                      <div className={`room-status-chip ${isWaiting ? 'status-waiting' : 'status-live'}`}>
-                        {isWaiting ? 'LOBBY' : 'IN PROGRESS'}
+                      <div className="room-status-chip status-waiting">
+                        OPEN LOBBY
                       </div>
                     </div>
                     <h4 className="room-row-title">{room.title}</h4>
@@ -263,11 +242,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                       }}
                       disabled={isFull}
                       className={`btn-cel btn-sm ${
-                        isFull
-                          ? 'btn-brawl-neutral'
-                          : isWaiting
-                          ? 'btn-brawl-primary'
-                          : 'btn-brawl-secondary'
+                        isFull ? 'btn-brawl-neutral' : 'btn-brawl-primary'
                       }`}
                     >
                       <Play size={14} strokeWidth={3} />
