@@ -385,14 +385,15 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           font-size: 10px;
           letter-spacing: 0.06em;
           background-color: var(--color-golden-buttercup);
-          border: 1.5px solid var(--color-ink-black);
+          border: 1.5px solid #1c1511;
           border-radius: 6px;
           padding: 3px 8px;
-          color: var(--color-ink-black);
+          color: #1c1511;
+          font-weight: 700;
         }
         .summary-desc {
           font-size: 14px;
-          color: #4b3d32;
+          color: var(--color-text-lead);
           line-height: 1.35;
         }
         .summary-specs-grid {
@@ -459,7 +460,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           box-shadow: var(--shadow-cel-sm);
         }
         .player-is-host {
-          background-color: #fff9ed;
+          background-color: var(--color-parchment-deep);
         }
         .roster-avatar-wrap {
           position: relative;
@@ -474,8 +475,8 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           top: -6px;
           right: -6px;
           background-color: var(--color-golden-buttercup);
-          color: var(--color-ink-black);
-          border: 1.5px solid var(--color-ink-black);
+          color: #1c1511;
+          border: 1.5px solid #1c1511;
           border-radius: 999px;
           width: 18px;
           height: 18px;
@@ -497,7 +498,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         .roster-player-name {
           font-family: var(--font-luckiest-guy);
           font-size: 15px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .you-chip, .bot-chip {
           font-family: var(--font-theatre-rye);
@@ -505,15 +506,17 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           letter-spacing: 0.05em;
           padding: 1px 5px;
           border-radius: 3px;
-          border: 1px solid var(--color-ink-black);
+          border: 1px solid var(--color-ink-stroke);
         }
         .you-chip {
           background-color: var(--color-golden-buttercup);
-          color: var(--color-ink-black);
+          color: #1c1511;
+          border-color: #1c1511;
+          font-weight: 700;
         }
         .bot-chip {
           background-color: var(--color-parchment-deep);
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .player-subline {
           display: flex;
@@ -529,7 +532,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         .role-tag-contender {
           font-family: var(--font-theatre-rye);
           font-size: 9px;
-          color: #6d5b4c;
+          color: var(--color-text-muted);
         }
         .ready-status-pill {
           font-family: var(--font-theatre-rye);
@@ -537,7 +540,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           letter-spacing: 0.05em;
           padding: 1px 5px;
           border-radius: 3px;
-          border: 1px solid var(--color-ink-black);
+          border: 1px solid var(--color-ink-stroke);
         }
         .ready-yes {
           background-color: #d4edd2;
@@ -546,6 +549,16 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         .ready-no {
           background-color: #fcedd0;
           color: #8c5b1b;
+        }
+        [data-theme="night"] .ready-yes {
+          background-color: rgba(98, 216, 151, 0.2);
+          color: #62d897;
+          border-color: #62d897;
+        }
+        [data-theme="night"] .ready-no {
+          background-color: rgba(230, 72, 67, 0.2);
+          color: #ff8580;
+          border-color: #ff8580;
         }
         .roster-actions {
           display: flex;
@@ -557,12 +570,12 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           gap: 5px;
         }
         .kick-btn {
-          background-color: #b72722;
+          background-color: var(--color-cuphead-red);
         }
         .roster-footer-controls {
           margin-top: 6px;
           padding-top: 14px;
-          border-top: 1.5px dashed var(--color-ink-black);
+          border-top: 1.5px dashed var(--color-ink-stroke);
         }
         .host-start-wrapper {
           display: flex;
@@ -596,7 +609,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         .waiting-host-hint {
           font-size: 11.5px;
           font-style: italic;
-          color: #776655;
+          color: var(--color-text-muted);
         }
         .lobby-right-column {
           height: 100%;

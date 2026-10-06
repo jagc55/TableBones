@@ -277,12 +277,12 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
         }
         .browser-hero-heading {
           font-size: 32px;
-          color: var(--color-ink-black);
+          color: #1c1511;
           margin: 4px 0 6px;
         }
         .browser-hero-lead {
           font-size: 15px;
-          color: var(--color-ink-stroke);
+          color: #2b1e17;
           line-height: 1.35;
         }
         .hero-cta-group {
@@ -489,11 +489,11 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           font-family: var(--font-typewriter-elite);
           font-size: 13px;
           font-weight: 700;
-          color: var(--color-ink-stroke);
+          color: var(--color-text-main);
           background-color: var(--color-canvas-parchment);
           padding: 3px 8px;
           border-radius: 6px;
-          border: 1px solid rgba(28, 21, 17, 0.2);
+          border: 1px solid var(--color-ink-stroke);
         }
         .room-row-action {
           flex-shrink: 0;

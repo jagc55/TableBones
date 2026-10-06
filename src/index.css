@@ -1,11 +1,16 @@
 @import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Luckiest+Guy&family=Rye&family=Special+Elite&display=swap');
 
-:root {
-  /* Palette */
+:root, [data-theme="day"] {
+  /* Day Mode: Authentic Cuphead 1930s Fleischer Palette */
   --color-canvas-parchment: #f4ecdc;
   --color-parchment-deep: #e8dcc8;
   --color-ink-black: #1c1511;
   --color-ink-stroke: #2b1e17;
+  --color-shadow-solid: #1c1511;
+  --color-text-main: #1c1511;
+  --color-text-lead: #554433;
+  --color-text-muted: #887766;
+
   --color-cuphead-red: #d33833;
   --color-cuphead-red-hover: #b72722;
   --color-golden-buttercup: #f6c445;
@@ -15,16 +20,16 @@
   --color-sepia-wash: rgba(28, 21, 17, 0.08);
 
   /* Elevation: strictly hard cel shadows with zero blur */
-  --shadow-cel-sm: 2.5px 2.5px 0px var(--color-ink-black);
-  --shadow-cel-md: 4px 4px 0px var(--color-ink-black);
-  --shadow-cel-lg: 6px 6px 0px var(--color-ink-black);
+  --shadow-cel-sm: 2.5px 2.5px 0px var(--color-shadow-solid);
+  --shadow-cel-md: 4px 4px 0px var(--color-shadow-solid);
+  --shadow-cel-lg: 6px 6px 0px var(--color-shadow-solid);
   --shadow-cel-inset: inset 2px 2px 0px rgba(255, 255, 255, 0.4), inset -2px -2px 0px rgba(0, 0, 0, 0.2);
 
   /* Inked linework */
-  --border-ink-thin: 2px solid var(--color-ink-black);
-  --border-ink-standard: 3px solid var(--color-ink-black);
-  --border-ink-thick: 4px solid var(--color-ink-black);
-  --border-frame: 5px solid var(--color-ink-black);
+  --border-ink-thin: 2px solid var(--color-ink-stroke);
+  --border-ink-standard: 3px solid var(--color-ink-stroke);
+  --border-ink-thick: 4px solid var(--color-ink-stroke);
+  --border-frame: 5px solid var(--color-ink-stroke);
 
   /* Corner radii */
   --radius-cel-box: 14px;
@@ -36,6 +41,45 @@
   --font-theatre-rye: 'Rye', serif;
   --font-comic-fredoka: 'Fredoka', sans-serif;
   --font-typewriter-elite: 'Special Elite', monospace;
+}
+
+[data-theme="night"] {
+  /* Night Mode: Cuphead Midnight Stage (translated palette) */
+  --color-canvas-parchment: #1a1622;
+  --color-parchment-deep: #2f273b;
+  --color-ink-black: #fdfbf5;
+  --color-ink-stroke: #524366;
+  --color-shadow-solid: #0d0a13;
+  --color-text-main: #fdfbf5;
+  --color-text-lead: #d2c8dc;
+  --color-text-muted: #a396af;
+
+  /* Luminous crimson Cuphead red */
+  --color-cuphead-red: #e64843;
+  --color-cuphead-red-hover: #ff5954;
+
+  /* Glowing cartoon gold */
+  --color-golden-buttercup: #ffd043;
+  --color-golden-hover: #ffe066;
+
+  /* High-contrast vivid Mugman cyan */
+  --color-mugman-cyan: #4eb4dc;
+
+  /* Dark cartoon cel card surface */
+  --color-glove-ivory: #262030;
+  --color-sepia-wash: rgba(253, 251, 245, 0.05);
+
+  /* Hard pitch-black cel shadows */
+  --shadow-cel-sm: 2.5px 2.5px 0px var(--color-shadow-solid);
+  --shadow-cel-md: 4px 4px 0px var(--color-shadow-solid);
+  --shadow-cel-lg: 6px 6px 0px var(--color-shadow-solid);
+  --shadow-cel-inset: inset 2px 2px 0px rgba(255, 255, 255, 0.08), inset -2px -2px 0px rgba(0, 0, 0, 0.4);
+
+  /* Inked linework with violet stroke */
+  --border-ink-thin: 2px solid var(--color-ink-stroke);
+  --border-ink-standard: 3px solid var(--color-ink-stroke);
+  --border-ink-thick: 4px solid var(--color-ink-stroke);
+  --border-frame: 5px solid var(--color-ink-stroke);
 }
 
 /* CSS Reset & Body Styling */
@@ -99,21 +143,21 @@ body::before {
 
 .btn-cel:active:not(:disabled) {
   transform: translate(3px, 3px);
-  box-shadow: 1px 1px 0px var(--color-ink-black);
+  box-shadow: 1px 1px 0px var(--color-shadow-solid);
 }
 
 .btn-cel:disabled {
   opacity: 0.55;
   cursor: not-allowed;
   filter: grayscale(0.5);
-  box-shadow: 2px 2px 0px var(--color-ink-black);
+  box-shadow: 2px 2px 0px var(--color-shadow-solid);
 }
 
 /* Primary Button: Red */
 .btn-brawl-primary {
   background-color: var(--color-cuphead-red);
-  color: var(--color-glove-ivory);
-  text-shadow: 1.5px 1.5px 0px var(--color-ink-black);
+  color: #ffffff;
+  text-shadow: 1.5px 1.5px 0px var(--color-shadow-solid);
 }
 .btn-brawl-primary:hover:not(:disabled) {
   background-color: var(--color-cuphead-red-hover);
@@ -122,7 +166,8 @@ body::before {
 /* Secondary Button: Gold */
 .btn-brawl-secondary {
   background-color: var(--color-golden-buttercup);
-  color: var(--color-ink-black);
+  color: #1c1511;
+  font-weight: 700;
 }
 .btn-brawl-secondary:hover:not(:disabled) {
   background-color: var(--color-golden-hover);
@@ -140,8 +185,8 @@ body::before {
 /* Cyan Button */
 .btn-brawl-cyan {
   background-color: var(--color-mugman-cyan);
-  color: var(--color-glove-ivory);
-  text-shadow: 1.5px 1.5px 0px var(--color-ink-black);
+  color: #ffffff;
+  text-shadow: 1.5px 1.5px 0px var(--color-shadow-solid);
 }
 .btn-brawl-cyan:hover:not(:disabled) {
   filter: brightness(1.08);
@@ -157,7 +202,7 @@ body::before {
 }
 .btn-sm:active:not(:disabled) {
   transform: translate(2px, 2px);
-  box-shadow: 0.5px 0.5px 0px var(--color-ink-black);
+  box-shadow: 0.5px 0.5px 0px var(--color-shadow-solid);
 }
 
 /* Icon Square Button */
@@ -262,6 +307,14 @@ body::before {
   background-size: 16px;
 }
 
+[data-theme="night"] .ink-select {
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fdfbf5' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+}
+
+[data-theme="night"] .ink-input {
+  box-shadow: inset 2px 2px 0px rgba(0, 0, 0, 0.4);
+}
+
 /* Headers */
 .ribbon-banner {
   font-family: var(--font-theatre-rye);
@@ -284,7 +337,7 @@ body::before {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background-color: rgba(28, 21, 17, 0.6);
+  background-color: rgba(15, 12, 19, 0.72);
   backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
@@ -303,6 +356,7 @@ body::before {
   max-height: 90vh;
   overflow-y: auto;
   position: relative;
+  color: var(--color-ink-black);
 }
 
 /* Chat container scrolling rules */
@@ -344,6 +398,6 @@ body::before {
 }
 ::-webkit-scrollbar-thumb {
   background: var(--color-cuphead-red);
-  border: 1.5px solid var(--color-ink-black);
+  border: 1.5px solid var(--color-ink-stroke);
   border-radius: 4px;
 }

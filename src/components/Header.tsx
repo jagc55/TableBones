@@ -3,6 +3,7 @@ import { Trophy, Dices } from 'lucide-react';
 import { UserProfile } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { AudioToggle } from './AudioToggle';
+import { ThemeToggle } from './ThemeToggle';
 import { soundstage } from '../utils/audio';
 
 interface HeaderProps {
@@ -45,6 +46,9 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right Action Controls */}
         <div className="header-actions">
+          {/* Day / Night Theme Toggle */}
+          <ThemeToggle />
+
           {/* Audio Soundstage Toggle */}
           <AudioToggle />
 
@@ -85,7 +89,7 @@ export const Header: React.FC<HeaderProps> = ({
           z-index: 800;
           background-color: var(--color-canvas-parchment);
           border-bottom: var(--border-ink-thick);
-          box-shadow: 0 3px 0 var(--color-ink-black);
+          box-shadow: 0 3px 0 var(--color-shadow-solid);
           padding: 8px 16px;
         }
         .marquee-inner {

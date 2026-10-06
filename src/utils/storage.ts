@@ -82,3 +82,17 @@ export const saveAudioMuted = (muted: boolean): void => {
     console.warn('Storage write error', e);
   }
 };
+
+export const loadTheme = (): 'day' | 'night' => {
+  try {
+    const saved = localStorage.getItem('tablebones_theme');
+    if (saved === 'night' || saved === 'day') return saved;
+  } catch {}
+  return 'day';
+};
+
+export const saveTheme = (theme: 'day' | 'night'): void => {
+  try {
+    localStorage.setItem('tablebones_theme', theme);
+  } catch {}
+};

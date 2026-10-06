@@ -12,6 +12,7 @@ import {
   saveUserProfile,
   loadAchievements,
   saveAchievements,
+  loadTheme,
 } from './utils/storage';
 import { soundstage } from './utils/audio';
 
@@ -94,6 +95,12 @@ export const App: React.FC = () => {
 
   // Notification Toasts
   const [toasts, setToasts] = useState<ToastData[]>([]);
+
+  // Initialize theme on root
+  useEffect(() => {
+    const savedTheme = loadTheme();
+    document.documentElement.setAttribute('data-theme', savedTheme);
+  }, []);
 
   // Persist Profile & Achievements changes
   useEffect(() => {
