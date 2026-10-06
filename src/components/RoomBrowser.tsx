@@ -22,7 +22,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [onlyOpenSlots, setOnlyOpenSlots] = useState(false);
 
-  // Only show public rooms that are waiting for players (in-progress games are removed from the list)
+  // Only show public rooms that are waiting for players
   const availableRooms = rooms.filter((r) => !r.isPrivate && r.status === 'waiting');
 
   const filteredRooms = availableRooms.filter((room) => {
@@ -50,23 +50,23 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
 
   return (
     <div className="room-browser-layout">
-      {/* Hero Callout */}
-      <div className="browser-hero-card cel-card-gold">
-        <div className="hero-content">
-          <span className="ribbon-banner">ONLINE BOARD GAMES</span>
-          <h2 className="woodcut-title browser-hero-heading">PUBLIC ROOMS</h2>
-          <p className="browser-hero-lead">
-            Browse available game rooms, join an active lobby, or create a private room to play with friends.
+      {/* Top Header & Primary Actions */}
+      <div className="browser-header-strip">
+        <div className="browser-header-copy">
+          <div className="ribbon-banner">PARLOR TABLES</div>
+          <h2 className="woodcut-title browser-main-title">PUBLIC ROOMS</h2>
+          <p className="browser-main-subtitle">
+            Choose an open table to join the bout, or open your own parlor room.
           </p>
         </div>
 
-        <div className="hero-cta-group">
+        <div className="browser-header-actions">
           <button
             onClick={() => {
               soundstage.playTap();
               onCreateRoomClick();
             }}
-            className="btn-cel btn-brawl-primary hero-main-btn"
+            className="btn-cel btn-brawl-primary browser-cta-btn"
           >
             <Plus size={18} strokeWidth={3} />
             <span>CREATE ROOM</span>
@@ -76,73 +76,26 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
               soundstage.playTap();
               onJoinByCodeClick();
             }}
-            className="btn-cel btn-brawl-neutral"
+            className="btn-cel btn-brawl-neutral browser-cta-btn"
           >
             <Key size={16} strokeWidth={2.8} />
-            <span>JOIN WITH CODE</span>
+            <span>JOIN BY CODE</span>
           </button>
         </div>
       </div>
 
-      {/* Filter and Search Bar */}
-      <div className="cel-card browser-filter-bar">
-        <div className="filter-row-top">
-          {/* Search Box */}
+      {/* Filter and Search Bar (Unified, single-tier controls) */}
+      <div className="cel-card browser-filter-toolbar">
+        <div className="filter-search-row">
           <div className="search-box-wrap">
             <Search size={18} strokeWidth={2.8} className="search-box-icon" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by room name, game, or host..."
+              placeholder="Filter by room name, game, or host..."
               className="ink-input search-box-input"
             />
-          </div>
-
-          {/* Game Selector Dropdown */}
-          <div className="filter-select-wrap">
-            <select
-              value={selectedGameFilter}
-              onChange={(e) => {
-                soundstage.playTap();
-                setSelectedGameFilter(e.target.value as GameId | 'all');
-              }}
-              className="ink-select"
-            >
-              <option value="all">All Games ({availableRooms.length})</option>
-              {GAMES_CATALOG.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {g.title}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Filter Badges & Toggle */}
-        <div className="filter-row-bottom">
-          <div className="game-tabs-pills">
-            <button
-              onClick={() => {
-                soundstage.playTap();
-                setSelectedGameFilter('all');
-              }}
-              className={`filter-pill ${selectedGameFilter === 'all' ? 'pill-active' : ''}`}
-            >
-              All
-            </button>
-            {GAMES_CATALOG.map((game) => (
-              <button
-                key={game.id}
-                onClick={() => {
-                  soundstage.playTap();
-                  setSelectedGameFilter(game.id);
-                }}
-                className={`filter-pill ${selectedGameFilter === game.id ? 'pill-active' : ''}`}
-              >
-                {game.title.split(':')[0]}
-              </button>
-            ))}
           </div>
 
           <label className="checkbox-filter-label">
@@ -155,22 +108,46 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
             <span>Open spots only</span>
           </label>
         </div>
+
+        {/* Game Filter Tabs */}
+        <div className="game-tabs-row">
+          <button
+            onClick={() => {
+              soundstage.playTap();
+              setSelectedGameFilter('all');
+            }}
+            className={`filter-tab ${selectedGameFilter === 'all' ? 'tab-active' : ''}`}
+          >
+            All Games ({availableRooms.length})
+          </button>
+          {GAMES_CATALOG.map((game) => {
+            const count = availableRooms.filter((r) => r.gameId === game.id).length;
+            return (
+              <button
+                key={game.id}
+                onClick={() => {
+                  soundstage.playTap();
+                  setSelectedGameFilter(game.id);
+                }}
+                className={`filter-tab ${selectedGameFilter === game.id ? 'tab-active' : ''}`}
+              >
+                {game.title.split(':')[0]} {count > 0 ? `(${count})` : ''}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Rooms List (Vertical List View) */}
+      {/* Rooms List */}
       <div className="rooms-catalog-section">
-        <div className="catalog-header">
-          <h3 className="section-title">AVAILABLE ROOMS ({filteredRooms.length})</h3>
-        </div>
-
         {filteredRooms.length === 0 ? (
           <div className="cel-card empty-rooms-slate">
             <div className="empty-icon-box">
               <Users size={32} strokeWidth={2.5} />
             </div>
-            <h3 className="empty-title">NO ROOMS FOUND</h3>
+            <h3 className="empty-title">NO ACTIVE PARLORS FOUND</h3>
             <p className="empty-desc">
-              No active public rooms match your current filters. Create a new room to start playing!
+              No public tables match your current filters. Open a new room and invite contenders to start the match!
             </p>
             <button
               onClick={() => {
@@ -189,6 +166,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
               const game = getGameDef(room.gameId);
               const host = room.players.find((p) => p.isHost) || room.players[0];
               const isFull = room.players.length >= room.maxPlayers;
+              const openSlots = room.maxPlayers - room.players.length;
 
               return (
                 <div key={room.id} className="cel-card room-list-row">
@@ -196,9 +174,6 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                   <div className="room-row-main">
                     <div className="room-row-badge-line">
                       <span className="room-game-badge">{game ? game.title : 'Board Game'}</span>
-                      <div className="room-status-chip status-waiting">
-                        OPEN LOBBY
-                      </div>
                     </div>
                     <h4 className="room-row-title" title={room.title}>{room.title}</h4>
                   </div>
@@ -218,11 +193,12 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
 
                   {/* Column 3: Specs (Players & Round Timer) */}
                   <div className="room-row-specs">
-                    <div className="spec-item" title="Players in room">
+                    <div className="spec-item" title="Contenders in room">
                       <Users size={14} strokeWidth={2.5} />
                       <span>
                         {room.players.length}/{room.maxPlayers}
                       </span>
+                      <small className="spec-sub">({openSlots > 0 ? `${openSlots} open` : 'full'})</small>
                     </div>
                     <div className="spec-item" title="Round timer">
                       <Clock size={14} strokeWidth={2.5} />
@@ -243,7 +219,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                       }`}
                     >
                       <Play size={14} strokeWidth={3} />
-                      <span>{isFull ? 'ROOM FULL' : 'JOIN GAME'}</span>
+                      <span>{isFull ? 'ROOM FULL' : 'JOIN TABLE'}</span>
                     </button>
                   </div>
                 </div>
@@ -255,53 +231,53 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
 
       <style>{`
         .room-browser-layout {
-          max-width: 1100px;
+          max-width: 1040px;
           margin: 0 auto;
-          padding: 20px 16px 40px;
+          padding: 24px 16px 48px;
           display: flex;
           flex-direction: column;
-          gap: 20px;
+          gap: 18px;
         }
-        .browser-hero-card {
-          padding: 20px 28px;
+        .browser-header-strip {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 20px;
+          gap: 16px;
         }
-        .hero-content {
-          max-width: 620px;
-        }
-        .browser-hero-heading {
-          font-size: 32px;
-          color: #1c1511;
-          margin: 4px 0 6px;
-        }
-        .browser-hero-lead {
-          font-size: 15px;
-          color: #2b1e17;
-          line-height: 1.35;
-        }
-        .hero-cta-group {
+        .browser-header-copy {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 4px;
+        }
+        .browser-main-title {
+          font-size: 32px;
+          color: var(--color-ink-black);
+          line-height: 1;
+        }
+        .browser-main-subtitle {
+          font-size: 14.5px;
+          color: var(--color-text-lead);
+        }
+        .browser-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
           flex-shrink: 0;
         }
-        .hero-main-btn {
-          font-size: 17px;
-          padding: 10px 20px;
+        .browser-cta-btn {
+          font-size: 15px;
+          padding: 9px 16px;
         }
-        .browser-filter-bar {
-          padding: 14px 18px;
+        .browser-filter-toolbar {
+          padding: 12px 16px;
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 12px;
         }
-        .filter-row-top {
+        .filter-search-row {
           display: flex;
-          gap: 10px;
           align-items: center;
+          gap: 14px;
         }
         .search-box-wrap {
           flex: 1;
@@ -312,54 +288,23 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
         .search-box-icon {
           position: absolute;
           left: 12px;
-          color: var(--color-ink-black);
+          color: var(--color-ink-stroke);
           pointer-events: none;
         }
         .search-box-input {
           padding-left: 38px;
-        }
-        .filter-select-wrap {
-          min-width: 190px;
-        }
-        .filter-row-bottom {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding-top: 6px;
-          border-top: 1.5px dashed var(--color-ink-black);
-        }
-        .game-tabs-pills {
-          display: flex;
-          gap: 6px;
-          overflow-x: auto;
-          padding-bottom: 2px;
-        }
-        .filter-pill {
-          background-color: var(--color-parchment-deep);
-          border: 1.5px solid var(--color-ink-black);
-          border-radius: 999px;
-          padding: 3px 10px;
-          font-family: var(--font-theatre-rye);
-          font-size: 11px;
-          letter-spacing: 0.05em;
-          color: var(--color-ink-black);
-          cursor: pointer;
-          white-space: nowrap;
-          box-shadow: 1.5px 1.5px 0 var(--color-ink-black);
-        }
-        .filter-pill.pill-active {
-          background-color: var(--color-cuphead-red);
-          color: var(--color-glove-ivory);
         }
         .checkbox-filter-label {
           display: flex;
           align-items: center;
           gap: 6px;
           font-family: var(--font-comic-fredoka);
-          font-size: 12.5px;
+          font-size: 13px;
           font-weight: 600;
+          color: var(--color-text-main);
           cursor: pointer;
           user-select: none;
+          white-space: nowrap;
         }
         .ink-checkbox {
           width: 16px;
@@ -367,16 +312,38 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           accent-color: var(--color-cuphead-red);
           cursor: pointer;
         }
+        .game-tabs-row {
+          display: flex;
+          gap: 8px;
+          overflow-x: auto;
+          padding-bottom: 2px;
+        }
+        .filter-tab {
+          background-color: var(--color-parchment-deep);
+          border: var(--border-ink-thin);
+          border-radius: 999px;
+          padding: 4px 12px;
+          font-family: var(--font-theatre-rye);
+          font-size: 11px;
+          letter-spacing: 0.05em;
+          color: var(--color-ink-black);
+          cursor: pointer;
+          white-space: nowrap;
+          box-shadow: var(--shadow-cel-sm);
+          transition: transform 0.08s ease, background-color 0.1s ease;
+        }
+        .filter-tab:hover {
+          transform: translateY(-1px);
+        }
+        .filter-tab.tab-active {
+          background-color: var(--color-cuphead-red);
+          color: var(--color-glove-ivory);
+          border-color: var(--color-ink-stroke);
+        }
         .rooms-catalog-section {
           display: flex;
           flex-direction: column;
-          gap: 12px;
-        }
-        .section-title {
-          font-family: var(--font-luckiest-guy);
-          font-size: 20px;
-          letter-spacing: 0.04em;
-          color: var(--color-ink-black);
+          gap: 10px;
         }
         .rooms-list-container {
           display: flex;
@@ -413,33 +380,18 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           font-family: var(--font-theatre-rye);
           font-size: 10px;
           letter-spacing: 0.06em;
-          padding: 1px 6px;
+          align-self: flex-start;
+          padding: 1px 7px;
           background-color: var(--color-parchment-deep);
-          border: 1px solid var(--color-ink-black);
+          border: 1px solid var(--color-ink-stroke);
           border-radius: 4px;
-          color: var(--color-ink-black);
-        }
-        .room-status-chip {
-          font-family: var(--font-theatre-rye);
-          font-size: 9px;
-          letter-spacing: 0.06em;
-          padding: 1px 6px;
-          border-radius: 999px;
-          border: 1px solid var(--color-ink-black);
-        }
-        .status-waiting {
-          background-color: #d4edd2;
-          color: #1f5e1f;
-        }
-        .status-live {
-          background-color: #fcdbd8;
-          color: var(--color-cuphead-red);
+          color: var(--color-text-main);
         }
         .room-row-title {
           font-family: var(--font-luckiest-guy);
           font-size: 18px;
           letter-spacing: 0.03em;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           line-height: 1.15;
           white-space: nowrap;
           overflow: hidden;
@@ -454,29 +406,32 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           overflow: hidden;
         }
         .host-avatar-ring {
-          border: 1.5px solid var(--color-ink-black);
+          border: 1.5px solid var(--color-ink-stroke);
           border-radius: 6px;
           overflow: hidden;
           background-color: var(--color-golden-buttercup);
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .host-text {
           display: flex;
           flex-direction: column;
           min-width: 0;
           overflow: hidden;
+          line-height: 1.1;
         }
         .host-label {
           font-family: var(--font-theatre-rye);
           font-size: 8px;
           letter-spacing: 0.06em;
           color: var(--color-cuphead-red);
-          line-height: 1;
         }
         .host-name {
           font-family: var(--font-luckiest-guy);
           font-size: 13px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -492,7 +447,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           align-items: center;
           gap: 6px;
           font-family: var(--font-typewriter-elite);
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 700;
           color: var(--color-text-main);
           background-color: var(--color-canvas-parchment);
@@ -500,6 +455,12 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           border-radius: 6px;
           border: 1px solid var(--color-ink-stroke);
           white-space: nowrap;
+        }
+        .spec-sub {
+          font-size: 10px;
+          font-family: var(--font-theatre-rye);
+          opacity: 0.8;
+          font-weight: normal;
         }
         .room-row-action {
           flex-shrink: 0;
@@ -520,26 +481,35 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
         }
         .empty-icon-box {
           background-color: var(--color-parchment-deep);
-          border: 2px solid var(--color-ink-black);
+          border: var(--border-ink-thin);
           border-radius: 12px;
           padding: 12px;
+          color: var(--color-ink-black);
         }
         .empty-title {
           font-family: var(--font-luckiest-guy);
           font-size: 20px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .empty-desc {
           max-width: 380px;
           font-size: 13.5px;
-          color: #655444;
+          color: var(--color-text-lead);
         }
 
         @media (max-width: 840px) {
-          .browser-hero-card { flex-direction: column; text-align: center; }
-          .hero-cta-group { flex-direction: row; }
-          .filter-row-top { flex-direction: column; }
-          .filter-select-wrap { width: 100%; }
+          .browser-header-strip {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 12px;
+          }
+          .browser-header-actions {
+            justify-content: flex-start;
+          }
+          .filter-search-row {
+            flex-direction: column;
+            align-items: stretch;
+          }
           .room-list-row {
             grid-template-columns: 1fr;
             gap: 12px;

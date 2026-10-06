@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Luckiest+Guy&family=Rye&family=Special+Elite&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Calistoga&family=Nunito:wght@400;500;600;700;800&family=Special+Elite&display=swap');
 
 :root, [data-theme="day"] {
   /* Day Mode: Authentic Cuphead 1930s Fleischer Palette */
@@ -36,11 +36,25 @@
   --radius-tile: 12px;
   --radius-cel-pill: 9999px;
 
-  /* Typography */
-  --font-luckiest-guy: 'Luckiest Guy', cursive;
-  --font-theatre-rye: 'Rye', serif;
-  --font-comic-fredoka: 'Fredoka', sans-serif;
-  --font-typewriter-elite: 'Special Elite', monospace;
+  /* Typography: Calistoga (Headings & Accents) + Nunito (Body & UI) */
+  --font-heading: 'Calistoga', cursive;
+  --font-body: 'Nunito', sans-serif;
+  --font-accent: 'Calistoga', cursive;
+  --font-mono: 'Special Elite', monospace;
+
+  /* Backward-compatible variables */
+  --font-luckiest-guy: var(--font-heading);
+  --font-theatre-rye: var(--font-accent);
+  --font-comic-fredoka: var(--font-body);
+  --font-typewriter-elite: var(--font-mono);
+
+  /* Semantic status colors */
+  --color-status-success-bg: #d7efd5;
+  --color-status-success-text: #1d5f22;
+  --color-status-warn-bg: #fbedd1;
+  --color-status-warn-text: #8c5311;
+  --color-status-error-bg: #fcdbd8;
+  --color-status-error-text: #b72722;
 }
 
 [data-theme="night"] {
@@ -80,6 +94,14 @@
   --border-ink-standard: 3px solid var(--color-ink-stroke);
   --border-ink-thick: 4px solid var(--color-ink-stroke);
   --border-frame: 5px solid var(--color-ink-stroke);
+
+  /* Semantic status colors */
+  --color-status-success-bg: rgba(98, 216, 151, 0.18);
+  --color-status-success-text: #6ce4a4;
+  --color-status-warn-bg: rgba(255, 208, 67, 0.18);
+  --color-status-warn-text: #ffd554;
+  --color-status-error-bg: rgba(230, 72, 67, 0.22);
+  --color-status-error-text: #ff8580;
 }
 
 /* CSS Reset & Body Styling */
@@ -377,15 +399,16 @@ body::before {
 
 /* Animations */
 .animate-tremble {
-  animation: toonTremble 0.15s infinite;
+  animation: urgentTimerPulse 0.9s ease-in-out infinite;
 }
 
-@keyframes toonTremble {
-  0% { transform: translate(0, 0) rotate(0deg); }
-  25% { transform: translate(-2px, 1px) rotate(-1deg); }
-  50% { transform: translate(1px, -2px) rotate(1deg); }
-  75% { transform: translate(2px, 1px) rotate(0deg); }
-  100% { transform: translate(0, 0) rotate(0deg); }
+@keyframes urgentTimerPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.04);
+  }
 }
 
 /* Custom Scrollbars */

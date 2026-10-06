@@ -27,7 +27,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const handleSaveAlias = () => {
     soundstage.playTap();
-    onUpdateProfile({ name: alias.trim() || 'Player' });
+    onUpdateProfile({ name: alias.trim() || 'Contender' });
   };
 
   const handleSelectAvatar = (avatarId: string) => {
@@ -40,7 +40,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
     onUpdateProfile({
       isGoogleAuth: true,
       googleEmail: mockGoogleEmail,
-      name: alias.trim() || 'Google Player',
+      name: alias.trim() || 'Google Contender',
     });
     setShowGoogleAuthDialog(false);
   };
@@ -79,8 +79,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         {/* Modal Header */}
         <div className="modal-header-strip">
           <div className="header-meta">
-            <span className="ribbon-banner">ACCOUNT SETTINGS</span>
-            <h2 className="woodcut-title profile-title">PLAYER PROFILE</h2>
+            <span className="ribbon-banner">PLAYER LEDGER</span>
+            <h2 className="woodcut-title profile-title">CONTENDER DOSSIER</h2>
           </div>
           <button onClick={onClose} className="btn-cel btn-brawl-neutral btn-icon-sq" aria-label="Close modal">
             <X size={18} strokeWidth={3} />
@@ -92,11 +92,11 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="cel-card profile-auth-box">
             <div className="auth-box-top">
               <div className="current-avatar-preview">
-                <AvatarIcon id={userProfile.avatarId} size={64} />
+                <AvatarIcon id={userProfile.avatarId} size={60} />
               </div>
 
               <div className="auth-box-inputs">
-                <label className="field-label">USERNAME / ALIAS</label>
+                <label className="field-label">CONTENDER ALIAS</label>
                 <div className="alias-input-row">
                   <input
                     type="text"
@@ -106,7 +106,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     className="ink-input"
                     placeholder="Enter player name..."
                   />
-                  <button onClick={handleSaveAlias} className="btn-cel btn-brawl-secondary btn-sm" title="Save Username">
+                  <button onClick={handleSaveAlias} className="btn-cel btn-brawl-secondary btn-sm" title="Save Alias">
                     <Check size={14} strokeWidth={3} />
                     <span>SAVE</span>
                   </button>
@@ -128,15 +128,15 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <div className="guest-status-pill">
                       <UserCheck size={16} strokeWidth={2.5} />
                       <div className="guest-info">
-                        <span>Playing as Guest</span>
-                        <small>Saved in browser local storage (no passwords stored)</small>
+                        <span>Local Guest Session</span>
+                        <small>Saved in browser local storage</small>
                       </div>
                       <button
                         onClick={() => setShowGoogleAuthDialog(true)}
                         className="btn-cel btn-brawl-cyan btn-sm google-login-cta"
                       >
                         <GoogleIcon size={14} />
-                        <span>SIGN IN WITH GOOGLE</span>
+                        <span>LINK GOOGLE</span>
                       </button>
                     </div>
                   )}
@@ -145,9 +145,37 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
           </div>
 
+          {/* Unified Career Record Ledger (Replacing 4 separated AI metric cards) */}
+          <div className="career-stats-section">
+            <span className="section-subheading">CAREER RECORD</span>
+            <div className="career-ledger cel-card">
+              <div className="ledger-cell">
+                <span className="ledger-num">{userProfile.stats.matchesPlayed}</span>
+                <span className="ledger-lbl">BOUTS</span>
+              </div>
+              <div className="ledger-cell cell-gold">
+                <span className="ledger-num">{userProfile.stats.matchesWon}</span>
+                <span className="ledger-lbl">VICTORIES</span>
+              </div>
+              <div className="ledger-cell">
+                <span className="ledger-num">
+                  {userProfile.stats.matchesPlayed > 0
+                    ? Math.round((userProfile.stats.matchesWon / userProfile.stats.matchesPlayed) * 100)
+                    : 0}
+                  %
+                </span>
+                <span className="ledger-lbl">WIN RATIO</span>
+              </div>
+              <div className="ledger-cell">
+                <span className="ledger-num">{userProfile.stats.walkoverWins}</span>
+                <span className="ledger-lbl">WALKOVERS</span>
+              </div>
+            </div>
+          </div>
+
           {/* Avatar Selector Grid */}
           <div className="avatar-selector-section">
-            <h3 className="section-subheading">CHOOSE PROFILE PICTURE</h3>
+            <span className="section-subheading">CARTOON PORTRAITS</span>
             <div className="avatar-grid">
               {AVATAR_LIST.map((av) => {
                 const isSelected = userProfile.avatarId === av.id;
@@ -159,41 +187,12 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     title={av.name}
                   >
                     <div className="avatar-svg-wrap">
-                      <AvatarIcon id={av.id} size={44} />
+                      <AvatarIcon id={av.id} size={42} />
                     </div>
                     <span className="avatar-card-name">{av.name}</span>
-                    {isSelected && <span className="avatar-selected-badge">ACTIVE</span>}
                   </button>
                 );
               })}
-            </div>
-          </div>
-
-          {/* Player Career Stats */}
-          <div className="career-stats-section">
-            <h3 className="section-subheading">PLAYER STATS</h3>
-            <div className="stats-cards-grid">
-              <div className="stat-card">
-                <span className="stat-num">{userProfile.stats.matchesPlayed}</span>
-                <span className="stat-label">GAMES PLAYED</span>
-              </div>
-              <div className="stat-card stat-card-gold">
-                <span className="stat-num">{userProfile.stats.matchesWon}</span>
-                <span className="stat-label">WINS</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-num">
-                  {userProfile.stats.matchesPlayed > 0
-                    ? Math.round((userProfile.stats.matchesWon / userProfile.stats.matchesPlayed) * 100)
-                    : 0}
-                  %
-                </span>
-                <span className="stat-label">WIN RATE</span>
-              </div>
-              <div className="stat-card">
-                <span className="stat-num">{userProfile.stats.walkoverWins}</span>
-                <span className="stat-label">DEFAULT WINS</span>
-              </div>
             </div>
           </div>
 
@@ -201,8 +200,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           <div className="achievements-section">
             <div className="achievements-header">
               <div>
-                <h3 className="section-subheading">ACHIEVEMENTS</h3>
-                <p className="achievements-subtext">Unlock achievements by playing different board games.</p>
+                <span className="section-subheading">HONORS & TROPHIES</span>
+                <p className="achievements-subtext">Unlock achievements through parlor gameplay.</p>
               </div>
               <div className="ticket-stub">
                 <span className="ticket-stub-label">POINTS</span>
@@ -226,7 +225,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <p className="ach-desc">{ach.description}</p>
                   </div>
                   <div className="ach-status-badge">
-                    {ach.isUnlocked ? 'UNLOCKED' : 'LOCKED'}
+                    {ach.isUnlocked ? 'EARNED' : 'LOCKED'}
                   </div>
                 </div>
               ))}
@@ -240,14 +239,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             <div className="modal-content google-auth-popup" onClick={(e) => e.stopPropagation()}>
               <div className="google-auth-header">
                 <GoogleIcon size={26} />
-                <h3 className="google-auth-title">Sign in with Google</h3>
+                <h3 className="google-auth-title">Link Google Account</h3>
                 <p className="google-auth-desc">
-                  Sign in with Google to link your profile and achievements without storing passwords.
+                  Connect your profile and achievements without storing third-party passwords.
                 </p>
               </div>
 
               <div className="google-auth-body">
-                <label className="field-label">Google Account Email</label>
+                <label className="field-label">GOOGLE ACCOUNT EMAIL</label>
                 <input
                   type="email"
                   className="ink-input"
@@ -268,7 +267,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                   onClick={handleSimulateGoogleLogin}
                   className="btn-cel btn-brawl-primary btn-sm"
                 >
-                  SIGN IN
+                  LINK ACCOUNT
                 </button>
               </div>
             </div>
@@ -277,73 +276,76 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
         <style>{`
           .profile-modal-card {
-            max-width: 640px;
+            max-width: 600px;
           }
           .modal-header-strip {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px 20px 12px;
+            padding: 14px 18px 10px;
             border-bottom: var(--border-ink-standard);
             background-color: var(--color-parchment-deep);
           }
           .profile-title {
             font-size: 22px;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .profile-modal-body {
-            padding: 20px;
+            padding: 18px;
             display: flex;
             flex-direction: column;
-            gap: 20px;
+            gap: 16px;
           }
           .profile-auth-box {
-            padding: 14px;
+            padding: 12px;
           }
           .auth-box-top {
             display: flex;
             align-items: flex-start;
-            gap: 16px;
+            gap: 14px;
           }
           .current-avatar-preview {
             border: var(--border-ink-standard);
-            border-radius: 12px;
+            border-radius: 10px;
             background-color: var(--color-golden-buttercup);
             padding: 4px;
             box-shadow: var(--shadow-cel-sm);
             flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           .auth-box-inputs {
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
           }
           .field-label {
             font-family: var(--font-theatre-rye);
-            font-size: 10px;
+            font-size: 9.5px;
             letter-spacing: 0.08em;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .alias-input-row {
             display: flex;
             gap: 6px;
           }
           .auth-status-bar {
-            margin-top: 6px;
+            margin-top: 4px;
           }
           .guest-status-pill, .google-status-pill {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 10px;
-            background-color: var(--color-parchment-deep);
+            gap: 8px;
+            background-color: var(--color-canvas-parchment);
             border: var(--border-ink-thin);
-            border-radius: 8px;
-            padding: 7px 10px;
+            border-radius: 7px;
+            padding: 6px 10px;
           }
           .google-status-pill {
-            background-color: #e6f4fa;
+            background-color: rgba(62, 136, 165, 0.12);
           }
           .verified-shield-icon {
             color: var(--color-mugman-cyan);
@@ -352,32 +354,65 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           .google-email-text, .guest-info {
             display: flex;
             flex-direction: column;
-            font-size: 12.5px;
+            font-size: 12px;
             line-height: 1.2;
           }
           .guest-info small {
-            font-size: 10.5px;
-            color: #665b50;
+            font-size: 10px;
+            color: var(--color-text-muted);
           }
           .google-email-text strong {
             font-family: var(--font-typewriter-elite);
-            font-size: 12px;
+            font-size: 11.5px;
           }
           .google-login-cta {
             flex-shrink: 0;
-            padding: 5px 10px;
-            font-size: 11px;
+            padding: 4px 8px;
+            font-size: 10.5px;
           }
           .auth-switch-btn {
-            padding: 4px 8px;
-            font-size: 10px;
+            padding: 3px 6px;
+            font-size: 9.5px;
           }
           .section-subheading {
             font-family: var(--font-luckiest-guy);
-            font-size: 15px;
+            font-size: 14.5px;
             letter-spacing: 0.04em;
-            color: var(--color-ink-black);
-            margin-bottom: 8px;
+            color: var(--color-text-main);
+            margin-bottom: 6px;
+            display: block;
+          }
+          .career-ledger {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            padding: 10px;
+            border-radius: 9px;
+            text-align: center;
+          }
+          .ledger-cell {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 2px;
+            padding: 4px;
+          }
+          .ledger-cell:not(:last-child) {
+            border-right: 1.5px dashed var(--color-ink-stroke);
+          }
+          .ledger-num {
+            font-family: var(--font-luckiest-guy);
+            font-size: 22px;
+            color: var(--color-text-main);
+            line-height: 1;
+          }
+          .cell-gold .ledger-num {
+            color: var(--color-cuphead-red);
+          }
+          .ledger-lbl {
+            font-family: var(--font-theatre-rye);
+            font-size: 8.5px;
+            letter-spacing: 0.06em;
+            color: var(--color-text-muted);
           }
           .avatar-grid {
             display: grid;
@@ -386,24 +421,24 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           }
           .avatar-choice-card {
             background-color: var(--color-glove-ivory);
-            border: var(--border-ink-standard);
-            border-radius: 10px;
-            padding: 8px 4px;
+            border: var(--border-ink-thin);
+            border-radius: 8px;
+            padding: 6px 4px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 5px;
+            gap: 4px;
             cursor: pointer;
             box-shadow: var(--shadow-cel-sm);
             transition: transform 0.08s ease;
-            position: relative;
           }
           .avatar-choice-card:hover {
             transform: translateY(-2px);
           }
           .avatar-choice-card.avatar-selected {
+            border: var(--border-ink-standard);
             border-color: var(--color-cuphead-red);
-            background-color: #fff8eb;
+            background-color: var(--color-golden-buttercup);
             box-shadow: 0 0 0 2px var(--color-cuphead-red);
           }
           .avatar-card-name {
@@ -412,67 +447,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             font-weight: 700;
             text-align: center;
             line-height: 1.1;
+            color: var(--color-text-main);
+          }
+          .avatar-selected .avatar-card-name {
             color: var(--color-ink-black);
-          }
-          .avatar-selected-badge {
-            position: absolute;
-            top: -5px;
-            right: -5px;
-            background-color: var(--color-cuphead-red);
-            color: var(--color-glove-ivory);
-            font-family: var(--font-theatre-rye);
-            font-size: 8px;
-            padding: 1px 4px;
-            border-radius: 3px;
-            border: 1px solid var(--color-ink-black);
-          }
-          .stats-cards-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 8px;
-          }
-          .stat-card {
-            background-color: var(--color-glove-ivory);
-            border: var(--border-ink-standard);
-            border-radius: 8px;
-            padding: 8px 6px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            box-shadow: var(--shadow-cel-sm);
-          }
-          .stat-card-gold {
-            background-color: var(--color-golden-buttercup);
-          }
-          .stat-num {
-            font-family: var(--font-luckiest-guy);
-            font-size: 20px;
-            color: var(--color-ink-black);
-            line-height: 1;
-          }
-          .stat-label {
-            font-family: var(--font-theatre-rye);
-            font-size: 8.5px;
-            letter-spacing: 0.06em;
-            color: var(--color-ink-stroke);
-            margin-top: 3px;
-            text-align: center;
           }
           .achievements-header {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
           }
           .achievements-subtext {
-            font-size: 12px;
-            color: #6d5b4c;
+            font-size: 11.5px;
+            color: var(--color-text-muted);
           }
           .achievements-list {
             display: flex;
             flex-direction: column;
             gap: 6px;
-            max-height: 220px;
+            max-height: 200px;
             overflow-y: auto;
             padding-right: 4px;
           }
@@ -480,25 +474,26 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             display: flex;
             align-items: center;
             gap: 10px;
-            padding: 8px 12px;
+            padding: 7px 10px;
             border-radius: 8px;
             border: var(--border-ink-thin);
             box-shadow: var(--shadow-cel-sm);
           }
           .ach-unlocked {
             background-color: var(--color-glove-ivory);
+            border-color: var(--color-ink-stroke);
           }
           .ach-locked {
-            background-color: #ebdcc0;
-            opacity: 0.6;
-            filter: grayscale(0.7);
+            background-color: var(--color-parchment-deep);
+            opacity: 0.55;
+            filter: grayscale(0.8);
           }
           .ach-icon-cell {
             background-color: var(--color-golden-buttercup);
-            border: 1.5px solid var(--color-ink-black);
-            border-radius: 7px;
-            width: 34px;
-            height: 34px;
+            border: 1.5px solid var(--color-ink-stroke);
+            border-radius: 6px;
+            width: 32px;
+            height: 32px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -507,6 +502,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           }
           .ach-locked .ach-icon-cell {
             background-color: var(--color-parchment-deep);
+            color: var(--color-text-muted);
           }
           .ach-info {
             flex: 1;
@@ -520,71 +516,73 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             font-family: var(--font-luckiest-guy);
             font-size: 13px;
             letter-spacing: 0.03em;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .ach-points {
             font-family: var(--font-theatre-rye);
-            font-size: 9.5px;
+            font-size: 9px;
             color: var(--color-cuphead-red);
             font-weight: bold;
           }
           .ach-desc {
-            font-size: 11.5px;
-            color: #4b3d32;
+            font-size: 11px;
+            color: var(--color-text-lead);
             line-height: 1.2;
           }
           .ach-status-badge {
             font-family: var(--font-theatre-rye);
-            font-size: 9px;
+            font-size: 8.5px;
             letter-spacing: 0.06em;
-            padding: 1px 5px;
+            padding: 2px 6px;
             border-radius: 3px;
-            border: 1px solid var(--color-ink-black);
+            border: 1px solid var(--color-ink-stroke);
             background-color: var(--color-parchment-deep);
+            color: var(--color-text-main);
           }
           .ach-unlocked .ach-status-badge {
-            background-color: var(--color-golden-buttercup);
-            color: var(--color-ink-black);
+            background-color: var(--color-status-success-bg);
+            color: var(--color-status-success-text);
+            border-color: var(--color-status-success-text);
           }
           .inner-modal-overlay {
             z-index: 1100;
           }
           .google-auth-popup {
-            max-width: 400px;
-            padding: 20px;
+            max-width: 380px;
+            padding: 18px;
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
           }
           .google-auth-header {
             display: flex;
             flex-direction: column;
             align-items: center;
             text-align: center;
-            gap: 6px;
+            gap: 5px;
           }
           .google-auth-title {
             font-family: var(--font-luckiest-guy);
             font-size: 18px;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .google-auth-desc {
-            font-size: 12.5px;
-            color: #554433;
+            font-size: 12px;
+            color: var(--color-text-lead);
           }
           .google-auth-actions {
             display: flex;
             justify-content: flex-end;
             gap: 8px;
-            margin-top: 6px;
+            margin-top: 4px;
           }
 
           @media (max-width: 600px) {
             .auth-box-top { flex-direction: column; align-items: center; text-align: center; }
             .alias-input-row { flex-direction: column; }
-            .guest-status-pill, .google-status-pill { flex-direction: column; align-items: stretch; }
+            .career-ledger { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+            .ledger-cell:not(:last-child) { border-right: none; }
             .avatar-grid { grid-template-columns: repeat(2, 1fr); }
-            .stats-cards-grid { grid-template-columns: repeat(2, 1fr); }
           }
         `}</style>
       </div>

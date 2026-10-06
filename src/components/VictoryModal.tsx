@@ -29,19 +29,19 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   return (
     <div className="modal-overlay victory-overlay-wrap">
       <div className="modal-content victory-modal-card">
-        {/* Top Banner */}
+        {/* Top Theatrical Banner */}
         <div className="victory-banner-top">
-          <span className="ribbon-banner">MATCH RESULTS</span>
-          <h2 className="woodcut-title victory-main-title">GAME OVER</h2>
-          <span className="victory-subtitle">WINNER DECLARED</span>
+          <span className="ribbon-banner">THE JUDGES’ VERDICT</span>
+          <h2 className="woodcut-title victory-main-title">KNOCKOUT!</h2>
+          <span className="victory-subtitle">CHAMPION DECLARED</span>
         </div>
 
-        {/* Walkover / Special Win Banner */}
+        {/* Walkover / Specific Bout Outcome Banner */}
         {winReason && (
           <div className="win-reason-strip">
             <Award size={18} strokeWidth={2.8} className="win-award-icon" />
             <div className="win-reason-text">
-              <strong>RESULT:</strong>
+              <strong>JUDGES' NOTICE:</strong>
               <span>{winReason}</span>
             </div>
           </div>
@@ -51,15 +51,15 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         <div className="podium-section">
           <div className="champion-podium-card cel-card-gold">
             <div className="podium-crown-ring">
-              <Crown size={24} strokeWidth={3} className="crown-svg" />
+              <Crown size={22} strokeWidth={3} className="crown-svg" />
             </div>
 
             <div className="champion-avatar-box">
-              <AvatarIcon id={winnerPlayer.avatarId} size={72} />
+              <AvatarIcon id={winnerPlayer.avatarId} size={70} />
             </div>
 
             <div className="champion-details">
-              <span className="champion-title-tag">MATCH WINNER</span>
+              <span className="champion-title-tag">PARLOR VICTOR</span>
               <h3 className="woodcut-title champion-name">{winnerPlayer.name}</h3>
               <div className="champion-score-pill">
                 <Trophy size={14} strokeWidth={2.8} />
@@ -112,7 +112,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>PLAY AGAIN</span>
+            <span>ANOTHER BOUT</span>
           </button>
         </div>
 
@@ -121,14 +121,14 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             z-index: 1300;
           }
           .victory-modal-card {
-            max-width: 540px;
+            max-width: 520px;
             text-align: center;
             overflow: hidden;
           }
           .victory-banner-top {
             background-color: var(--color-cuphead-red);
             color: var(--color-glove-ivory);
-            padding: 16px 20px;
+            padding: 16px 20px 12px;
             border-bottom: var(--border-ink-thick);
             display: flex;
             flex-direction: column;
@@ -140,8 +140,9 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           }
           .victory-main-title {
             font-size: 32px;
-            color: var(--color-glove-ivory);
+            color: #ffffff;
             margin: 2px 0;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
           }
           .victory-subtitle {
             font-family: var(--font-theatre-rye);
@@ -155,12 +156,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             justify-content: center;
             gap: 10px;
             background-color: var(--color-golden-buttercup);
-            border-bottom: 2px solid var(--color-ink-black);
+            border-bottom: var(--border-ink-thin);
             padding: 8px 14px;
             text-align: left;
+            color: #1c1511;
           }
           .win-award-icon {
-            color: var(--color-ink-black);
+            color: #1c1511;
             flex-shrink: 0;
           }
           .win-reason-text {
@@ -176,7 +178,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             color: var(--color-cuphead-red);
           }
           .podium-section {
-            padding: 20px;
+            padding: 20px 18px;
             display: flex;
             flex-direction: column;
             gap: 16px;
@@ -184,37 +186,42 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           }
           .champion-podium-card {
             width: 100%;
-            max-width: 380px;
+            max-width: 360px;
             padding: 20px 16px 16px;
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
+            background-color: var(--color-golden-buttercup);
+            color: #1c1511;
           }
           .podium-crown-ring {
             position: absolute;
-            top: -15px;
+            top: -16px;
             background-color: var(--color-cuphead-red);
             color: var(--color-golden-buttercup);
-            border: 2px solid var(--color-ink-black);
+            border: 2px solid var(--color-ink-stroke);
             border-radius: 999px;
-            width: 36px;
-            height: 36px;
+            width: 34px;
+            height: 34px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: var(--shadow-cel-sm);
           }
           .champion-avatar-box {
-            border: 3px solid var(--color-ink-black);
-            border-radius: 14px;
+            border: 2.5px solid var(--color-ink-stroke);
+            border-radius: 12px;
             overflow: hidden;
             background-color: var(--color-glove-ivory);
-            margin-top: 8px;
+            margin-top: 6px;
             box-shadow: var(--shadow-cel-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           .champion-details {
-            margin-top: 10px;
+            margin-top: 8px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -222,39 +229,40 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           }
           .champion-title-tag {
             font-family: var(--font-theatre-rye);
-            font-size: 10px;
+            font-size: 9.5px;
             letter-spacing: 0.1em;
             color: var(--color-cuphead-red);
+            font-weight: 700;
           }
           .champion-name {
             font-size: 22px;
-            color: var(--color-ink-black);
+            color: #1c1511;
           }
           .champion-score-pill {
             display: flex;
             align-items: center;
             gap: 5px;
             background-color: var(--color-glove-ivory);
-            border: 1.5px solid var(--color-ink-black);
+            border: 1.5px solid var(--color-ink-stroke);
             border-radius: 999px;
             padding: 3px 12px;
             font-family: var(--font-luckiest-guy);
             font-size: 13px;
-            color: var(--color-ink-black);
+            color: #1c1511;
             box-shadow: var(--shadow-cel-sm);
           }
           .runnerups-standings {
             width: 100%;
-            max-width: 380px;
+            max-width: 360px;
             display: flex;
             flex-direction: column;
             gap: 6px;
           }
           .standings-heading {
             font-family: var(--font-theatre-rye);
-            font-size: 10px;
+            font-size: 9.5px;
             letter-spacing: 0.08em;
-            color: #655444;
+            color: var(--color-text-muted);
             text-align: left;
           }
           .standings-list {
@@ -273,20 +281,24 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             box-shadow: var(--shadow-cel-sm);
           }
           .standing-champ-row {
-            background-color: #fff9e6;
-            border-color: var(--color-golden-buttercup);
+            background-color: var(--color-golden-buttercup);
+            border-color: var(--color-ink-stroke);
+            color: #1c1511;
           }
           .standing-rank {
             font-family: var(--font-luckiest-guy);
             font-size: 13px;
             width: 20px;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .standing-avatar {
-            border: 1px solid var(--color-ink-black);
+            border: 1px solid var(--color-ink-stroke);
             border-radius: 4px;
             overflow: hidden;
             margin-right: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
           }
           .standing-name {
             flex: 1;
@@ -294,6 +306,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             font-family: var(--font-comic-fredoka);
             font-weight: 700;
             font-size: 13px;
+            color: var(--color-text-main);
           }
           .standing-score {
             font-family: var(--font-typewriter-elite);
@@ -301,7 +314,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             color: var(--color-cuphead-red);
           }
           .victory-actions-footer {
-            padding: 14px 20px 20px;
+            padding: 12px 18px 16px;
             background-color: var(--color-parchment-deep);
             border-top: var(--border-ink-standard);
             display: flex;
@@ -310,8 +323,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             gap: 12px;
           }
           .rematch-btn {
-            font-size: 16px;
-            padding: 10px 20px;
+            font-size: 15px;
+            padding: 9px 18px;
           }
         `}</style>
       </div>

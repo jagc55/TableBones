@@ -67,11 +67,8 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="profile-pill-meta">
               <span className="profile-pill-name">{userProfile.name}</span>
               <div className="profile-pill-badges">
-                <span className={`auth-badge ${userProfile.isGoogleAuth ? 'auth-google' : 'auth-guest'}`}>
-                  {userProfile.isGoogleAuth ? 'GOOGLE' : 'GUEST'}
-                </span>
                 <span className="trophy-count" title="Achievements">
-                  <Trophy size={12} strokeWidth={2.8} />
+                  <Trophy size={11} strokeWidth={2.8} />
                   <span>
                     {unlockedAchievementsCount}/{totalAchievementsCount}
                   </span>

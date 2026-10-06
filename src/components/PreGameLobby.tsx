@@ -65,7 +65,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
 
   return (
     <div className="lobby-page-container">
-      {/* Top Banner Navigation */}
+      {/* Top Banner Navigation & Ticket Stub */}
       <div className="lobby-top-bar">
         <button
           onClick={() => {
@@ -73,20 +73,20 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
             onLeaveLobby();
           }}
           className="btn-cel btn-brawl-neutral btn-sm"
-          title="Leave Lobby"
+          title="Return to Parlor Browser"
         >
           <ArrowLeft size={16} strokeWidth={2.8} />
           <span>LEAVE LOBBY</span>
         </button>
 
-        {/* Room Code Badge */}
-        <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy room code">
+        {/* Vintage Parlor Admission Ticket */}
+        <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy parlor code">
           <div className="ticket-tag">
-            <span className="ticket-tag-title">ROOM CODE</span>
+            <span className="ticket-tag-title">ADMIT ONE</span>
             <span className="ticket-tag-sub">{room.isPrivate ? 'PRIVATE' : 'PUBLIC'}</span>
           </div>
           <div className="ticket-value">{room.code}</div>
-          <button className="ticket-copy-action" aria-label="Copy code">
+          <button className="ticket-copy-action" aria-label="Copy parlor code">
             {copiedLink ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
           </button>
         </div>
@@ -108,21 +108,16 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
 
             <p className="summary-desc">{gameDef.description}</p>
 
-            <div className="summary-specs-grid">
-              <div className="spec-cell">
-                <span className="spec-label">PLAYERS</span>
-                <span className="spec-value">
-                  Min {room.minPlayers} / Max {room.maxPlayers}
-                </span>
-              </div>
-              <div className="spec-cell">
-                <span className="spec-label">ROUND TIME</span>
-                <span className="spec-value">{room.settings.roundDurationSec} Seconds</span>
-              </div>
-              <div className="spec-cell">
-                <span className="spec-label">ACCESS</span>
-                <span className="spec-value">{room.isPrivate ? 'Code Only' : 'Public'}</span>
-              </div>
+            <div className="summary-meta-chips">
+              <span className="meta-chip">
+                <strong>Capacity:</strong> {room.minPlayers}–{room.maxPlayers} Contenders
+              </span>
+              <span className="meta-chip">
+                <strong>Round Clock:</strong> {room.settings.roundDurationSec}s
+              </span>
+              <span className="meta-chip">
+                <strong>Access:</strong> {room.isPrivate ? 'Ticket Code' : 'Public Lobby'}
+              </span>
             </div>
           </div>
 
@@ -132,7 +127,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
               <div className="roster-header-left">
                 <Users size={18} strokeWidth={2.8} />
                 <h3 className="woodcut-title roster-heading">
-                  PLAYERS ({room.players.length}/{room.maxPlayers})
+                  CONTENDERS ({room.players.length}/{room.maxPlayers})
                 </h3>
               </div>
 
@@ -140,7 +135,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                 <button
                   onClick={handleAddRandomBot}
                   className="btn-cel btn-brawl-secondary btn-sm"
-                  title="Add simulated player to test room"
+                  title="Add simulated contender to test game"
                 >
                   <Bot size={14} strokeWidth={2.6} />
                   <span>ADD BOT</span>
@@ -152,6 +147,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
               {room.players.map((player) => {
                 const isThisPlayerHost = player.id === room.hostId;
                 const isMe = player.id === currentUser.id;
+                const isReady = player.isReady || isThisPlayerHost;
 
                 return (
                   <div
@@ -159,10 +155,10 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                     className={`roster-player-item ${isThisPlayerHost ? 'player-is-host' : ''}`}
                   >
                     <div className="roster-avatar-wrap">
-                      <AvatarIcon id={player.avatarId} size={40} />
+                      <AvatarIcon id={player.avatarId} size={38} />
                       {isThisPlayerHost && (
                         <div className="crown-badge" title="Room Host">
-                          <Crown size={11} strokeWidth={3} />
+                          <Crown size={10} strokeWidth={3} />
                         </div>
                       )}
                     </div>
@@ -170,54 +166,42 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                     <div className="roster-info-wrap">
                       <div className="player-name-row">
                         <strong className="roster-player-name">{player.name}</strong>
-                        {isMe && <span className="you-chip">YOU</span>}
-                        {player.isBot && <span className="bot-chip">BOT</span>}
+                        {isMe && <span className="player-tag you-tag">(You)</span>}
+                        {player.isBot && <span className="player-tag bot-tag">(Bot)</span>}
                       </div>
-
                       <div className="player-subline">
-                        {isThisPlayerHost ? (
-                          <span className="role-tag-host">HOST</span>
-                        ) : (
-                          <span className="role-tag-contender">PLAYER</span>
-                        )}
-                        <span
-                          className={`ready-status-pill ${
-                            player.isReady || isThisPlayerHost ? 'ready-yes' : 'ready-no'
-                          }`}
-                        >
-                          {player.isReady || isThisPlayerHost ? 'READY' : 'NOT READY'}
+                        <span className={`ready-tag ${isReady ? 'ready-tag-yes' : 'ready-tag-waiting'}`}>
+                          {isThisPlayerHost ? 'HOST' : isReady ? 'READY' : 'WAITING'}
                         </span>
                       </div>
                     </div>
 
                     {/* Host Controls: Kick & Transfer */}
-                    <div className="roster-actions">
-                      {isHost && !isMe && (
-                        <div className="host-management-btns">
-                          <button
-                            onClick={() => {
-                              soundstage.playTap();
-                              onTransferHost(player.id);
-                            }}
-                            className="btn-cel btn-brawl-neutral btn-sm"
-                            title="Make this player host"
-                          >
-                            <Crown size={13} strokeWidth={2.5} />
-                            <span>MAKE HOST</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              onKickPlayer(player.id);
-                            }}
-                            className="btn-cel btn-brawl-primary btn-sm kick-btn"
-                            title={`Kick ${player.name} from room`}
-                          >
-                            <UserX size={14} strokeWidth={2.8} />
-                            <span>KICK</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
+                    {isHost && !isMe && (
+                      <div className="roster-actions">
+                        <button
+                          onClick={() => {
+                            soundstage.playTap();
+                            onTransferHost(player.id);
+                          }}
+                          className="btn-cel btn-brawl-neutral btn-sm"
+                          title="Pass host mantle to this contender"
+                        >
+                          <Crown size={12} strokeWidth={2.5} />
+                          <span>PASS CROWN</span>
+                        </button>
+                        <button
+                          onClick={() => {
+                            onKickPlayer(player.id);
+                          }}
+                          className="btn-cel btn-brawl-primary btn-sm kick-btn"
+                          title={`Dismiss ${player.name} from room`}
+                        >
+                          <UserX size={13} strokeWidth={2.8} />
+                          <span>KICK</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -232,8 +216,8 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                       <AlertCircle size={14} strokeWidth={2.5} />
                       <span>
                         {room.players.length < room.minPlayers
-                          ? `Requires at least ${room.minPlayers} players to start.`
-                          : 'Waiting for all players to be ready.'}
+                          ? `Requires at least ${room.minPlayers} players to ring the bell.`
+                          : 'Waiting for all contenders to ready up...'}
                       </span>
                     </div>
                   )}
@@ -246,7 +230,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                     className="btn-cel btn-brawl-primary start-match-btn"
                   >
                     <Play size={18} strokeWidth={3} />
-                    <span>START GAME</span>
+                    <span>START MATCH</span>
                   </button>
                 </div>
               ) : (
@@ -261,10 +245,10 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                     }`}
                   >
                     <Check size={16} strokeWidth={3} />
-                    <span>{myPlayerState?.isReady ? 'CANCEL READY' : 'READY'}</span>
+                    <span>{myPlayerState?.isReady ? 'CANCEL READY' : 'READY TO BOUT'}</span>
                   </button>
                   <span className="waiting-host-hint">
-                    Waiting for the host to start the game...
+                    Waiting for the host to sound the bell...
                   </span>
                 </div>
               )}
@@ -288,9 +272,9 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
 
       <style>{`
         .lobby-page-container {
-          max-width: 1100px;
+          max-width: 1040px;
           margin: 0 auto;
-          padding: 16px 16px 36px;
+          padding: 18px 16px 40px;
           display: flex;
           flex-direction: column;
           gap: 16px;
@@ -305,56 +289,57 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           display: flex;
           align-items: center;
           background-color: var(--color-glove-ivory);
-          border: var(--border-ink-thick);
-          border-radius: 10px;
+          border: var(--border-ink-standard);
+          border-radius: 9px;
           box-shadow: var(--shadow-cel-sm);
           overflow: hidden;
           cursor: pointer;
-          transition: transform 0.1s ease;
+          transition: transform 0.08s ease, box-shadow 0.08s ease;
         }
         .lobby-ticket-hero:hover {
-          transform: translateY(-2px);
+          transform: translateY(-1px);
           box-shadow: var(--shadow-cel-md);
         }
         .ticket-tag {
           background-color: var(--color-cuphead-red);
           color: var(--color-glove-ivory);
-          padding: 6px 12px;
+          padding: 5px 10px;
           display: flex;
           flex-direction: column;
-          border-right: 2px dashed var(--color-ink-black);
+          border-right: 2px dashed var(--color-ink-stroke);
+          line-height: 1.1;
         }
         .ticket-tag-title {
           font-family: var(--font-theatre-rye);
-          font-size: 10px;
+          font-size: 9.5px;
           letter-spacing: 0.08em;
-          line-height: 1;
         }
         .ticket-tag-sub {
           font-family: var(--font-theatre-rye);
-          font-size: 8px;
-          opacity: 0.9;
+          font-size: 7.5px;
+          opacity: 0.85;
+          letter-spacing: 0.04em;
         }
         .ticket-value {
           font-family: var(--font-typewriter-elite);
-          font-size: 18px;
+          font-size: 16px;
           font-weight: 700;
-          letter-spacing: 0.12em;
-          padding: 6px 14px;
-          color: var(--color-ink-black);
+          letter-spacing: 0.1em;
+          padding: 5px 12px;
+          color: var(--color-text-main);
         }
         .ticket-copy-action {
           background: none;
           border: none;
-          padding: 6px 10px;
-          color: var(--color-ink-black);
+          padding: 5px 8px;
+          color: var(--color-text-main);
           cursor: pointer;
           display: flex;
           align-items: center;
         }
         .lobby-grid {
           display: grid;
-          grid-template-columns: 1fr 380px;
+          grid-template-columns: 1fr 370px;
           gap: 16px;
           align-items: start;
         }
@@ -377,7 +362,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         }
         .summary-game-title {
           font-size: 24px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           margin-top: 2px;
         }
         .game-kind-pill {
@@ -385,10 +370,10 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           font-size: 10px;
           letter-spacing: 0.06em;
           background-color: var(--color-golden-buttercup);
-          border: 1.5px solid #1c1511;
+          border: 1.5px solid var(--color-ink-stroke);
           border-radius: 6px;
-          padding: 3px 8px;
-          color: #1c1511;
+          padding: 2px 8px;
+          color: var(--color-ink-black);
           font-weight: 700;
         }
         .summary-desc {
@@ -396,42 +381,39 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           color: var(--color-text-lead);
           line-height: 1.35;
         }
-        .summary-specs-grid {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
-          background-color: var(--color-canvas-parchment);
-          border: 1.5px solid var(--color-ink-black);
-          border-radius: 8px;
-          padding: 8px 12px;
-        }
-        .spec-cell {
+        .summary-meta-chips {
           display: flex;
-          flex-direction: column;
+          gap: 8px;
+          flex-wrap: wrap;
+          padding-top: 4px;
         }
-        .spec-label {
+        .meta-chip {
+          background-color: var(--color-canvas-parchment);
+          border: 1px solid var(--color-ink-stroke);
+          border-radius: 6px;
+          padding: 3px 8px;
+          font-family: var(--font-comic-fredoka);
+          font-size: 12px;
+          color: var(--color-text-main);
+        }
+        .meta-chip strong {
           font-family: var(--font-theatre-rye);
-          font-size: 9px;
-          letter-spacing: 0.08em;
+          font-size: 10px;
+          letter-spacing: 0.04em;
           color: var(--color-cuphead-red);
-        }
-        .spec-value {
-          font-family: var(--font-typewriter-elite);
-          font-size: 12.5px;
-          font-weight: 700;
-          color: var(--color-ink-black);
+          margin-right: 3px;
         }
         .roster-card {
-          padding: 18px 20px;
+          padding: 16px 18px;
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
         }
         .roster-header {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          border-bottom: 2px solid var(--color-ink-black);
+          border-bottom: 2px solid var(--color-ink-stroke);
           padding-bottom: 8px;
         }
         .roster-header-left {
@@ -441,7 +423,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         }
         .roster-heading {
           font-size: 18px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .roster-list {
           display: flex;
@@ -454,9 +436,9 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           justify-content: space-between;
           gap: 10px;
           background-color: var(--color-canvas-parchment);
-          border: var(--border-ink-standard);
-          border-radius: 10px;
-          padding: 8px 12px;
+          border: var(--border-ink-thin);
+          border-radius: 8px;
+          padding: 7px 12px;
           box-shadow: var(--shadow-cel-sm);
         }
         .player-is-host {
@@ -464,22 +446,24 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         }
         .roster-avatar-wrap {
           position: relative;
-          border: 1.5px solid var(--color-ink-black);
-          border-radius: 8px;
-          overflow: visible;
+          border: 1.5px solid var(--color-ink-stroke);
+          border-radius: 6px;
           background-color: var(--color-golden-buttercup);
           flex-shrink: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .crown-badge {
           position: absolute;
-          top: -6px;
-          right: -6px;
+          top: -5px;
+          right: -5px;
           background-color: var(--color-golden-buttercup);
-          color: #1c1511;
-          border: 1.5px solid #1c1511;
+          color: var(--color-ink-black);
+          border: 1px solid var(--color-ink-stroke);
           border-radius: 999px;
-          width: 18px;
-          height: 18px;
+          width: 16px;
+          height: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -500,81 +484,44 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           font-size: 15px;
           color: var(--color-text-main);
         }
-        .you-chip, .bot-chip {
-          font-family: var(--font-theatre-rye);
-          font-size: 8.5px;
-          letter-spacing: 0.05em;
-          padding: 1px 5px;
-          border-radius: 3px;
-          border: 1px solid var(--color-ink-stroke);
-        }
-        .you-chip {
-          background-color: var(--color-golden-buttercup);
-          color: #1c1511;
-          border-color: #1c1511;
-          font-weight: 700;
-        }
-        .bot-chip {
-          background-color: var(--color-parchment-deep);
-          color: var(--color-text-main);
-        }
-        .player-subline {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .role-tag-host {
-          font-family: var(--font-theatre-rye);
-          font-size: 9px;
-          color: var(--color-cuphead-red);
-          font-weight: bold;
-        }
-        .role-tag-contender {
-          font-family: var(--font-theatre-rye);
-          font-size: 9px;
+        .player-tag {
+          font-size: 11.5px;
+          font-family: var(--font-comic-fredoka);
           color: var(--color-text-muted);
         }
-        .ready-status-pill {
+        .you-tag {
+          color: var(--color-cuphead-red);
+          font-weight: 600;
+        }
+        .ready-tag {
           font-family: var(--font-theatre-rye);
-          font-size: 8.5px;
-          letter-spacing: 0.05em;
-          padding: 1px 5px;
-          border-radius: 3px;
+          font-size: 9px;
+          letter-spacing: 0.06em;
+          padding: 1px 6px;
+          border-radius: 4px;
           border: 1px solid var(--color-ink-stroke);
+          align-self: flex-start;
+          display: inline-block;
         }
-        .ready-yes {
-          background-color: #d4edd2;
-          color: #1f5e1f;
+        .ready-tag-yes {
+          background-color: var(--color-status-success-bg);
+          color: var(--color-status-success-text);
         }
-        .ready-no {
-          background-color: #fcedd0;
-          color: #8c5b1b;
-        }
-        [data-theme="night"] .ready-yes {
-          background-color: rgba(98, 216, 151, 0.2);
-          color: #62d897;
-          border-color: #62d897;
-        }
-        [data-theme="night"] .ready-no {
-          background-color: rgba(230, 72, 67, 0.2);
-          color: #ff8580;
-          border-color: #ff8580;
+        .ready-tag-waiting {
+          background-color: var(--color-status-warn-bg);
+          color: var(--color-status-warn-text);
         }
         .roster-actions {
           display: flex;
           align-items: center;
           gap: 6px;
         }
-        .host-management-btns {
-          display: flex;
-          gap: 5px;
-        }
         .kick-btn {
           background-color: var(--color-cuphead-red);
         }
         .roster-footer-controls {
-          margin-top: 6px;
-          padding-top: 14px;
+          margin-top: 4px;
+          padding-top: 12px;
           border-top: 1.5px dashed var(--color-ink-stroke);
         }
         .host-start-wrapper {
@@ -586,14 +533,14 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           display: flex;
           align-items: center;
           gap: 6px;
-          font-size: 12px;
+          font-size: 12.5px;
           color: var(--color-cuphead-red);
           font-weight: 600;
         }
         .start-match-btn {
           width: 100%;
-          font-size: 17px;
-          padding: 12px;
+          font-size: 16px;
+          padding: 11px;
         }
         .contender-ready-wrapper {
           display: flex;
@@ -607,8 +554,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           padding: 10px;
         }
         .waiting-host-hint {
-          font-size: 11.5px;
-          font-style: italic;
+          font-size: 12px;
           color: var(--color-text-muted);
         }
         .lobby-right-column {
@@ -621,7 +567,6 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
 
         @media (max-width: 800px) {
           .lobby-grid { grid-template-columns: 1fr; }
-          .summary-specs-grid { grid-template-columns: 1fr; }
           .roster-player-item { flex-direction: column; align-items: flex-start; }
           .roster-actions { width: 100%; justify-content: flex-end; }
         }

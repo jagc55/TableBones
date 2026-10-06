@@ -30,9 +30,9 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
       {toasts.map((toast) => (
         <div key={toast.id} className={`toast-card toast-${toast.type}`}>
           <div className="toast-icon-badge">
-            {toast.type === 'achievement' && <Trophy size={20} strokeWidth={2.8} />}
-            {toast.type === 'alert' && <AlertCircle size={20} strokeWidth={2.8} />}
-            {toast.type === 'info' && <Info size={20} strokeWidth={2.8} />}
+            {toast.type === 'achievement' && <Trophy size={18} strokeWidth={2.8} />}
+            {toast.type === 'alert' && <AlertCircle size={18} strokeWidth={2.8} />}
+            {toast.type === 'info' && <Info size={18} strokeWidth={2.8} />}
           </div>
           <div className="toast-body">
             <span className="toast-eyebrow">
@@ -46,7 +46,7 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
             className="toast-close-btn"
             aria-label="Dismiss toast"
           >
-            <X size={16} strokeWidth={3} />
+            <X size={15} strokeWidth={3} />
           </button>
         </div>
       ))}
@@ -59,8 +59,8 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
           z-index: 1200;
           display: flex;
           flex-direction: column;
-          gap: 12px;
-          max-width: 380px;
+          gap: 10px;
+          max-width: 360px;
           pointer-events: none;
         }
         .toast-card {
@@ -76,24 +76,32 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
           animation: toastPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
         .toast-achievement {
-          border-color: var(--color-ink-black);
+          border-color: var(--color-ink-stroke);
           background-color: var(--color-golden-buttercup);
+          color: #1c1511;
+        }
+        .toast-achievement .toast-title {
+          color: #1c1511;
+        }
+        .toast-achievement .toast-msg {
+          color: #2b1e17;
         }
         .toast-alert {
-          border-color: var(--color-ink-black);
-          background-color: #fce8e6;
+          border-color: var(--color-ink-stroke);
+          background-color: var(--color-status-error-bg);
+          color: var(--color-status-error-text);
         }
         .toast-icon-badge {
           background-color: var(--color-canvas-parchment);
-          border: 2px solid var(--color-ink-black);
-          border-radius: 8px;
-          width: 36px;
-          height: 36px;
+          border: 1.5px solid var(--color-ink-stroke);
+          border-radius: 7px;
+          width: 32px;
+          height: 32px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
-          box-shadow: 2px 2px 0 var(--color-ink-black);
+          box-shadow: 1.5px 1.5px 0 var(--color-ink-stroke);
         }
         .toast-achievement .toast-icon-badge {
           background-color: var(--color-cuphead-red);
@@ -108,31 +116,31 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
         }
         .toast-eyebrow {
           font-family: var(--font-theatre-rye);
-          font-size: 10px;
+          font-size: 9.5px;
           letter-spacing: 0.1em;
           color: var(--color-cuphead-red);
           display: block;
         }
         .toast-title {
           font-family: var(--font-luckiest-guy);
-          font-size: 16px;
+          font-size: 15px;
           letter-spacing: 0.04em;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           line-height: 1.1;
           margin: 2px 0;
         }
         .toast-msg {
           font-family: var(--font-comic-fredoka);
-          font-size: 13px;
+          font-size: 12.5px;
           font-weight: 500;
           line-height: 1.3;
-          color: var(--color-ink-stroke);
+          color: var(--color-text-lead);
         }
         .toast-close-btn {
           background: none;
           border: none;
           cursor: pointer;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           padding: 2px;
           opacity: 0.7;
           transition: opacity 0.1s ease;
@@ -141,8 +149,14 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
           opacity: 1;
         }
         @keyframes toastPop {
-          0% { transform: translateY(20px) scale(0.9); opacity: 0; }
-          100% { transform: translateY(0) scale(1); opacity: 1; }
+          0% {
+            transform: translateY(12px) scale(0.96);
+            opacity: 0;
+          }
+          100% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
         }
       `}</style>
     </div>

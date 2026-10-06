@@ -57,7 +57,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* Chat Header */}
       <div className="chat-header">
         <div className="chat-header-title">
-          <MessageSquare size={16} strokeWidth={2.8} />
+          <MessageSquare size={15} strokeWidth={2.8} />
           <span>{title}</span>
         </div>
       </div>
@@ -66,7 +66,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       <div className="chat-messages-viewport">
         {messages.length === 0 ? (
           <div className="chat-empty-slate">
-            <span>No messages yet.</span>
+            <span>No parlor dispatches yet.</span>
           </div>
         ) : (
           messages.map((msg) => {
@@ -91,7 +91,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               >
                 {!isMe && (
                   <div className="bubble-avatar-box">
-                    <AvatarIcon id={msg.senderAvatarId} size={28} />
+                    <AvatarIcon id={msg.senderAvatarId} size={26} />
                   </div>
                 )}
 
@@ -104,7 +104,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                         className={`msg-mute-btn ${isMuted ? 'is-muted' : ''}`}
                         title={isMuted ? `Unmute ${msg.senderName}` : `Mute ${msg.senderName}`}
                       >
-                        {isMuted ? <VolumeX size={12} strokeWidth={2.8} /> : <Volume2 size={12} strokeWidth={2.2} />}
+                        {isMuted ? <VolumeX size={11} strokeWidth={2.8} /> : <Volume2 size={11} strokeWidth={2.2} />}
                         <span>{isMuted ? 'MUTED' : 'MUTE'}</span>
                       </button>
                     )}
@@ -112,8 +112,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
                   {isMuted && !isRevealed ? (
                     <div className="muted-hidden-placeholder" onClick={() => toggleRevealMuted(msg.id)}>
-                      <VolumeX size={13} strokeWidth={2.5} />
-                      <span>Message hidden (Player muted). Click to reveal.</span>
+                      <VolumeX size={12} strokeWidth={2.5} />
+                      <span>Message hidden (muted). Click to reveal.</span>
                     </div>
                   ) : (
                     <div className={`chat-bubble ${isMe ? 'chat-bubble-primary' : 'chat-bubble-neutral'}`}>
@@ -134,7 +134,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Type a message..."
+          placeholder="Speak to the table..."
           maxLength={140}
           className="ink-input chat-text-input"
         />
@@ -144,7 +144,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           className="btn-cel btn-brawl-primary btn-sm chat-send-btn"
           aria-label="Send message"
         >
-          <Send size={14} strokeWidth={2.8} />
+          <Send size={13} strokeWidth={2.8} />
           <span>SEND</span>
         </button>
       </form>
@@ -176,7 +176,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           font-family: var(--font-luckiest-guy);
           font-size: 13px;
           letter-spacing: 0.05em;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .chat-messages-viewport {
           flex: 1 1 0px;
@@ -191,24 +191,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         .chat-empty-slate {
           margin: auto;
           text-align: center;
-          font-size: 13px;
-          color: #887766;
+          font-size: 12.5px;
+          color: var(--color-text-muted);
           font-style: italic;
         }
         .chat-msg-system {
           display: flex;
           justify-content: center;
-          margin: 3px 0;
+          margin: 2px 0;
         }
         .system-pill {
           background-color: var(--color-parchment-deep);
-          border: 1.5px dashed var(--color-ink-black);
+          border: 1px dashed var(--color-ink-stroke);
           border-radius: 6px;
-          padding: 3px 8px;
+          padding: 2px 8px;
           font-family: var(--font-theatre-rye);
-          font-size: 10px;
+          font-size: 9.5px;
           letter-spacing: 0.05em;
-          color: var(--color-ink-black);
+          color: var(--color-text-muted);
           text-align: center;
         }
         .chat-bubble-row {
@@ -226,10 +226,13 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         }
         .bubble-avatar-box {
           flex-shrink: 0;
-          border: 1.5px solid var(--color-ink-black);
-          border-radius: 7px;
+          border: 1.5px solid var(--color-ink-stroke);
+          border-radius: 6px;
           overflow: hidden;
           background-color: var(--color-golden-buttercup);
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .bubble-content-wrap {
           display: flex;
@@ -239,13 +242,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         .bubble-meta {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 6px;
           font-size: 11px;
         }
         .bubble-author {
           font-family: var(--font-luckiest-guy);
           letter-spacing: 0.03em;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
+          font-size: 12px;
         }
         .msg-mute-btn {
           background: none;
@@ -254,11 +258,11 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           align-items: center;
           gap: 2px;
           font-family: var(--font-theatre-rye);
-          font-size: 9px;
+          font-size: 8.5px;
           cursor: pointer;
-          color: #887766;
+          color: var(--color-text-muted);
           padding: 1px 4px;
-          border-radius: 4px;
+          border-radius: 3px;
         }
         .msg-mute-btn:hover {
           color: var(--color-cuphead-red);
@@ -269,20 +273,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           font-weight: bold;
         }
         .chat-bubble {
-          padding: 7px 11px;
-          border-radius: 10px;
+          padding: 6px 11px;
+          border-radius: 9px;
           border: var(--border-ink-thin);
-          box-shadow: 1.5px 1.5px 0 var(--color-ink-black);
+          box-shadow: 1.5px 1.5px 0 var(--color-shadow-solid);
           word-break: break-word;
         }
         .chat-bubble-primary {
           background-color: var(--color-cuphead-red);
-          color: var(--color-glove-ivory);
+          color: #ffffff;
           border-bottom-right-radius: 2px;
         }
         .chat-bubble-neutral {
           background-color: var(--color-glove-ivory);
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           border-bottom-left-radius: 2px;
         }
         .bubble-text {
@@ -292,10 +296,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           margin: 0;
         }
         .muted-hidden-placeholder {
-          background-color: #eedcd6;
-          border: 1.5px dashed var(--color-cuphead-red);
-          color: var(--color-cuphead-red);
-          padding: 5px 8px;
+          background-color: var(--color-status-error-bg);
+          border: 1.5px dashed var(--color-status-error-text);
+          color: var(--color-status-error-text);
+          padding: 4px 8px;
           border-radius: 6px;
           font-size: 11px;
           display: flex;
@@ -303,9 +307,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           gap: 5px;
           cursor: pointer;
           user-select: none;
-        }
-        .muted-hidden-placeholder:hover {
-          background-color: #f8cfc8;
         }
         .chat-input-bar {
           display: flex;

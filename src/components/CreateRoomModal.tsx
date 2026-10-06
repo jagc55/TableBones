@@ -75,8 +75,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         {/* Header */}
         <div className="modal-header-strip">
           <div>
-            <span className="ribbon-banner">NEW GAME ROOM</span>
-            <h2 className="woodcut-title modal-title">CREATE ROOM</h2>
+            <span className="ribbon-banner">PARLOR SETUP</span>
+            <h2 className="woodcut-title modal-title">OPEN NEW TABLE</h2>
           </div>
           <button onClick={onClose} className="btn-cel btn-brawl-neutral btn-icon-sq" aria-label="Close">
             <X size={18} strokeWidth={3} />
@@ -86,7 +86,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         <form onSubmit={handleSubmit} className="create-room-form">
           {/* Step 1: Select Game */}
           <div className="form-group">
-            <label className="group-label">1. SELECT GAME</label>
+            <label className="group-label">1. CHOOSE GAME</label>
             <div className="game-selection-grid">
               {GAMES_CATALOG.map((game) => {
                 const isSelected = game.id === selectedGameId;
@@ -103,7 +103,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                       <span className="game-opt-title">{game.title}</span>
                       {isSelected && (
                         <div className="game-check-bubble">
-                          <Check size={12} strokeWidth={3} />
+                          <Check size={11} strokeWidth={3} />
                         </div>
                       )}
                     </div>
@@ -120,7 +120,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
           {/* Step 2: Room Name */}
           <div className="form-group">
-            <label className="group-label">2. ROOM NAME</label>
+            <label className="group-label">2. TABLE NAME</label>
             <input
               type="text"
               value={roomTitle}
@@ -134,7 +134,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
           {/* Step 3: Visibility */}
           <div className="form-group">
-            <label className="group-label">3. ROOM VISIBILITY</label>
+            <label className="group-label">3. PARLOR ACCESS</label>
             <div className="privacy-toggle-grid">
               <button
                 type="button"
@@ -148,8 +148,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   <Globe size={18} strokeWidth={2.8} />
                 </div>
                 <div className="toggle-info">
-                  <strong className="toggle-name">PUBLIC ROOM</strong>
-                  <span className="toggle-desc">Listed in the room browser for other players to find and join.</span>
+                  <strong className="toggle-name">PUBLIC TABLE</strong>
+                  <span className="toggle-desc">Listed on the main parlor board for any contender to join.</span>
                 </div>
               </button>
 
@@ -165,8 +165,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                   <Lock size={18} strokeWidth={2.8} />
                 </div>
                 <div className="toggle-info">
-                  <strong className="toggle-name">PRIVATE ROOM</strong>
-                  <span className="toggle-desc">Hidden from the browser. Players join using the room code only.</span>
+                  <strong className="toggle-name">PRIVATE TABLE</strong>
+                  <span className="toggle-desc">Hidden from the public browser. Requires code ticket to enter.</span>
                 </div>
               </button>
             </div>
@@ -174,7 +174,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
           {/* Step 4: Round Duration */}
           <div className="form-group">
-            <label className="group-label">4. ROUND TIMER</label>
+            <label className="group-label">4. ROUND DURATION</label>
             <div className="clock-options-row">
               {[60, 120, 180, 240].map((dur) => (
                 <button
@@ -200,66 +200,67 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
               className="btn-cel btn-brawl-primary create-submit-btn"
             >
               <Plus size={18} strokeWidth={3} />
-              <span>CREATE ROOM & ENTER LOBBY</span>
+              <span>CREATE TABLE & ENTER LOBBY</span>
             </button>
           </div>
         </form>
 
         <style>{`
           .create-modal-box {
-            max-width: 620px;
+            max-width: 600px;
           }
           .modal-header-strip {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 16px 20px 12px;
+            padding: 14px 18px 10px;
             border-bottom: var(--border-ink-standard);
             background-color: var(--color-parchment-deep);
           }
           .modal-title {
             font-size: 22px;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .create-room-form {
-            padding: 20px;
+            padding: 18px;
             display: flex;
             flex-direction: column;
-            gap: 16px;
+            gap: 14px;
           }
           .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
           }
           .group-label {
             font-family: var(--font-theatre-rye);
-            font-size: 11px;
+            font-size: 10px;
             letter-spacing: 0.08em;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .game-selection-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 8px;
           }
           .game-card-option {
             background-color: var(--color-glove-ivory);
-            border: var(--border-ink-standard);
-            border-radius: 10px;
-            padding: 10px;
+            border: var(--border-ink-thin);
+            border-radius: 9px;
+            padding: 9px 11px;
             cursor: pointer;
             box-shadow: var(--shadow-cel-sm);
             transition: transform 0.08s ease;
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 4px;
           }
           .game-card-option:hover {
             transform: translateY(-2px);
           }
           .game-card-selected {
-            background-color: #fff9e8;
+            background-color: var(--color-golden-buttercup);
+            border: var(--border-ink-standard);
             border-color: var(--color-cuphead-red);
             box-shadow: 0 0 0 2px var(--color-cuphead-red);
           }
@@ -271,43 +272,49 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           .game-opt-title {
             font-family: var(--font-luckiest-guy);
             font-size: 14px;
+            color: var(--color-text-main);
+          }
+          .game-card-selected .game-opt-title {
             color: var(--color-ink-black);
           }
           .game-check-bubble {
             background-color: var(--color-cuphead-red);
             color: var(--color-glove-ivory);
             border-radius: 999px;
-            width: 16px;
-            height: 16px;
+            width: 15px;
+            height: 15px;
             display: flex;
             align-items: center;
             justify-content: center;
           }
           .game-opt-desc {
             font-size: 11.5px;
-            color: #554433;
+            color: var(--color-text-lead);
             line-height: 1.25;
             flex: 1;
+          }
+          .game-card-selected .game-opt-desc {
+            color: var(--color-ink-stroke);
           }
           .game-opt-footer {
             display: flex;
             justify-content: space-between;
             font-family: var(--font-typewriter-elite);
             font-size: 9.5px;
-            color: var(--color-ink-stroke);
-            border-top: 1px dashed rgba(28, 21, 17, 0.2);
+            color: var(--color-text-muted);
+            border-top: 1px dashed var(--color-ink-stroke);
             padding-top: 3px;
           }
           .privacy-toggle-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
+            gap: 8px;
           }
           .privacy-toggle-card {
             background-color: var(--color-glove-ivory);
-            border: var(--border-ink-standard);
-            border-radius: 10px;
-            padding: 10px;
+            border: var(--border-ink-thin);
+            border-radius: 9px;
+            padding: 9px;
             display: flex;
             align-items: flex-start;
             gap: 8px;
@@ -317,14 +324,15 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           }
           .privacy-toggle-card.toggle-active {
             background-color: var(--color-golden-buttercup);
-            border-color: var(--color-ink-black);
+            border: var(--border-ink-standard);
+            border-color: var(--color-ink-stroke);
           }
           .toggle-icon-wrap {
             background-color: var(--color-parchment-deep);
-            border: 1.5px solid var(--color-ink-black);
-            border-radius: 7px;
-            width: 32px;
-            height: 32px;
+            border: 1.5px solid var(--color-ink-stroke);
+            border-radius: 6px;
+            width: 30px;
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -341,12 +349,18 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           .toggle-name {
             font-family: var(--font-luckiest-guy);
             font-size: 13px;
+            color: var(--color-text-main);
+          }
+          .privacy-toggle-card.toggle-active .toggle-name {
             color: var(--color-ink-black);
           }
           .toggle-desc {
             font-size: 11px;
-            color: #4b3d32;
+            color: var(--color-text-lead);
             line-height: 1.2;
+          }
+          .privacy-toggle-card.toggle-active .toggle-desc {
+            color: var(--color-ink-stroke);
           }
           .clock-options-row {
             display: flex;
@@ -360,22 +374,24 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             gap: 4px;
             padding: 7px;
             background-color: var(--color-glove-ivory);
-            border: var(--border-ink-standard);
+            border: var(--border-ink-thin);
             border-radius: 7px;
             font-family: var(--font-theatre-rye);
             font-size: 11px;
+            color: var(--color-text-main);
             cursor: pointer;
           }
           .duration-selected {
             background-color: var(--color-cuphead-red);
             color: var(--color-glove-ivory);
+            border-color: var(--color-ink-stroke);
           }
           .create-actions-footer {
-            margin-top: 6px;
+            margin-top: 4px;
           }
           .create-submit-btn {
             width: 100%;
-            font-size: 16px;
+            font-size: 15.5px;
             padding: 11px;
           }
 

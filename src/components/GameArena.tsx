@@ -97,13 +97,13 @@ export const GameArena: React.FC<GameArenaProps> = ({
         <div className={`brass-stopwatch-housing ${isUrgentTimer ? 'timer-urgent animate-tremble' : ''}`}>
           <div className="stopwatch-dial">
             <svg width="72" height="72" viewBox="0 0 72 72" className="stopwatch-svg">
-              <circle cx="36" cy="36" r={radius} fill="none" stroke="#2b1e17" strokeWidth="6" />
+              <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--color-parchment-deep)" strokeWidth="6" />
               <circle
                 cx="36"
                 cy="36"
                 r={radius}
                 fill="none"
-                stroke={isUrgentTimer ? '#d33833' : '#f6c445'}
+                stroke={isUrgentTimer ? 'var(--color-cuphead-red)' : 'var(--color-golden-buttercup)'}
                 strokeWidth="5"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
@@ -113,7 +113,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
             </svg>
             <div className="stopwatch-digits">
               <span className="digits-val">{formatTime(timeLeftSec)}</span>
-              <span className="digits-sub">{isUrgentTimer ? 'URGENT' : 'TIME'}</span>
+              <span className="digits-sub">{isUrgentTimer ? 'URGENT' : 'CLOCK'}</span>
             </div>
           </div>
         </div>
@@ -121,41 +121,27 @@ export const GameArena: React.FC<GameArenaProps> = ({
         {/* Center: Match Details & Room Code */}
         <div className="hud-center-meta">
           <div className="ticket-stub">
-            <span className="ticket-stub-label">ROOM</span>
+            <span className="ticket-stub-label">PARLOR</span>
             <span className="ticket-stub-code">{room.code}</span>
           </div>
           <h2 className="woodcut-title hud-room-title">{room.title}</h2>
           <span className="hud-quorum-text">
-            Min Players: {room.minPlayers} · Active Players: {room.players.length}
+            Quorum: {room.minPlayers} players · Active: {room.players.length}
           </span>
         </div>
 
-        {/* Right: Simulation helper & Leave Game */}
+        {/* Right: Leave Game Action */}
         <div className="hud-actions-right">
-          {room.players.length > 1 && (
-            <button
-              onClick={() => {
-                soundstage.playBulbHorn();
-                onSimulateOpponentLeave();
-              }}
-              className="btn-cel btn-brawl-neutral btn-sm"
-              title="Simulate an opponent leaving to test walkover win logic"
-            >
-              <UserMinus size={14} strokeWidth={2.8} />
-              <span>SIMULATE OPPONENT LEAVING</span>
-            </button>
-          )}
-
           <button
             onClick={() => {
               soundstage.playTap();
               setShowForfeitModal(true);
             }}
             className="btn-cel btn-brawl-primary btn-sm"
-            title="Leave this game"
+            title="Leave this bout"
           >
             <LogOut size={15} strokeWidth={3} />
-            <span>LEAVE GAME</span>
+            <span>FORFEIT BOUT</span>
           </button>
         </div>
       </div>
@@ -166,7 +152,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
         <div className="arena-center-stage">
           {/* Scoreboard */}
           <div className="cel-card ring-scoreboard-strip">
-            <span className="scoreboard-title">SCOREBOARD:</span>
+            <span className="scoreboard-title">ROUND STANDINGS:</span>
             <div className="scoreboard-players-row">
               {room.players.map((p) => {
                 const isMe = p.id === currentUser.id;
@@ -174,14 +160,14 @@ export const GameArena: React.FC<GameArenaProps> = ({
                 return (
                   <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
                     <div className="score-avatar-wrap">
-                      <AvatarIcon id={p.avatarId} size={20} />
+                      <AvatarIcon id={p.avatarId} size={22} />
                       {isHost && (
                         <div className="chip-crown" title="Host">
                           <Crown size={8} strokeWidth={3} />
                         </div>
                       )}
                     </div>
-                    <span className="score-chip-name">{p.name}</span>
+                    <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
                     <strong className="score-chip-pts">{p.score} PTS</strong>
                   </div>
                 );
@@ -197,6 +183,24 @@ export const GameArena: React.FC<GameArenaProps> = ({
             onPlayerScore={onPlayerScore}
             onActionNotification={onDispatchSystemNotice}
           />
+
+          {/* Discreet Developer / Testing Harness */}
+          {room.players.length > 1 && (
+            <div className="arena-test-bar">
+              <span className="test-bar-label">TESTING HARNESS:</span>
+              <button
+                onClick={() => {
+                  soundstage.playBulbHorn();
+                  onSimulateOpponentLeave();
+                }}
+                className="btn-cel btn-brawl-neutral btn-sm test-btn"
+                title="Simulate an opponent leaving to trigger walkover win rules"
+              >
+                <UserMinus size={13} strokeWidth={2.5} />
+                <span>Simulate Rival Leaving (Walkover Test)</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Fixed-height Chat Sidebar */}
@@ -219,16 +223,13 @@ export const GameArena: React.FC<GameArenaProps> = ({
           <div className="modal-content forfeit-modal" onClick={(e) => e.stopPropagation()}>
             <div className="forfeit-header">
               <AlertTriangle size={28} strokeWidth={2.8} className="forfeit-icon" />
-              <h3 className="woodcut-title forfeit-title">LEAVE THIS MATCH?</h3>
+              <h3 className="woodcut-title forfeit-title">FORFEIT THIS BOUT?</h3>
             </div>
 
             <p className="forfeit-warning-text">
-              Are you sure you want to leave the game?
+              Leaving the ring now will surrender your score.
               {currentUserPlayer.isHost && (
-                <strong> As the host, leadership of the room will automatically pass to another player.</strong>
-              )}
-              {room.players.length <= room.minPlayers && (
-                <span> If active players drop below the minimum required ({room.minPlayers}), the remaining player will win automatically!</span>
+                <strong> Room leadership will pass to the next active contender.</strong>
               )}
             </p>
 
@@ -237,13 +238,13 @@ export const GameArena: React.FC<GameArenaProps> = ({
                 onClick={() => setShowForfeitModal(false)}
                 className="btn-cel btn-brawl-neutral btn-sm"
               >
-                STAY IN GAME
+                STAY IN RING
               </button>
               <button
                 onClick={handleConfirmForfeit}
                 className="btn-cel btn-brawl-primary btn-sm"
               >
-                YES, LEAVE GAME
+                FORFEIT & LEAVE
               </button>
             </div>
           </div>
@@ -252,9 +253,9 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
       <style>{`
         .arena-page-layout {
-          max-width: 1120px;
+          max-width: 1080px;
           margin: 0 auto;
-          padding: 14px 16px 36px;
+          padding: 16px 16px 40px;
           display: flex;
           flex-direction: column;
           gap: 14px;
@@ -267,7 +268,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
           gap: 14px;
         }
         .brass-stopwatch-housing {
-          background-color: var(--color-parchment-deep);
+          background-color: var(--color-canvas-parchment);
           border: var(--border-ink-thick);
           border-radius: 999px;
           padding: 2px;
@@ -276,8 +277,8 @@ export const GameArena: React.FC<GameArenaProps> = ({
         }
         .stopwatch-dial {
           position: relative;
-          width: 72px;
-          height: 72px;
+          width: 68px;
+          height: 68px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -295,8 +296,8 @@ export const GameArena: React.FC<GameArenaProps> = ({
         }
         .digits-val {
           font-family: var(--font-luckiest-guy);
-          font-size: 18px;
-          color: var(--color-ink-black);
+          font-size: 17px;
+          color: var(--color-text-main);
           letter-spacing: 0.04em;
         }
         .digits-sub {
@@ -305,24 +306,21 @@ export const GameArena: React.FC<GameArenaProps> = ({
           letter-spacing: 0.1em;
           color: var(--color-cuphead-red);
         }
-        .timer-urgent circle:nth-child(2) {
-          stroke: #d33833;
-        }
         .hud-center-meta {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 2px;
+          gap: 3px;
           text-align: center;
         }
         .hud-room-title {
           font-size: 22px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .hud-quorum-text {
           font-family: var(--font-typewriter-elite);
           font-size: 11px;
-          color: #655444;
+          color: var(--color-text-muted);
         }
         .hud-actions-right {
           display: flex;
@@ -331,7 +329,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
         }
         .arena-stage-grid {
           display: grid;
-          grid-template-columns: 1fr 380px;
+          grid-template-columns: 1fr 370px;
           gap: 14px;
           align-items: start;
         }
@@ -366,35 +364,63 @@ export const GameArena: React.FC<GameArenaProps> = ({
           background-color: var(--color-canvas-parchment);
           border: var(--border-ink-thin);
           border-radius: 7px;
-          padding: 3px 8px;
+          padding: 4px 10px;
           box-shadow: var(--shadow-cel-sm);
-          font-size: 12px;
+          font-size: 12.5px;
         }
         .score-chip-me {
           background-color: var(--color-golden-buttercup);
-          border-color: var(--color-ink-black);
+          border-color: var(--color-ink-stroke);
+          color: var(--color-ink-black);
         }
         .score-avatar-wrap {
           position: relative;
+          display: flex;
+          align-items: center;
         }
         .chip-crown {
           position: absolute;
-          top: -3px;
-          right: -3px;
+          top: -4px;
+          right: -4px;
           background-color: var(--color-golden-buttercup);
+          border: 1px solid var(--color-ink-stroke);
           border-radius: 999px;
           display: flex;
           align-items: center;
           justify-content: center;
+          width: 12px;
+          height: 12px;
         }
         .score-chip-name {
           font-family: var(--font-luckiest-guy);
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .score-chip-pts {
           font-family: var(--font-typewriter-elite);
           font-size: 12px;
           color: var(--color-cuphead-red);
+          font-weight: 700;
+        }
+        .arena-test-bar {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 12px;
+          background-color: var(--color-parchment-deep);
+          border: 1.5px dashed var(--color-ink-stroke);
+          border-radius: 8px;
+          opacity: 0.85;
+          margin-top: 4px;
+        }
+        .test-bar-label {
+          font-family: var(--font-theatre-rye);
+          font-size: 9px;
+          letter-spacing: 0.08em;
+          color: var(--color-text-muted);
+        }
+        .test-btn {
+          font-size: 12px;
+          padding: 4px 10px;
         }
         .arena-chat-sidebar {
           height: 100%;
@@ -404,8 +430,8 @@ export const GameArena: React.FC<GameArenaProps> = ({
           height: 520px;
         }
         .forfeit-modal {
-          max-width: 420px;
-          padding: 20px;
+          max-width: 400px;
+          padding: 22px;
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -422,12 +448,12 @@ export const GameArena: React.FC<GameArenaProps> = ({
         }
         .forfeit-title {
           font-size: 20px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .forfeit-warning-text {
           font-size: 13.5px;
-          color: #4b3d32;
-          line-height: 1.35;
+          color: var(--color-text-lead);
+          line-height: 1.4;
         }
         .forfeit-modal-actions {
           display: flex;

@@ -100,6 +100,13 @@ export const App: React.FC = () => {
   useEffect(() => {
     const savedTheme = loadTheme();
     document.documentElement.setAttribute('data-theme', savedTheme);
+    try {
+      localStorage.removeItem('tb_temp_palette_id');
+      localStorage.removeItem('tb_temp_font_id');
+      document.documentElement.removeAttribute('style');
+    } catch {
+      // Ignore storage access errors
+    }
   }, []);
 
   // Persist Profile & Achievements changes

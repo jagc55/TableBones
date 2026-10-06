@@ -60,7 +60,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
     const alreadySelected = selectedCoords.some((coord) => coord.r === r && coord.c === c);
     if (alreadySelected) {
       soundstage.playSlideDown();
-      setFeedbackMsg({ text: 'Tile already used in this word!', isError: true });
+      setFeedbackMsg({ text: 'Tile already connected in current word!', isError: true });
       return;
     }
 
@@ -71,7 +71,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
       const colDiff = Math.abs(last.c - c);
       if (rowDiff > 1 || colDiff > 1) {
         soundstage.playSlideDown();
-        setFeedbackMsg({ text: 'Must connect to adjacent dice!', isError: true });
+        setFeedbackMsg({ text: 'Must connect to an adjacent die!', isError: true });
         return;
       }
     }
@@ -88,13 +88,13 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
     const word = currentConstructedWord;
     if (word.length < 3) {
       soundstage.playSlideDown();
-      setFeedbackMsg({ text: 'Words must be at least 3 letters!', isError: true });
+      setFeedbackMsg({ text: 'Words require at least 3 letters!', isError: true });
       return;
     }
 
     if (foundWords.includes(word)) {
       soundstage.playBulbHorn();
-      setFeedbackMsg({ text: `Already claimed "${word}"!`, isError: true });
+      setFeedbackMsg({ text: `Already claimed "${word}" this round!`, isError: true });
       setSelectedCoords([]);
       return;
     }
@@ -129,10 +129,10 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
     const wasBluff = matchCount < currentBid.count;
     if (wasBluff) {
       onPlayerScore(currentUserPlayer.id, 8);
-      setBluffResult(`BLUFF CAUGHT! Only ${matchCount} of face ${currentBid.face} existed. You scored +8 pts!`);
+      setBluffResult(`BLUFF CAUGHT! Only ${matchCount} of Face ${currentBid.face} existed. +8 PTS!`);
       onActionNotification(`${currentUserPlayer.name} exposed a treacherous liar!`);
     } else {
-      setBluffResult(`BID WAS HONEST! ${matchCount} dice matched. No penalty, play continues!`);
+      setBluffResult(`BID WAS HONEST! ${matchCount} dice matched. Bout continues!`);
       onActionNotification(`${currentUserPlayer.name} called an honest bid.`);
     }
   };
@@ -145,16 +145,12 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           {/* Top Word Capsule */}
           <div className="word-capsule-strip">
             <div className="capsule-left">
-              <span className="capsule-label">CURRENT FORMATION:</span>
+              <span className="capsule-label">CONNECTED TILES:</span>
               <div className="capsule-word-display">
                 {currentConstructedWord ? (
-                  currentConstructedWord.split('').map((letter, idx) => (
-                    <span key={idx} className="capsule-letter">
-                      {letter}
-                    </span>
-                  ))
+                  <span className="constructed-word-text">{currentConstructedWord}</span>
                 ) : (
-                  <span className="capsule-placeholder">CONNECT ADJACENT DICE TILES...</span>
+                  <span className="capsule-placeholder">Tap adjacent letter dice to build words...</span>
                 )}
               </div>
             </div>
@@ -176,7 +172,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
                 title="Submit word"
               >
                 <Check size={16} strokeWidth={2.8} />
-                <span>SUBMIT</span>
+                <span>SUBMIT ({currentConstructedWord.length >= 3 ? `+${currentConstructedWord.length * 2 + (currentConstructedWord.length >= 5 ? 4 : 0)} PTS` : '3+ LTRS'})</span>
               </button>
             </div>
           </div>
@@ -184,7 +180,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           {/* Toast feedback banner */}
           {feedbackMsg && (
             <div className={`engine-feedback ${feedbackMsg.isError ? 'fb-error' : 'fb-success'}`}>
-              {feedbackMsg.isError ? <AlertCircle size={16} strokeWidth={3} /> : <Check size={16} strokeWidth={3} />}
+              {feedbackMsg.isError ? <AlertCircle size={15} strokeWidth={3} /> : <Check size={15} strokeWidth={3} />}
               <span>{feedbackMsg.text}</span>
             </div>
           )}
@@ -218,7 +214,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
 
           {/* Word Hit List */}
           <div className="hits-strip">
-            <span className="hits-title">YOUR WALLOPED WORDS ({foundWords.length}):</span>
+            <span className="hits-title">ROUND WORDS ({foundWords.length}):</span>
             <div className="hits-chips-row">
               {foundWords.length === 0 ? (
                 <span className="hits-none">No words registered yet this round.</span>
@@ -226,7 +222,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
                 foundWords.map((w, idx) => (
                   <span key={idx} className="hit-chip">
                     <strong>{w}</strong>
-                    <small>+{w.length * 2}pt</small>
+                    <small>+{w.length * 2 + (w.length >= 5 ? 4 : 0)}pt</small>
                   </span>
                 ))
               )}
@@ -239,7 +235,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
       {gameId === 'skull-bones' && (
         <div className="dice-stage">
           <div className="dice-cup-card cel-card">
-            <h3 className="stage-subhead">YOUR LEATHER DICE CUP</h3>
+            <span className="stage-subhead">YOUR LEATHER DICE CUP</span>
             <div className="cup-dice-tray">
               {myDice.map((val, idx) => (
                 <div key={idx} className="bone-die-face">
@@ -254,11 +250,11 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           </div>
 
           <div className="saloon-bid-card cel-card">
-            <h3 className="stage-subhead">SALOON BIDDING TABLE</h3>
+            <span className="stage-subhead">TABLE BIDDING STATUS</span>
             <div className="current-bid-box">
-              <span className="bid-label">CURRENT TABLE BID:</span>
+              <span className="bid-label">HIGHEST BID CALL:</span>
               <strong className="bid-quote">
-                "{currentBid.count} Dice showing Face {currentBid.face}"
+                {currentBid.count} Dice of Face {currentBid.face}
               </strong>
             </div>
 
@@ -291,7 +287,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         <div className="generic-table-stage cel-card">
           <div className="generic-table-header">
             <h3 className="woodcut-title">TACTICAL PARLOR TABLE</h3>
-            <span className="generic-turn-info">Active turn in progress</span>
+            <span className="generic-turn-info">Active bout in progress</span>
           </div>
 
           <div className="generic-board-visual">
@@ -305,7 +301,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
                     onActionNotification(`${currentUserPlayer.name} placed a tactical piece on cell #${i + 1}`);
                   }}
                   className={`board-cell ${i % 2 === 0 ? 'cell-light' : 'cell-dark'}`}
-                  title="Click to execute board move"
+                  title="Click to execute parlor move"
                 >
                   <span className="cell-num">{i + 1}</span>
                 </div>
@@ -334,12 +330,12 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           width: 100%;
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 14px;
         }
         .vortilex-stage {
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
           align-items: center;
           width: 100%;
         }
@@ -363,48 +359,40 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         }
         .capsule-label {
           font-family: var(--font-theatre-rye);
-          font-size: 10px;
-          letter-spacing: 0.1em;
+          font-size: 9.5px;
+          letter-spacing: 0.08em;
           color: var(--color-cuphead-red);
         }
         .capsule-word-display {
           display: flex;
-          gap: 4px;
           align-items: center;
-          min-height: 32px;
+          min-height: 30px;
         }
-        .capsule-letter {
+        .constructed-word-text {
           font-family: var(--font-luckiest-guy);
-          font-size: 22px;
-          background-color: var(--color-golden-buttercup);
-          border: 1.5px solid var(--color-ink-black);
-          border-radius: 6px;
-          width: 28px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-ink-black);
-          box-shadow: 1px 1px 0 var(--color-ink-black);
+          font-size: 24px;
+          letter-spacing: 0.12em;
+          color: var(--color-text-main);
+          line-height: 1;
         }
         .capsule-placeholder {
           font-family: var(--font-typewriter-elite);
           font-size: 13px;
-          color: #887766;
+          color: var(--color-text-muted);
         }
         .capsule-actions {
           display: flex;
           gap: 8px;
         }
         .wallop-btn {
-          font-size: 16px;
-          padding: 6px 16px;
+          font-size: 14.5px;
+          padding: 6px 14px;
         }
         .engine-feedback {
           display: flex;
           align-items: center;
           gap: 8px;
-          padding: 8px 14px;
+          padding: 7px 14px;
           border-radius: 8px;
           font-family: var(--font-comic-fredoka);
           font-size: 13px;
@@ -412,14 +400,14 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           box-shadow: var(--shadow-cel-sm);
         }
         .fb-success {
-          background-color: #d4edd2;
-          color: #1f5e1f;
-          border: 2px solid #1f5e1f;
+          background-color: var(--color-status-success-bg);
+          color: var(--color-status-success-text);
+          border: 1.5px solid var(--color-status-success-text);
         }
         .fb-error {
-          background-color: #fce8e6;
-          color: var(--color-cuphead-red);
-          border: 2px solid var(--color-cuphead-red);
+          background-color: var(--color-status-error-bg);
+          color: var(--color-status-error-text);
+          border: 1.5px solid var(--color-status-error-text);
         }
         .dice-grid-wrap {
           display: flex;
@@ -429,20 +417,20 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         .dice-board-frame {
           background-color: var(--color-parchment-deep);
           border: var(--border-frame);
-          border-radius: 18px;
-          padding: 14px;
+          border-radius: 16px;
+          padding: 12px;
           box-shadow: var(--shadow-cel-lg);
           display: flex;
           flex-direction: column;
-          gap: 10px;
+          gap: 8px;
         }
         .grid-row {
           display: flex;
-          gap: 10px;
+          gap: 8px;
         }
         .die-tile {
-          width: 64px;
-          height: 64px;
+          width: 62px;
+          height: 62px;
           background-color: var(--color-glove-ivory);
           border: var(--border-ink-standard);
           border-radius: var(--radius-tile);
@@ -455,27 +443,18 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           user-select: none;
           transition: transform 0.08s ease, background-color 0.1s ease;
         }
-        .die-tile::before {
-          content: '';
-          position: absolute;
-          width: 76%;
-          height: 76%;
-          border: 1.5px dashed rgba(28, 21, 17, 0.18);
-          border-radius: 50%;
-          pointer-events: none;
-        }
         .die-tile:hover {
           transform: translateY(-2px);
           box-shadow: var(--shadow-cel-md);
         }
         .tile-in-path {
           background-color: var(--color-golden-buttercup);
-          transform: scale(1.08) rotate(1deg);
+          transform: scale(1.06) rotate(1deg);
         }
         .tile-path-head {
           background-color: var(--color-cuphead-red) !important;
           color: var(--color-glove-ivory) !important;
-          transform: scale(1.14) rotate(-2deg);
+          transform: scale(1.1) rotate(-1deg);
         }
         .tile-path-head .die-letter {
           color: var(--color-glove-ivory);
@@ -483,7 +462,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         .die-letter {
           font-family: var(--font-luckiest-guy);
           font-size: 28px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
           line-height: 1;
         }
         .tile-step-indicator {
@@ -491,8 +470,8 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           top: 3px;
           right: 3px;
           font-family: var(--font-theatre-rye);
-          font-size: 9px;
-          background-color: var(--color-ink-black);
+          font-size: 8.5px;
+          background-color: var(--color-ink-stroke);
           color: var(--color-glove-ivory);
           width: 14px;
           height: 14px;
@@ -514,9 +493,9 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         }
         .hits-title {
           font-family: var(--font-theatre-rye);
-          font-size: 10px;
+          font-size: 9.5px;
           letter-spacing: 0.08em;
-          color: var(--color-ink-black);
+          color: var(--color-cuphead-red);
           flex-shrink: 0;
         }
         .hits-chips-row {
@@ -526,12 +505,12 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         }
         .hits-none {
           font-size: 12px;
-          color: #887766;
+          color: var(--color-text-muted);
           font-style: italic;
         }
         .hit-chip {
           background-color: var(--color-golden-buttercup);
-          border: 1.5px solid var(--color-ink-black);
+          border: 1.5px solid var(--color-ink-stroke);
           border-radius: 6px;
           padding: 2px 8px;
           display: flex;
@@ -549,29 +528,29 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         .dice-stage {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 14px;
           width: 100%;
         }
         .dice-cup-card, .saloon-bid-card {
           padding: 16px 20px;
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
           align-items: center;
         }
         .stage-subhead {
           font-family: var(--font-theatre-rye);
-          font-size: 12px;
-          letter-spacing: 0.1em;
+          font-size: 11px;
+          letter-spacing: 0.08em;
           color: var(--color-cuphead-red);
         }
         .cup-dice-tray {
           display: flex;
-          gap: 12px;
+          gap: 10px;
         }
         .bone-die-face {
-          width: 52px;
-          height: 52px;
+          width: 50px;
+          height: 50px;
           background-color: var(--color-glove-ivory);
           border: var(--border-ink-standard);
           border-radius: 12px;
@@ -583,37 +562,37 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         .bone-die-num {
           font-family: var(--font-luckiest-guy);
           font-size: 26px;
-          color: var(--color-ink-black);
+          color: var(--color-text-main);
         }
         .current-bid-box {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 4px;
-          background-color: var(--color-parchment-deep);
-          border: 2px dashed var(--color-ink-black);
-          border-radius: 10px;
-          padding: 10px 20px;
+          background-color: var(--color-canvas-parchment);
+          border: 1.5px solid var(--color-ink-stroke);
+          border-radius: 9px;
+          padding: 10px 24px;
         }
         .bid-label {
           font-family: var(--font-theatre-rye);
-          font-size: 10px;
+          font-size: 9.5px;
           letter-spacing: 0.08em;
-          color: var(--color-ink-stroke);
+          color: var(--color-text-muted);
         }
         .bid-quote {
           font-family: var(--font-luckiest-guy);
-          font-size: 18px;
+          font-size: 19px;
           color: var(--color-cuphead-red);
         }
         .bluff-feedback-banner {
-          background-color: #fff9e6;
-          border: 2px solid var(--color-ink-black);
-          padding: 6px 12px;
+          background-color: var(--color-status-warn-bg);
+          border: 1.5px solid var(--color-status-warn-text);
+          color: var(--color-status-warn-text);
+          padding: 6px 14px;
           border-radius: 8px;
           font-size: 13px;
           font-weight: 700;
-          color: var(--color-ink-black);
         }
         .bid-actions-row {
           display: flex;
@@ -632,9 +611,9 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
         }
         .board-mat {
           display: grid;
-          grid-template-columns: repeat(4, 60px);
-          grid-template-rows: repeat(4, 60px);
-          border: var(--border-ink-thick);
+          grid-template-columns: repeat(4, 58px);
+          grid-template-rows: repeat(4, 58px);
+          border: var(--border-frame);
           border-radius: 12px;
           overflow: hidden;
           box-shadow: var(--shadow-cel-md);
@@ -644,22 +623,23 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: background-color 0.1s ease;
+          transition: filter 0.1s ease;
         }
         .board-cell:hover {
-          filter: brightness(0.9);
+          filter: brightness(0.92);
         }
         .cell-light {
           background-color: var(--color-glove-ivory);
         }
         .cell-dark {
-          background-color: #8c5b1b;
+          background-color: var(--color-parchment-deep);
         }
         .cell-num {
           font-family: var(--font-typewriter-elite);
           font-size: 12px;
           font-weight: bold;
-          color: rgba(28, 21, 17, 0.4);
+          color: var(--color-text-muted);
+          opacity: 0.7;
         }
       `}</style>
     </div>

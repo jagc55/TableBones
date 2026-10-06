@@ -35,7 +35,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
       onClose();
     } else {
       soundstage.playSlideDown();
-      setErrorMessage(`No room found with code "${cleanCode}". Please check the code with the host.`);
+      setErrorMessage(`No parlor found with ticket code "${cleanCode}". Confirm code with host.`);
     }
   };
 
@@ -45,8 +45,8 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
         {/* Header */}
         <div className="modal-header-strip">
           <div>
-            <span className="ribbon-banner">JOIN GAME</span>
-            <h2 className="woodcut-title modal-title">ENTER ROOM CODE</h2>
+            <span className="ribbon-banner">PARLOR ACCESS</span>
+            <h2 className="woodcut-title modal-title">ENTER TICKET CODE</h2>
           </div>
           <button onClick={onClose} className="btn-cel btn-brawl-neutral btn-icon-sq" aria-label="Close">
             <X size={18} strokeWidth={3} />
@@ -55,12 +55,12 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
 
         <form onSubmit={handleJoin} className="join-code-form">
           <p className="join-instruction">
-            Enter the private room code shared by the host (e.g. <code>TB-8491</code> or <code>BONE-924</code>).
+            Enter the private room admission code shared by your host (e.g. <code>TB-8491</code> or <code>BONE-924</code>).
           </p>
 
           <div className="ticket-input-container">
             <div className="ticket-input-prefix">
-              <Key size={16} strokeWidth={2.8} />
+              <Key size={15} strokeWidth={2.8} />
               <span>CODE:</span>
             </div>
             <input
@@ -91,7 +91,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
               disabled={!ticketCode.trim()}
               className="btn-cel btn-brawl-primary join-action-btn"
             >
-              <span>JOIN ROOM</span>
+              <span>ENTER TABLE</span>
               <ArrowRight size={16} strokeWidth={3} />
             </button>
           </div>
@@ -111,17 +111,17 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
           }
           .modal-title {
             font-size: 20px;
-            color: var(--color-ink-black);
+            color: var(--color-text-main);
           }
           .join-code-form {
-            padding: 20px;
+            padding: 18px;
             display: flex;
             flex-direction: column;
             gap: 14px;
           }
           .join-instruction {
             font-size: 13.5px;
-            color: #554433;
+            color: var(--color-text-lead);
             line-height: 1.35;
           }
           .join-instruction code {
@@ -130,7 +130,8 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
             background-color: var(--color-parchment-deep);
             padding: 2px 6px;
             border-radius: 4px;
-            border: 1px solid var(--color-ink-black);
+            border: 1px solid var(--color-ink-stroke);
+            color: var(--color-cuphead-red);
           }
           .ticket-input-container {
             display: flex;
@@ -147,7 +148,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
             gap: 5px;
             background-color: var(--color-golden-buttercup);
             padding: 10px 12px;
-            border-right: 2px dashed var(--color-ink-black);
+            border-right: 2px dashed var(--color-ink-stroke);
             font-family: var(--font-theatre-rye);
             font-size: 11px;
             letter-spacing: 0.08em;
@@ -170,20 +171,20 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
             display: flex;
             align-items: center;
             gap: 8px;
-            background-color: #fce8e6;
-            border: 1.5px solid var(--color-cuphead-red);
+            background-color: var(--color-status-error-bg);
+            border: 1.5px solid var(--color-status-error-text);
             border-radius: 7px;
             padding: 8px 10px;
             font-size: 12.5px;
-            color: var(--color-cuphead-red);
+            color: var(--color-status-error-text);
             font-weight: 600;
           }
           .join-actions-bar {
-            margin-top: 4px;
+            margin-top: 2px;
           }
           .join-action-btn {
             width: 100%;
-            font-size: 16px;
+            font-size: 15.5px;
             padding: 10px;
           }
         `}</style>
