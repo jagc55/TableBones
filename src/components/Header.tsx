@@ -41,8 +41,8 @@ export const Header: React.FC<HeaderProps> = ({
               src={logoImg}
               alt="Tablebones Skull Mascot"
               className="brand-logo-img"
-              width={60}
-              height={60}
+              width={80}
+              height={80}
             />
           </div>
           <div className="brand-text">
@@ -94,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
           background-color: var(--color-canvas-parchment);
           border-bottom: var(--border-ink-thick);
           box-shadow: 0 3px 0 var(--color-shadow-solid);
-          padding: 6px 16px;
+          padding: 4px 16px;
         }
         .marquee-inner {
           max-width: 1200px;
@@ -112,22 +112,22 @@ export const Header: React.FC<HeaderProps> = ({
           user-select: none;
         }
         .brand-logo-frame {
-          width: 60px;
-          height: 60px;
+          width: 80px;
+          height: 80px;
           display: flex;
           align-items: center;
           justify-content: center;
           flex-shrink: 0;
         }
         .brand-logo-img {
-          width: 60px;
-          height: 60px;
+          width: 80px;
+          height: 80px;
           object-fit: contain;
           filter: drop-shadow(2.5px 2.5px 0px var(--color-shadow-solid));
           transition: transform 0.16s cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .brand-container:hover .brand-logo-img {
-          transform: scale(1.1) rotate(-5deg);
+          transform: scale(1.08) rotate(-4deg);
         }
         .brand-container:active .brand-logo-img {
           transform: scale(0.96) rotate(2deg);
@@ -145,7 +145,7 @@ export const Header: React.FC<HeaderProps> = ({
         }
         .brand-title {
           font-family: var(--font-luckiest-guy);
-          font-size: 28px;
+          font-size: 26px;
           letter-spacing: 0.05em;
           color: var(--color-ink-black);
           line-height: 0.95;
@@ -207,10 +207,10 @@ export const Header: React.FC<HeaderProps> = ({
         }
 
         @media (max-width: 600px) {
-          .cuphead-marquee { padding: 6px 12px; }
+          .cuphead-marquee { padding: 4px 12px; }
           .brand-ribbon { display: none; }
-          .brand-title { font-size: 22px; }
-          .brand-logo-frame, .brand-logo-img { width: 46px; height: 46px; }
+          .brand-title { font-size: 20px; }
+          .brand-logo-frame, .brand-logo-img { width: 48px; height: 48px; }
           .profile-pill-meta { display: none; }
           .profile-nav-pill { padding: 4px; }
         }
