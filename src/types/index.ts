@@ -1,4 +1,4 @@
-export type GameId = 'vortilex' | 'skull-bones' | 'royal-checkers' | 'phantom-parlor';
+export type GameId = 'vortilex' | 'skull-bones' | 'royal-checkers' | 'phantom-parlor' | 'midnight-alley';
 
 export interface GameDefinition {
   id: GameId;

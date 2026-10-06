@@ -66,6 +66,25 @@ const INITIAL_ROOM_CHATS: Record<string, ChatMessage[]> = {
       timestamp: Date.now() - 1000 * 60 * 7,
     },
   ],
+  'room-pub-105': [
+    {
+      id: 'msg-105-init',
+      senderId: 'system',
+      senderName: 'System',
+      senderAvatarId: 'ringmaster',
+      text: 'Room created. Code: ALLEY-888',
+      timestamp: Date.now() - 1000 * 60 * 2,
+      isSystem: true,
+    },
+    {
+      id: 'msg-105-1',
+      senderId: 'host-don-bones',
+      senderName: 'Don Skelletone',
+      senderAvatarId: 'ringmaster',
+      text: 'Welcome to Midnight Alley! Watch out for The Boss and Gangsters.',
+      timestamp: Date.now() - 1000 * 60 * 1,
+    },
+  ],
 };
 
 export const App: React.FC = () => {
