@@ -15,7 +15,6 @@ import {
 } from './types';
 import {
   BonegleWordBanner,
-  BonegleWordBank,
   BonegleRevelationView,
 } from './BonegleComponents';
 import { Flame } from 'lucide-react';
@@ -564,7 +563,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         onSubmit={() => handleWordSubmission(currentPath)}
       />
 
-      {/* Main Board Area + Word List */}
+      {/* Main Board Arena Stage */}
       <div className="bonegle-arena-body">
         <div className="bonegle-board-container">
           <div
@@ -581,7 +580,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
               row.map((letter, cIdx) => {
                 const pathIdx = currentPath.findIndex((p) => p.r === rIdx && p.c === cIdx);
                 const isSelected = pathIdx !== -1;
-                const isHead = pathIdx === currentPath.length - 1;
+                const isHead = isSelected && pathIdx === currentPath.length - 1;
 
                 return (
                   <div
@@ -601,9 +600,6 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
             )}
           </div>
         </div>
-
-        {/* Word Sidebar */}
-        <BonegleWordBank myFoundWords={myFoundWords} lang={lang} />
       </div>
 
       {/* Post-Match Revelation View */}
@@ -644,11 +640,16 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 12px 20px;
+          padding: 8px 16px;
           background-color: var(--color-glove-ivory);
           border: var(--border-ink-standard);
+          border-radius: var(--radius-cel-box);
           box-shadow: var(--shadow-cel-sm);
-          min-height: 72px;
+          height: 64px;
+          min-height: 64px;
+          max-height: 64px;
+          box-sizing: border-box;
+          overflow: hidden;
           transition: background-color 0.2s ease, border-color 0.2s ease;
         }
         .feedback-banner-valid {
@@ -666,7 +667,11 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         .word-banner-left {
           display: flex;
           flex-direction: column;
+          justify-content: center;
           gap: 2px;
+          flex: 1;
+          min-width: 0;
+          height: 100%;
         }
         .word-banner-top-row {
           display: flex;
@@ -690,23 +695,39 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           font-size: 11px;
           font-weight: 700;
         }
+        .word-banner-display-line {
+          height: 28px;
+          min-height: 28px;
+          max-height: 28px;
+          display: flex;
+          align-items: center;
+          overflow: hidden;
+        }
         .constructed-word-bold {
           font-family: var(--font-luckiest-guy);
-          font-size: 32px;
-          letter-spacing: 0.06em;
+          font-size: 24px;
+          letter-spacing: 0.08em;
           color: var(--color-ink-black);
-          line-height: 1.1;
+          line-height: 1;
+          margin: 0;
+          white-space: nowrap;
         }
         .word-placeholder {
           font-family: var(--font-comic-fredoka);
-          font-size: 16px;
+          font-size: 14px;
           color: var(--color-text-muted);
           font-style: italic;
+          line-height: 1;
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .feedback-content-row {
+          height: 28px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
         }
         .feedback-icon-ok {
           color: #278848;
@@ -719,63 +740,74 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         }
         .feedback-word-text {
           font-family: var(--font-luckiest-guy);
-          font-size: 32px;
+          font-size: 24px;
           color: var(--color-ink-black);
           letter-spacing: 0.06em;
+          line-height: 1;
         }
         .feedback-pts-tag {
           font-family: var(--font-luckiest-guy);
-          font-size: 20px;
+          font-size: 16px;
           color: #278848;
           background-color: rgba(39, 136, 72, 0.15);
-          padding: 2px 10px;
+          padding: 1px 8px;
           border-radius: 6px;
+          line-height: 1.2;
         }
         .word-banner-actions {
+          height: 36px;
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-shrink: 0;
         }
         .submit-word-btn {
-          font-size: 16px;
-          padding: 8px 18px;
+          height: 34px;
+          min-width: 105px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 14px;
+          padding: 0 14px;
         }
         .clear-word-btn {
-          font-size: 13px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          padding: 0 12px;
         }
         .bonegle-arena-body {
-          display: grid;
-          grid-template-columns: 1fr 280px;
-          gap: 16px;
-          align-items: start;
-        }
-        @media (max-width: 820px) {
-          .bonegle-arena-body {
-            grid-template-columns: 1fr;
-          }
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 100%;
         }
         .bonegle-board-container {
-          background-color: #2a1a14;
-          padding: 20px;
+          background-color: #241712;
+          padding: 18px;
           border: var(--border-ink-thick);
           border-radius: var(--radius-cel-box);
-          box-shadow: var(--shadow-cel-md);
+          box-shadow: var(--shadow-cel-lg);
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
+          margin: 0 auto;
         }
         .bonegle-board-grid {
           position: relative;
           display: grid;
-          gap: 12px;
           width: 100%;
-          max-width: 520px;
+          max-width: 480px;
           aspect-ratio: 1 / 1;
         }
         .grid-size-4 {
           grid-template-columns: repeat(4, 1fr);
           grid-template-rows: repeat(4, 1fr);
+          gap: 12px;
         }
         .grid-size-5 {
           grid-template-columns: repeat(5, 1fr);
@@ -815,132 +847,6 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           stroke-dasharray: 6 4;
           stroke-linecap: round;
           opacity: 0.85;
-        }
-        .bonegle-die {
-          background-color: var(--color-glove-ivory);
-          border: 3.5px solid var(--color-ink-black);
-          border-radius: 12px;
-          box-shadow: 0px 4px 0px var(--color-ink-black);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          position: relative;
-          z-index: 2;
-          transition: transform 0.08s ease, background-color 0.08s ease;
-          touch-action: none;
-        }
-        .bonegle-die:hover {
-          transform: translateY(-2px);
-        }
-        .die-selected {
-          background-color: var(--color-golden-buttercup) !important;
-          transform: scale(0.97) !important;
-          box-shadow: 0px 2px 0px var(--color-ink-black) !important;
-        }
-        .die-head {
-          border-color: var(--color-cuphead-red) !important;
-          animation: headPulse 0.6s ease infinite alternate;
-        }
-        @keyframes headPulse {
-          0% { transform: scale(0.97); }
-          100% { transform: scale(1.03); }
-        }
-        .die-letter-char {
-          font-family: var(--font-luckiest-guy);
-          font-size: 38px;
-          color: var(--color-ink-black);
-          pointer-events: none;
-          user-select: none;
-        }
-        .grid-size-5 .die-letter-char {
-          font-size: 30px;
-        }
-        .grid-size-6 .die-letter-char {
-          font-size: 24px;
-        }
-        .die-step-badge {
-          position: absolute;
-          top: 3px;
-          right: 4px;
-          background-color: var(--color-cuphead-red);
-          color: var(--color-glove-ivory);
-          font-family: var(--font-luckiest-guy);
-          font-size: 11px;
-          width: 18px;
-          height: 18px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1.5px solid var(--color-ink-black);
-          pointer-events: none;
-        }
-        .bonegle-words-sidebar {
-          background-color: var(--color-canvas-parchment);
-          border: var(--border-ink-standard);
-          box-shadow: var(--shadow-cel-sm);
-          padding: 14px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          height: 480px;
-        }
-        .sidebar-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 2px dashed var(--color-ink-stroke);
-          padding-bottom: 8px;
-        }
-        .sidebar-title {
-          font-family: var(--font-theatre-rye);
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--color-text-main);
-        }
-        .sidebar-subscore {
-          font-family: var(--font-luckiest-guy);
-          font-size: 18px;
-          color: var(--color-cuphead-red);
-        }
-        .words-chips-scroll {
-          overflow-y: auto;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .words-empty-state {
-          padding: 30px 10px;
-          text-align: center;
-          color: var(--color-text-muted);
-          font-size: 13px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-        }
-        .bonegle-chip {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 6px 12px;
-          background-color: var(--color-glove-ivory);
-          border: 2px solid var(--color-ink-black);
-          border-radius: 6px;
-          box-shadow: 1px 1px 0px var(--color-ink-black);
-        }
-        .chip-word {
-          font-family: var(--font-comic-fredoka);
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--color-ink-black);
-        }
-        .chip-pts {
-          font-family: var(--font-luckiest-guy);
-          font-size: 14px;
-          color: var(--color-cuphead-red);
         }
         .bonegle-revelation-card {
           padding: 20px;
