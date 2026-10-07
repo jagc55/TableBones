@@ -19,7 +19,6 @@ export const royalCheckersManifest: GameManifest = {
     badge: '2 PLAYERS',
   },
   hasRoundTimer: true,
-  engine: () => null, // GenericGameEngine renders tactical board fallback
 };
 
 export const mysteryManorManifest: GameManifest = {
@@ -36,7 +35,6 @@ export const mysteryManorManifest: GameManifest = {
     badge: 'MYSTERY',
   },
   hasRoundTimer: true,
-  engine: () => null, // GenericGameEngine renders tactical board fallback
 };
 
 /**

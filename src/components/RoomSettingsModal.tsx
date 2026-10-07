@@ -23,7 +23,7 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
   const [isPrivate, setIsPrivate] = useState(room.isPrivate);
   const [localSettings, setLocalSettings] = useState<RoomSettings>({ ...room.settings });
 
-  const handleUpdateSetting = <K extends keyof RoomSettings>(key: K, value: RoomSettings[K]) => {
+  const handleUpdateSetting = (key: string, value: any) => {
     setLocalSettings((prev) => ({ ...prev, [key]: value }));
   };
 

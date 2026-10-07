@@ -423,7 +423,8 @@ export class BonegleGameLogic extends AbstractGameEngine<
   initialize(players: Player[], settings?: RoomSettings) {
     const size = (settings?.bonegleGridSize || 5) as BonegleGridSize;
     const lang = (settings?.dictionaryLang || 'es') as BonegleLang;
-    const rng = settings?.bonegleSeed ? createPrng(settings.bonegleSeed) : Math.random;
+    const seed = settings?.matchSeed || settings?.bonegleSeed;
+    const rng = seed ? createPrng(seed) : Math.random;
     const board = settings?.bonegleBoard || generateRawBoard(size, lang, rng);
     const wordsFound = new Map<string, Set<string>>();
     players.forEach((p) => wordsFound.set(p.id, new Set()));

@@ -12,7 +12,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = (props) => {
   const { gameId, currentUserPlayer, onPlayerScore, onActionNotification } = props;
 
   const manifest = getGameManifest(gameId);
-  if (manifest && manifest.engine && manifest.id !== 'royal-checkers' && manifest.id !== 'mystery-manor') {
+  if (manifest?.engine) {
     const EngineComponent = manifest.engine;
     return <EngineComponent {...props} />;
   }

@@ -6,6 +6,7 @@ export type NetworkEvent =
   | { type: 'START_GAME'; roomId: string }
   | { type: 'ROOM_CLOSED'; roomId: string }
   | { type: 'CHAT_MESSAGE'; roomId: string; chatMessage: ChatMessage }
+  | { type: 'GAME_MESSAGE'; roomId: string; playerId: string; messageType: string; payload: unknown }
   | { type: 'BONEGLE_WORDS'; roomId: string; playerId: string; words: string[] };
 
 type NetworkEnvelope = NetworkEvent & {

@@ -481,12 +481,13 @@ export const App: React.FC = () => {
   // 7. START MATCH (Lobby -> Arena)
   const handleStartGame = () => {
     if (!currentRoom) return;
-    const matchSeed = currentRoom.settings.bonegleSeed || `${currentRoom.code}-${Date.now().toString(36)}`;
+    const matchSeed = currentRoom.settings.matchSeed || currentRoom.settings.bonegleSeed || `${currentRoom.code}-${Date.now().toString(36)}`;
     const updated: Room = {
       ...currentRoom,
       status: 'in_progress',
       settings: {
         ...currentRoom.settings,
+        matchSeed,
         bonegleSeed: matchSeed,
       },
     };
@@ -803,6 +804,7 @@ export const App: React.FC = () => {
               status: 'waiting' as const,
               settings: {
                 ...currentRoom.settings,
+                matchSeed: undefined,
                 bonegleSeed: undefined,
                 bonegleBoard: undefined,
               },

@@ -27,7 +27,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
     bonegleGridSize: 5,
   });
 
-  const handleUpdateSetting = <K extends keyof RoomSettings>(key: K, value: RoomSettings[K]) => {
+  const handleUpdateSetting = (key: string, value: any) => {
     setRoomSettings((prev) => ({ ...prev, [key]: value }));
   };
 

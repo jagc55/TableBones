@@ -36,7 +36,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
 }) => {
   const size: BonegleGridSize = (settings?.bonegleGridSize || 5) as BonegleGridSize;
   const lang: BonegleLang = (settings?.dictionaryLang || 'es') as BonegleLang;
-  const effectiveSeed = settings?.bonegleSeed || roomCode || 'bonegle-shared-arena';
+  const effectiveSeed = settings?.matchSeed || settings?.bonegleSeed || roomCode || 'bonegle-shared-arena';
 
   // Board and Solution State
   const [board, setBoard] = useState<string[][] | null>(null);
