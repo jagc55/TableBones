@@ -18,7 +18,8 @@ let cachedLanUrl = '';
 export const fetchNetworkInfo = async (): Promise<string> => {
   if (cachedLanUrl) return cachedLanUrl;
   try {
-    const res = await fetch('/api/network-info');
+    const apiBase = window.location.pathname.startsWith('/tablebones') ? '/tablebones/api' : '/api';
+    const res = await fetch(`${apiBase}/network-info`);
     if (res.ok) {
       const data = await res.json();
       if (data.lanUrl) {
@@ -78,7 +79,8 @@ class NetworkManager {
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/tablebones-ws`;
+      const subpath = window.location.pathname.startsWith('/tablebones') ? '/tablebones' : '';
+      const wsUrl = `${protocol}//${window.location.host}${subpath}/tablebones-ws`;
 
       this.ws = new WebSocket(wsUrl);
 

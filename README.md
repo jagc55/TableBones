@@ -50,8 +50,51 @@ npm install
 npm run dev
 ```
 
-### Production Build
+### Production Build & Local Preview
 ```bash
 npm run build
 npm run preview
 ```
+
+---
+
+## 🚀 Despliegue en Producción y Gestión con PM2
+
+La aplicación corre en producción gestionada por **PM2** mediante el servidor `server.js` y el archivo de configuración `ecosystem.config.cjs`.
+
+### ⚡ Chuleta de Comandos PM2 más Importantes
+
+| Acción | Comando | Descripción |
+| :--- | :--- | :--- |
+| **Ver estado** | `pm2 status` | Muestra el estado (`online`/`stopped`), CPU y memoria de todas las apps. |
+| **Ver logs en vivo** | `pm2 logs tablebones` | Muestra la salida estándar y errores en tiempo real. |
+| **Últimos logs** | `pm2 logs tablebones --lines 50` | Muestra las últimas 50 líneas de registro. |
+| **Reiniciar app** | `pm2 restart tablebones` | Reinicia el proceso tras hacer cambios o compilar. |
+| **Recarga limpia** | `pm2 reload tablebones` | Recarga el proceso minimizando tiempo de inactividad. |
+| **Detener app** | `pm2 stop tablebones` | Detiene temporalmente la aplicación. |
+| **Iniciar app** | `pm2 start ecosystem.config.cjs` | Lanza la aplicación usando la configuración definida. |
+| **Guardar estado** | `pm2 save` | Guarda la lista actual para que arranque sola si se reinicia el VPS. |
+| **Monitor interactivo**| `pm2 monit` | Panel interactivo en terminal para monitorizar CPU y RAM. |
+| **Limpiar logs** | `pm2 flush` | Vacía los archivos de logs si ocupan mucho espacio. |
+
+### 🔄 Flujo de Actualización tras Cambios en el Código
+
+Cada vez que hagas cambios en el código de la web (o hagas `git pull`):
+```bash
+cd ~/table-bones
+npm run build
+pm2 restart tablebones
+```
+
+### 🌐 Comandos de Nginx (Proxy Inverso)
+```bash
+# Validar sintaxis de configuración sin romper nada
+sudo nginx -t
+
+# Recargar configuración de Nginx sin cortes
+sudo systemctl reload nginx
+
+# Ver logs de peticiones web
+sudo tail -f /var/log/nginx/access.log
+```
+

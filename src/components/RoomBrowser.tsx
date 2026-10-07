@@ -150,7 +150,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
         {filteredRooms.length === 0 ? (
           <div className="cel-card empty-rooms-slate">
             <div className="empty-mascot-box">
-              <img src="/logo.png" alt="Tablebones Mascot" className="empty-mascot-img" />
+              <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Tablebones Mascot" className="empty-mascot-img" />
             </div>
             <h3 className="empty-title">NO ACTIVE ROOMS FOUND</h3>
             <p className="empty-desc">

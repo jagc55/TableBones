@@ -65,6 +65,7 @@ function tablebonesServerPlugin(): Plugin {
 
 // https://vite.dev/config/
 export default defineConfig({
+  base: '/tablebones/',
   plugins: [react(), tablebonesServerPlugin()],
   server: {
     port: 3000,
