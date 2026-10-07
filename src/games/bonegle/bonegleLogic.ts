@@ -86,7 +86,24 @@ export const EN_DICE: string[][] = [
   ['F', 'I', 'P', 'R', 'S', 'Y'],
 ];
 
-export function generateRawBoard(size: BonegleGridSize = 5, lang: BonegleLang = 'es'): string[][] {
+/**
+ * Mulberry32 32-bit deterministic PRNG generator.
+ * Produces uniform random numbers in [0, 1) seeded by a string.
+ */
+export function createPrng(seedStr: string): () => number {
+  let h = 1779033703 ^ seedStr.split('').reduce((acc, c) => Math.imul(acc ^ c.charCodeAt(0), 3432918353), 0);
+  return function() {
+    h = Math.imul(h ^ (h >>> 16), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    return ((h ^= h >>> 16) >>> 0) / 4294967296;
+  };
+}
+
+export function generateRawBoard(
+  size: BonegleGridSize = 5,
+  lang: BonegleLang = 'es',
+  rng: () => number = Math.random
+): string[][] {
   const baseDice = lang === 'en' ? EN_DICE : ES_DICE;
   const targetCount = size * size;
   const dicePool: string[][] = [];
@@ -97,12 +114,12 @@ export function generateRawBoard(size: BonegleGridSize = 5, lang: BonegleLang = 
 
   // Fisher-Yates shuffle dice positions
   for (let i = dicePool.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rng() * (i + 1));
     [dicePool[i], dicePool[j]] = [dicePool[j], dicePool[i]];
   }
 
   // Roll each die
-  const rolled = dicePool.map((die) => die[Math.floor(Math.random() * die.length)]);
+  const rolled = dicePool.map((die) => die[Math.floor(rng() * die.length)]);
 
   // Form 2D array
   const board: string[][] = [];
@@ -165,12 +182,37 @@ export async function getDictionary(lang: BonegleLang = 'es'): Promise<Trie> {
   }
 
   loadingPromises[lang] = (async () => {
-    try {
-      const resp = await fetch(`/dict/${lang}.txt`);
-      if (!resp.ok) {
-        throw new Error(`Failed to load /dict/${lang}.txt: ${resp.statusText}`);
+    const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.BASE_URL)
+      ? import.meta.env.BASE_URL
+      : '/tablebones/';
+
+    const candidateUrls = [
+      `${baseUrl.endsWith('/') ? baseUrl : baseUrl + '/'}dict/${lang}.txt`,
+      `/tablebones/dict/${lang}.txt`,
+      `/dict/${lang}.txt`,
+      `./dict/${lang}.txt`,
+    ];
+
+    let text: string | null = null;
+    let lastError: any = null;
+
+    for (const url of candidateUrls) {
+      try {
+        const resp = await fetch(url);
+        if (resp.ok) {
+          const candidateText = await resp.text();
+          // Verify that this is the actual dictionary and not an index.html SPA fallback
+          if (!candidateText.trim().startsWith('<')) {
+            text = candidateText;
+            break;
+          }
+        }
+      } catch (err) {
+        lastError = err;
       }
-      const text = await resp.text();
+    }
+
+    if (text) {
       const trie = new Trie();
       const lines = text.split(/\r?\n/);
       for (let i = 0; i < lines.length; i++) {
@@ -181,17 +223,17 @@ export async function getDictionary(lang: BonegleLang = 'es'): Promise<Trie> {
       }
       dictionaries[lang] = trie;
       return trie;
-    } catch (err) {
-      console.warn(`Could not fetch /dict/${lang}.txt, falling back to minimal dictionary`, err);
-      const fallbackTrie = new Trie();
-      const fallbacks = [
-        'CASA', 'GATO', 'PERRO', 'HUESO', 'DADO', 'MESA', 'ROSA', 'SOL', 'LUNA', 'MAR',
-        'BONE', 'DICE', 'WALL', 'PLAY', 'GAME', 'WORD', 'SKULL', 'RING', 'TIME', 'STAR'
-      ];
-      fallbacks.forEach((w) => fallbackTrie.insert(w));
-      dictionaries[lang] = fallbackTrie;
-      return fallbackTrie;
     }
+
+    console.warn(`Could not fetch /dict/${lang}.txt from any candidate URL, falling back to minimal dictionary`, lastError);
+    const fallbackTrie = new Trie();
+    const fallbacks = [
+      'CASA', 'GATO', 'PERRO', 'HUESO', 'DADO', 'MESA', 'ROSA', 'SOL', 'LUNA', 'MAR',
+      'BONE', 'DICE', 'WALL', 'PLAY', 'GAME', 'WORD', 'SKULL', 'RING', 'TIME', 'STAR'
+    ];
+    fallbacks.forEach((w) => fallbackTrie.insert(w));
+    dictionaries[lang] = fallbackTrie;
+    return fallbackTrie;
   })();
 
   return loadingPromises[lang]!;
@@ -256,17 +298,20 @@ export function solveBoard(board: string[][], trie: Trie, lang: BonegleLang = 'e
 
 export async function generatePlayableBoard(
   size: BonegleGridSize = 5,
-  lang: BonegleLang = 'es'
+  lang: BonegleLang = 'es',
+  seed?: string
 ): Promise<{ board: string[][]; solution: BoardSolution }> {
   const trie = await getDictionary(lang);
   const minWordsMap: Record<number, number> = { 4: 40, 5: 90, 6: 150 };
   const minWords = minWordsMap[size] || 40;
 
+  const rng = seed ? createPrng(seed) : Math.random;
+
   let bestBoard: string[][] = [];
   let bestSolution: BoardSolution | null = null;
 
   for (let attempt = 0; attempt < 12; attempt++) {
-    const board = generateRawBoard(size, lang);
+    const board = generateRawBoard(size, lang, rng);
     const solution = solveBoard(board, trie, lang);
 
     if (solution.totalPossibleWords >= minWords && solution.longestWordLength >= 5) {
@@ -378,7 +423,8 @@ export class BonegleGameLogic extends AbstractGameEngine<
   initialize(players: Player[], settings?: RoomSettings) {
     const size = (settings?.bonegleGridSize || 5) as BonegleGridSize;
     const lang = (settings?.dictionaryLang || 'es') as BonegleLang;
-    const board = generateRawBoard(size, lang);
+    const rng = settings?.bonegleSeed ? createPrng(settings.bonegleSeed) : Math.random;
+    const board = settings?.bonegleBoard || generateRawBoard(size, lang, rng);
     const wordsFound = new Map<string, Set<string>>();
     players.forEach((p) => wordsFound.set(p.id, new Set()));
     return { board, wordsFound };

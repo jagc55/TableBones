@@ -481,9 +481,14 @@ export const App: React.FC = () => {
   // 7. START MATCH (Lobby -> Arena)
   const handleStartGame = () => {
     if (!currentRoom) return;
+    const matchSeed = currentRoom.settings.bonegleSeed || `${currentRoom.code}-${Date.now().toString(36)}`;
     const updated: Room = {
       ...currentRoom,
       status: 'in_progress',
+      settings: {
+        ...currentRoom.settings,
+        bonegleSeed: matchSeed,
+      },
     };
     setCurrentRoom(updated);
     setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
@@ -796,6 +801,11 @@ export const App: React.FC = () => {
             const resetRoom = {
               ...currentRoom,
               status: 'waiting' as const,
+              settings: {
+                ...currentRoom.settings,
+                bonegleSeed: undefined,
+                bonegleBoard: undefined,
+              },
               players: currentRoom.players.map((p) => ({ ...p, score: 0, isReady: p.isHost || !!p.isBot })),
             };
             setCurrentRoom(resetRoom);

@@ -6,6 +6,8 @@ import { GameId, Player, RoomSettings, Room, GameDefinition } from './index';
  */
 export interface BaseGameEngineProps {
   gameId?: GameId;
+  roomCode?: string;
+  roomId?: string;
   currentUserPlayer: Player;
   players: Player[];
   settings?: RoomSettings;

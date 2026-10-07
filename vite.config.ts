@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react';
 import { WebSocketServer, WebSocket } from 'ws';
 import os from 'os';
 
+import path from 'path';
+import fs from 'fs';
+
 function getLocalIp(): string {
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
@@ -58,6 +61,24 @@ function tablebonesServerPlugin(): Plugin {
         };
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify(info));
+      });
+
+      // 3. Serve /dict/* directly from public/dict/ regardless of base path
+      server.middlewares.use((req, res, next) => {
+        if (req.url) {
+          const dictMatch = req.url.match(/^\/?(?:tablebones\/)?dict\/(.+)$/);
+          if (dictMatch) {
+            const fileName = dictMatch[1].split('?')[0];
+            const filePath = path.resolve(__dirname, 'public', 'dict', fileName);
+            if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
+              res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+              res.setHeader('Access-Control-Allow-Origin', '*');
+              fs.createReadStream(filePath).pipe(res);
+              return;
+            }
+          }
+        }
+        next();
       });
     },
   };

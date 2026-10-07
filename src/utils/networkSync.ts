@@ -5,7 +5,8 @@ export type NetworkEvent =
   | { type: 'SYNC_ROOM'; room: Room; kickedPlayerId?: string; leftPlayerId?: string }
   | { type: 'START_GAME'; roomId: string }
   | { type: 'ROOM_CLOSED'; roomId: string }
-  | { type: 'CHAT_MESSAGE'; roomId: string; chatMessage: ChatMessage };
+  | { type: 'CHAT_MESSAGE'; roomId: string; chatMessage: ChatMessage }
+  | { type: 'BONEGLE_WORDS'; roomId: string; playerId: string; words: string[] };
 
 type NetworkEnvelope = NetworkEvent & {
   _senderSessionId: string;

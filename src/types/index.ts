@@ -45,6 +45,8 @@ export interface RoomSettings {
   turnTimeLimitSec: number;
   dictionaryLang: 'en' | 'es';
   bonegleGridSize?: 4 | 5 | 6;
+  bonegleSeed?: string;
+  bonegleBoard?: string[][];
 }
 
 export interface Room {

@@ -22,6 +22,10 @@ Before writing any code, familiarize yourself with TableSkull's plugin architect
 3. The game connects to the platform solely via `GameManifest` registered in `src/games/registry.ts` and `GameId` in `src/types/index.ts`.
 4. All games follow the authentic **1930s Fleischer / Cuphead rubber-hose aesthetic** (ink outlines, aged parchment, cel-card drop-shadows, brass stopwatches, and mechanical click/bell/trumpet audio).
 5. **CRITICAL: Prevent Infinite Re-render Loops with Mutable Callback Refs (`useRef`)**: Platform callbacks (`onActionNotification`, `onPlayerScore`, `onMatchResolved`) trigger state changes in `App.tsx` (like room chat feeds). **Never** put these callbacks or high-frequency timers (`timeLeftSec`) in effect dependency arrays! Always stabilize them using `useRef`.
+6. **Deterministic Multiplayer Board & State Synchronization**:
+   Every contender connecting to the same match must see the exact same layout (cards, dice, letter grids). Always derive a seed from `settings.bonegleSeed || roomCode` and use a seeded 32-bit PRNG (e.g. Mulberry32). Never generate room boards using unseeded `Math.random()` on client mount.
+7. **Resilient Static Asset & Dictionary Paths**:
+   When fetching dictionary files, wordlists, or static assets, always use `import.meta.env.BASE_URL` with multi-URL fallback candidates so assets resolve cleanly under dev server, root paths, and prefixed deployment base paths (e.g. `/tablebones/`).
 
 ---
 

@@ -1,10 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Player, BaseGameEngineProps } from '../../types';
 import { soundstage } from '../../utils/audio';
+import { networkManager } from '../../utils/networkSync';
 import {
   generatePlayableBoard,
   calculateWordPoints,
   calculateBonegleBreakdowns,
+  getDictionary,
+  solveBoard,
+  Trie,
 } from './bonegleLogic';
 import {
   BonegleGridSize,
@@ -20,6 +24,8 @@ import {
 import { Flame } from 'lucide-react';
 
 export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
+  roomCode,
+  roomId,
   currentUserPlayer,
   players,
   settings,
@@ -30,10 +36,12 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
 }) => {
   const size: BonegleGridSize = (settings?.bonegleGridSize || 5) as BonegleGridSize;
   const lang: BonegleLang = (settings?.dictionaryLang || 'es') as BonegleLang;
+  const effectiveSeed = settings?.bonegleSeed || roomCode || 'bonegle-shared-arena';
 
   // Board and Solution State
   const [board, setBoard] = useState<string[][] | null>(null);
   const [solution, setSolution] = useState<BoardSolution | null>(null);
+  const [dictTrie, setDictTrie] = useState<Trie | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // User input state
@@ -57,6 +65,8 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
 
   // Bot words storage: botId -> Set of words
   const botWordsRef = useRef<Map<string, Set<string>>>(new Map());
+  // Other human players words storage: playerId -> Set of words (synced via network)
+  const otherHumanWordsRef = useRef<Map<string, Set<string>>>(new Map());
 
   // Revealed Results State at end of match
   const [isResolved, setIsResolved] = useState(false);
@@ -75,9 +85,9 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
   // Key to track active configuration and prevent regeneration loops
   const lastGeneratedKeyRef = useRef<string>('');
 
-  // 1. Generate Board on Mount or when size/lang explicitly changes
+  // 1. Generate Board deterministically on Mount or when size/lang/seed explicitly changes
   useEffect(() => {
-    const configKey = `${size}-${lang}`;
+    const configKey = `${size}-${lang}-${effectiveSeed}-${settings?.bonegleBoard ? 'board' : 'gen'}`;
     if (lastGeneratedKeyRef.current === configKey && board !== null) {
       return;
     }
@@ -86,10 +96,30 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     let isMounted = true;
     setIsLoading(true);
 
-    generatePlayableBoard(size, lang).then(({ board: newBoard, solution: newSolution }) => {
+    if (settings?.bonegleBoard && settings.bonegleBoard.length === size) {
+      getDictionary(lang).then((trie) => {
+        if (!isMounted) return;
+        const newSolution = solveBoard(settings.bonegleBoard!, trie, lang);
+        setBoard(settings.bonegleBoard!);
+        setSolution(newSolution);
+        setDictTrie(trie);
+        setIsLoading(false);
+        onActionNotificationRef.current?.(
+          lang === 'es'
+            ? `¡Las letras han caído en el tablero! Hay ${newSolution.totalPossibleWords} palabras escondidas.`
+            : `The letters rattled into place! ${newSolution.totalPossibleWords} words hidden in the grid.`
+        );
+      });
+      return;
+    }
+
+    generatePlayableBoard(size, lang, effectiveSeed).then(({ board: newBoard, solution: newSolution }) => {
       if (!isMounted) return;
       setBoard(newBoard);
       setSolution(newSolution);
+      getDictionary(lang).then((trie) => {
+        if (isMounted) setDictTrie(trie);
+      });
       setIsLoading(false);
       onActionNotificationRef.current?.(
         lang === 'es'
@@ -101,7 +131,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [size, lang]);
+  }, [size, lang, effectiveSeed, settings?.bonegleBoard]);
 
   // Update cached tile positions for fast collision detection
   const updateTileCenters = useCallback(() => {
@@ -176,16 +206,57 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     return () => clearInterval(interval);
   }, [solution, players, currentUserPlayer.id, isResolved]);
 
+  // Synchronize found words from other human contenders at round end
+  useEffect(() => {
+    const unsub = networkManager.subscribe((event) => {
+      if (
+        event.type === 'BONEGLE_WORDS' &&
+        event.playerId !== currentUserPlayer.id &&
+        (!event.roomId || event.roomId === roomId || event.roomId === roomCode)
+      ) {
+        otherHumanWordsRef.current.set(event.playerId, new Set(event.words));
+        // If already resolved, recalculate breakdowns with the new contender data
+        if (isResolved && solution) {
+          const combinedOtherWords = new Map<string, Set<string>>(botWordsRef.current);
+          otherHumanWordsRef.current.forEach((words, pId) => {
+            combinedOtherWords.set(pId, words);
+          });
+          const breakdowns = calculateBonegleBreakdowns(
+            players,
+            myFoundWords,
+            currentUserPlayer.id,
+            combinedOtherWords
+          );
+          setBreakdownResults(breakdowns);
+        }
+      }
+    });
+    return unsub;
+  }, [currentUserPlayer.id, roomId, roomCode, isResolved, solution, players, myFoundWords]);
+
   // 3. Final Round Revelation
   const resolveRoundRevelation = useCallback(() => {
     if (isResolved || !solution) return;
     setIsResolved(true);
 
+    // Broadcast our found words to other players in the room
+    networkManager.send({
+      type: 'BONEGLE_WORDS',
+      roomId: roomId || roomCode || '',
+      playerId: currentUserPlayer.id,
+      words: Array.from(myFoundWords.keys()),
+    });
+
+    const combinedOtherWords = new Map<string, Set<string>>(botWordsRef.current);
+    otherHumanWordsRef.current.forEach((words, pId) => {
+      combinedOtherWords.set(pId, words);
+    });
+
     const breakdowns = calculateBonegleBreakdowns(
       players,
       myFoundWords,
       currentUserPlayer.id,
-      botWordsRef.current
+      combinedOtherWords
     );
     setBreakdownResults(breakdowns);
 
@@ -393,7 +464,11 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
       return;
     }
 
-    if (!solution || !solution.wordsSet.has(word)) {
+    const isWordValid =
+      (solution && solution.wordsSet.has(word)) ||
+      (dictTrie && dictTrie.hasWord(word));
+
+    if (!isWordValid) {
       soundstage.playSlideDown();
       setSubmissionFeedback({ word, status: 'invalid' });
       clearTrail();

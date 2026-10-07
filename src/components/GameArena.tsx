@@ -226,6 +226,8 @@ export const GameArena: React.FC<GameArenaProps> = ({
             {/* Tabletop Board Engine */}
             <GenericGameEngine
               gameId={room.gameId}
+              roomCode={room.code}
+              roomId={room.id}
               currentUserPlayer={currentUserPlayer}
               players={room.players}
               settings={room.settings}
