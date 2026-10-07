@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { LogOut, Crown, AlertTriangle, UserMinus, HelpCircle } from 'lucide-react';
+import { LogOut, Crown, AlertTriangle, HelpCircle } from 'lucide-react';
 import { Room, Player, UserProfile, ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { GenericGameEngine } from './GenericGameEngine';
 import { ChatPanel } from './ChatPanel';
+import { GameStageFrame } from './GameStageFrame';
+import { RulesModal } from './RulesModal';
 import { soundstage } from '../utils/audio';
 
 interface GameArenaProps {
@@ -12,7 +14,6 @@ interface GameArenaProps {
   chatMessages: ChatMessage[];
   onPlayerScore: (playerId: string, addedScore: number) => void;
   onLeaveMatch: () => void;
-  onSimulateOpponentLeave: () => void;
   onMatchComplete: (winner: Player, winReason?: string) => void;
   onSendMessage: (text: string) => void;
   onToggleMutePlayer: (playerId: string, playerName: string) => void;
@@ -25,7 +26,6 @@ export const GameArena: React.FC<GameArenaProps> = ({
   chatMessages,
   onPlayerScore,
   onLeaveMatch,
-  onSimulateOpponentLeave,
   onMatchComplete,
   onSendMessage,
   onToggleMutePlayer,
@@ -33,6 +33,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
 }) => {
   const [timeLeftSec, setTimeLeftSec] = useState(room.settings.roundDurationSec);
   const [showForfeitModal, setShowForfeitModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
 
   const currentUserPlayer = room.players.find((p) => p.id === currentUser.id) || room.players[0];
   const isUrgentTimer = timeLeftSec <= 15 && timeLeftSec > 0;
@@ -93,36 +94,38 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
   return (
     <div className={`arena-page-layout ${room.gameId === 'midnight-alley' ? 'arena-midnight-layout' : ''}`}>
-      {/* Top HUD */}
+      {/* Top HUD (Symmetric 3-column grid for perfect centering matching screenshot) */}
       <div className="cel-card arena-hud-bar">
-        {/* Left: Stopwatch (Hidden for round-based games like Midnight Alley) */}
-        {room.gameId !== 'midnight-alley' && (
-          <div className={`brass-stopwatch-housing ${isUrgentTimer ? 'timer-urgent animate-tremble' : ''}`}>
-            <div className="stopwatch-dial">
-              <svg width="72" height="72" viewBox="0 0 72 72" className="stopwatch-svg">
-                <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--color-parchment-deep)" strokeWidth="6" />
-                <circle
-                  cx="36"
-                  cy="36"
-                  r={radius}
-                  fill="none"
-                  stroke={isUrgentTimer ? 'var(--color-cuphead-red)' : 'var(--color-golden-buttercup)'}
-                  strokeWidth="5"
-                  strokeDasharray={circumference}
-                  strokeDashoffset={strokeDashoffset}
-                  strokeLinecap="round"
-                  transform="rotate(-90 36 36)"
-                />
-              </svg>
-              <div className="stopwatch-digits">
-                <span className="digits-val">{formatTime(timeLeftSec)}</span>
-                <span className="digits-sub">{isUrgentTimer ? 'URGENT' : 'CLOCK'}</span>
+        {/* Left: Stopwatch or empty placeholder to maintain perfect symmetry */}
+        <div className="hud-left-meta">
+          {room.gameId !== 'midnight-alley' ? (
+            <div className={`brass-stopwatch-housing ${isUrgentTimer ? 'timer-urgent animate-tremble' : ''}`}>
+              <div className="stopwatch-dial">
+                <svg width="72" height="72" viewBox="0 0 72 72" className="stopwatch-svg">
+                  <circle cx="36" cy="36" r={radius} fill="none" stroke="var(--color-parchment-deep)" strokeWidth="6" />
+                  <circle
+                    cx="36"
+                    cy="36"
+                    r={radius}
+                    fill="none"
+                    stroke={isUrgentTimer ? 'var(--color-cuphead-red)' : 'var(--color-golden-buttercup)'}
+                    strokeWidth="5"
+                    strokeDasharray={circumference}
+                    strokeDashoffset={strokeDashoffset}
+                    strokeLinecap="round"
+                    transform="rotate(-90 36 36)"
+                  />
+                </svg>
+                <div className="stopwatch-digits">
+                  <span className="digits-val">{formatTime(timeLeftSec)}</span>
+                  <span className="digits-sub">{isUrgentTimer ? 'URGENT' : 'CLOCK'}</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          ) : null}
+        </div>
 
-        {/* Center: Match Details & Room Code */}
+        {/* Center: Match Details & Room Code (Centered as in reference screenshot) */}
         <div className="hud-center-meta">
           <div className="ticket-stub">
             <span className="ticket-stub-label">ROOM</span>
@@ -136,19 +139,17 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
         {/* Right: Actions */}
         <div className="hud-actions-right">
-          {room.gameId === 'midnight-alley' && (
-            <button
-              onClick={() => {
-                soundstage.playTap();
-                window.dispatchEvent(new CustomEvent('open-midnight-rules'));
-              }}
-              className="btn-cel btn-brawl-neutral btn-sm"
-              title="View Mafia rules & character hierarchy"
-            >
-              <HelpCircle size={15} strokeWidth={2.8} />
-              <span>RULES</span>
-            </button>
-          )}
+          <button
+            onClick={() => {
+              soundstage.playTap();
+              setShowRulesModal(true);
+            }}
+            className="btn-cel btn-brawl-neutral btn-sm"
+            title="View game rules & character hierarchy"
+          >
+            <HelpCircle size={15} strokeWidth={2.8} />
+            <span>RULES</span>
+          </button>
           <button
             onClick={() => {
               soundstage.playTap();
@@ -165,65 +166,49 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
       {/* Arena Stage & Chat Sidebar */}
       <div className="arena-stage-grid">
-        {/* Main Game Stage */}
+        {/* Main Game Stage wrapped inside iframe */}
         <div className="arena-center-stage">
-          {/* Scoreboard (Only for non-Midnight Alley games) */}
-          {room.gameId !== 'midnight-alley' && (
-            <div className="cel-card ring-scoreboard-strip">
-              <span className="scoreboard-title">ROUND STANDINGS:</span>
-              <div className="scoreboard-players-row">
-                {room.players.map((p) => {
-                  const isMe = p.id === currentUser.id;
-                  const isHost = p.id === room.hostId;
-                  return (
-                    <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
-                      <div className="score-avatar-wrap">
-                        <AvatarIcon id={p.avatarId} size={22} />
-                        {isHost && (
-                          <div className="chip-crown" title="Host">
-                            <Crown size={8} strokeWidth={3} />
-                          </div>
-                        )}
+          <GameStageFrame className="game-stage-iframe" title="TableBones Game Stage">
+            {/* Scoreboard (Only for non-Midnight Alley games) */}
+            {room.gameId !== 'midnight-alley' && (
+              <div className="cel-card ring-scoreboard-strip">
+                <span className="scoreboard-title">ROUND STANDINGS:</span>
+                <div className="scoreboard-players-row">
+                  {room.players.map((p) => {
+                    const isMe = p.id === currentUser.id;
+                    const isHost = p.id === room.hostId;
+                    return (
+                      <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
+                        <div className="score-avatar-wrap">
+                          <AvatarIcon id={p.avatarId} size={22} />
+                          {isHost && (
+                            <div className="chip-crown" title="Host">
+                              <Crown size={8} strokeWidth={3} />
+                            </div>
+                          )}
+                        </div>
+                        <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
+                        <strong className="score-chip-pts">{p.score} PTS</strong>
                       </div>
-                      <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
-                      <strong className="score-chip-pts">{p.score} PTS</strong>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Tabletop Board Engine */}
-          <GenericGameEngine
-            gameId={room.gameId}
-            currentUserPlayer={currentUserPlayer}
-            players={room.players}
-            onPlayerScore={onPlayerScore}
-            onActionNotification={onDispatchSystemNotice}
-            onLeaveMatch={onLeaveMatch}
-          />
-
-          {/* Discreet Developer / Testing Harness */}
-          {room.players.length > 1 && (
-            <div className="arena-test-bar">
-              <span className="test-bar-label">TESTING HARNESS:</span>
-              <button
-                onClick={() => {
-                  soundstage.playBulbHorn();
-                  onSimulateOpponentLeave();
-                }}
-                className="btn-cel btn-brawl-neutral btn-sm test-btn"
-                title="Simulate an opponent leaving to trigger walkover win rules"
-              >
-                <UserMinus size={13} strokeWidth={2.5} />
-                <span>Simulate Rival Leaving (Walkover Test)</span>
-              </button>
-            </div>
-          )}
+            {/* Tabletop Board Engine */}
+            <GenericGameEngine
+              gameId={room.gameId}
+              currentUserPlayer={currentUserPlayer}
+              players={room.players}
+              onPlayerScore={onPlayerScore}
+              onActionNotification={onDispatchSystemNotice}
+              onLeaveMatch={onLeaveMatch}
+            />
+          </GameStageFrame>
         </div>
 
-        {/* Fixed-height Chat Sidebar */}
+        {/* Fixed-height Chat Sidebar (Outside iframe) */}
         <div className="arena-chat-sidebar">
           <ChatPanel
             messages={chatMessages}
@@ -271,6 +256,13 @@ export const GameArena: React.FC<GameArenaProps> = ({
         </div>
       )}
 
+      {/* Rules Modal */}
+      <RulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        gameId={room.gameId}
+      />
+
       <style>{`
         .arena-page-layout {
           max-width: 1080px;
@@ -282,10 +274,16 @@ export const GameArena: React.FC<GameArenaProps> = ({
         }
         .arena-hud-bar {
           padding: 10px 18px;
+          display: grid;
+          grid-template-columns: 1fr auto 1fr;
+          align-items: center;
+          gap: 14px;
+        }
+        .hud-left-meta {
           display: flex;
           align-items: center;
-          justify-content: space-between;
-          gap: 14px;
+          justify-content: flex-start;
+          min-width: 0;
         }
         .brass-stopwatch-housing {
           background-color: var(--color-canvas-parchment);
@@ -332,10 +330,12 @@ export const GameArena: React.FC<GameArenaProps> = ({
           align-items: center;
           gap: 3px;
           text-align: center;
+          grid-column: 2;
         }
         .hud-room-title {
           font-size: 22px;
           color: var(--color-text-main);
+          margin: 0;
         }
         .hud-quorum-text {
           font-family: var(--font-typewriter-elite);
@@ -345,7 +345,17 @@ export const GameArena: React.FC<GameArenaProps> = ({
         .hud-actions-right {
           display: flex;
           align-items: center;
+          justify-content: flex-end;
           gap: 8px;
+          min-width: 0;
+          grid-column: 3;
+        }
+        .game-stage-iframe {
+          width: 100%;
+          border: none;
+          display: block;
+          background: transparent;
+          overflow: hidden;
         }
         .arena-page-layout.arena-midnight-layout {
           max-width: 1400px;
@@ -360,6 +370,8 @@ export const GameArena: React.FC<GameArenaProps> = ({
           display: flex;
           flex-direction: column;
           gap: 12px;
+          width: 100%;
+          min-width: 0;
         }
         .ring-scoreboard-strip {
           padding: 8px 14px;
@@ -423,27 +435,6 @@ export const GameArena: React.FC<GameArenaProps> = ({
           font-size: 12px;
           color: var(--color-cuphead-red);
           font-weight: 700;
-        }
-        .arena-test-bar {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 12px;
-          background-color: var(--color-parchment-deep);
-          border: 1.5px dashed var(--color-ink-stroke);
-          border-radius: 8px;
-          opacity: 0.85;
-          margin-top: 4px;
-        }
-        .test-bar-label {
-          font-family: var(--font-theatre-rye);
-          font-size: 9px;
-          letter-spacing: 0.08em;
-          color: var(--color-text-muted);
-        }
-        .test-btn {
-          font-size: 12px;
-          padding: 4px 10px;
         }
         .arena-chat-sidebar {
           height: 100%;

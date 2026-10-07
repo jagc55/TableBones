@@ -631,16 +631,16 @@ export const MidnightAlleyEngine: React.FC<MidnightAlleyEngineProps> = ({
                     </div>
                   </div>
 
-                  {/* Stats Grid: Bid, Won, Total Score */}
+                  {/* Stats Grid: Won, Bid, Total Score (Order: Victorias -> Apuestas -> Puntos) */}
                   <div className="player-stats-row">
-                    <div className="stat-pill stat-bid-box" title="Tricks bid for this round">
-                      <span className="stat-label">BID</span>
-                      <strong className="stat-num">{playerBid !== null && playerBid !== undefined ? playerBid : '-'}</strong>
-                    </div>
-
                     <div className="stat-pill stat-won-box" title="Tricks won this round">
                       <span className="stat-label">WON</span>
                       <strong className="stat-num">{playerWon}</strong>
+                    </div>
+
+                    <div className="stat-pill stat-bid-box" title="Tricks bid for this round">
+                      <span className="stat-label">BID</span>
+                      <strong className="stat-num">{playerBid !== null && playerBid !== undefined ? playerBid : '-'}</strong>
                     </div>
 
                     <div className="stat-pill stat-total-box" title="Cumulative tournament score">
@@ -862,23 +862,6 @@ export const MidnightAlleyEngine: React.FC<MidnightAlleyEngineProps> = ({
                   <Table size={14} strokeWidth={2.8} />
                   <span>SCORE TABLE</span>
                 </button>
-              </div>
-            </div>
-
-            <div className="bid-rules-callout">
-              <p className="bid-lead-desc">
-                Predict how many tricks you will capture in Round {round}.
-              </p>
-              <div className="bid-rules-bullets">
-                <span className="rule-bullet-item">
-                  <strong>Exact Bid:</strong> +20 PTS per trick won + trick bonuses.
-                </span>
-                <span className="rule-bullet-item">
-                  <strong>Missed Bid:</strong> -10 PTS for each trick off target (no bonuses).
-                </span>
-                <span className="rule-bullet-item">
-                  <strong>Zero Bid (0 tricks):</strong> +{round * 10} PTS if captured 0; -{round * 10} PTS if you take any!
-                </span>
               </div>
             </div>
 
@@ -2899,7 +2882,7 @@ export const MidnightAlleyEngine: React.FC<MidnightAlleyEngineProps> = ({
         }
 
         /* Responsive Breakpoints */
-        @media (max-width: 1080px) {
+        @media (max-width: 680px) {
           .midnight-alley-layout {
             grid-template-columns: 1fr;
           }

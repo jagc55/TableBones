@@ -6,15 +6,19 @@ import {
   ChatMessage,
   Player,
 } from './types';
-import { INITIAL_PUBLIC_ROOMS } from './utils/mockData';
 import {
   loadUserProfile,
   saveUserProfile,
   loadAchievements,
   saveAchievements,
   loadTheme,
+  loadActiveRooms,
+  saveActiveRooms,
+  decodeRoomInvite,
+  DEFAULT_ROOM_SETTINGS,
 } from './utils/storage';
 import { soundstage } from './utils/audio';
+import { networkManager } from './utils/networkSync';
 
 import { Header } from './components/Header';
 import { RoomBrowser } from './components/RoomBrowser';
@@ -96,7 +100,7 @@ export const App: React.FC = () => {
   const [achievements, setAchievements] = useState<Achievement[]>(loadAchievements());
 
   // Rooms Collection & Current Active Room
-  const [rooms, setRooms] = useState<Room[]>(INITIAL_PUBLIC_ROOMS);
+  const [rooms, setRooms] = useState<Room[]>(() => loadActiveRooms());
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
 
   // Per-room isolated chat storage
@@ -136,6 +140,69 @@ export const App: React.FC = () => {
   useEffect(() => {
     saveAchievements(achievements);
   }, [achievements]);
+
+  // Persist active rooms across tabs/sessions
+  useEffect(() => {
+    saveActiveRooms(rooms);
+  }, [rooms]);
+
+  // Real-time synchronization across devices (WebSocket) and tabs (BroadcastChannel)
+  useEffect(() => {
+    const unsubscribe = networkManager.subscribe((data) => {
+      if (data.type === 'SYNC_ROOM' && data.room) {
+        const incomingRoom: Room = data.room;
+        setRooms((prev) => {
+          const exists = prev.some((r) => r.id === incomingRoom.id);
+          if (exists) {
+            return prev.map((r) => (r.id === incomingRoom.id ? incomingRoom : r));
+          }
+          return [incomingRoom, ...prev];
+        });
+
+        setCurrentRoom((prev) => {
+          if (prev && prev.id === incomingRoom.id) {
+            if (data.kickedPlayerId === userProfile.id) {
+              addToast('alert', 'REMOVED', 'You were removed from the room.');
+              setCurrentView('browser');
+              return null;
+            }
+            if (incomingRoom.status === 'in_progress' && prev.status !== 'in_progress') {
+              setCurrentView('arena');
+            }
+            return incomingRoom;
+          }
+          return prev;
+        });
+      } else if (data.type === 'START_GAME' && data.roomId) {
+        setCurrentRoom((prev) => {
+          if (prev && prev.id === data.roomId) {
+            setCurrentView('arena');
+            return { ...prev, status: 'in_progress' };
+          }
+          return prev;
+        });
+      } else if (data.type === 'ROOM_CLOSED' && data.roomId) {
+        setRooms((prev) => prev.filter((r) => r.id !== data.roomId));
+        setCurrentRoom((prev) => {
+          if (prev && prev.id === data.roomId) {
+            setCurrentView('browser');
+            addToast('info', 'ROOM CLOSED', 'The room was closed.');
+            return null;
+          }
+          return prev;
+        });
+      } else if (data.type === 'CHAT_MESSAGE' && data.roomId && data.chatMessage) {
+        setRoomChats((prev) => ({
+          ...prev,
+          [data.roomId]: [...(prev[data.roomId] || []), data.chatMessage],
+        }));
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [userProfile.id]);
 
   // Helper: Show Toast
   const addToast = (type: 'achievement' | 'alert' | 'info', title: string, message: string) => {
@@ -193,6 +260,9 @@ export const App: React.FC = () => {
     setCurrentRoom(newRoom);
     setCurrentView('lobby');
 
+    // Broadcast room creation to other tabs/players
+    networkManager.send({ type: 'SYNC_ROOM', room: newRoom });
+
     // Initialize isolated chat for this new room
     setRoomChats((prev) => ({
       ...prev,
@@ -237,19 +307,70 @@ export const App: React.FC = () => {
         players: [...room.players, newPlayer],
       };
 
-      setRooms((prev) => prev.map((r) => (r.id === room.id ? updatedRoom : r)));
-
       // Add join system message to THIS ROOM'S chat only
       postSystemChatMessage(room.id, `${userProfile.name} joined the room.`);
     }
 
+    setRooms((prev) => {
+      const exists = prev.some((r) => r.id === updatedRoom.id);
+      if (exists) {
+        return prev.map((r) => (r.id === updatedRoom.id ? updatedRoom : r));
+      }
+      return [updatedRoom, ...prev];
+    });
+
     setCurrentRoom(updatedRoom);
     setCurrentView('lobby');
+
+    // Broadcast update to other tabs/players
+    networkManager.send({ type: 'SYNC_ROOM', room: updatedRoom });
 
     if (updatedRoom.isPrivate) {
       unlockAchievement('secret-society');
     }
   };
+
+  // Auto-join room if opened with invite URL parameter (?join=CODE&data=BASE64)
+  useEffect(() => {
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const joinCode = searchParams.get('join') || searchParams.get('room');
+      const dataPayload = searchParams.get('data');
+
+      if (joinCode) {
+        const cleanCode = joinCode.trim().toUpperCase();
+        const activeRooms = loadActiveRooms();
+        let targetRoom = activeRooms.find((r) => r.code.toUpperCase() === cleanCode);
+
+        if (!targetRoom && dataPayload) {
+          const decoded = decodeRoomInvite(dataPayload);
+          if (decoded) {
+            targetRoom = {
+              id: decoded.id || `room-${Date.now()}`,
+              code: decoded.code || cleanCode,
+              title: decoded.title || 'Midnight Alley Table',
+              gameId: decoded.gameId || 'midnight-alley',
+              isPrivate: decoded.isPrivate ?? true,
+              minPlayers: decoded.minPlayers ?? 2,
+              maxPlayers: decoded.maxPlayers ?? 6,
+              hostId: decoded.hostId || 'host',
+              players: [],
+              settings: decoded.settings || DEFAULT_ROOM_SETTINGS,
+              status: 'waiting',
+              createdAt: Date.now(),
+            };
+          }
+        }
+
+        if (targetRoom) {
+          handleJoinRoom(targetRoom);
+          addToast('info', 'JOINED ROOM', `Joined room ${targetRoom.title}!`);
+        }
+      }
+    } catch (e) {
+      console.warn('Auto-join from invite URL failed', e);
+    }
+  }, []);
 
   // 3. TOGGLE READY (Lobby)
   const handleToggleReady = () => {
@@ -260,6 +381,7 @@ export const App: React.FC = () => {
     const updated = { ...currentRoom, players: updatedPlayers };
     setCurrentRoom(updated);
     setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
+    networkManager.send({ type: 'SYNC_ROOM', room: updated });
   };
 
   // 4. ADD SIMULATED BOT (Lobby)
@@ -281,6 +403,7 @@ export const App: React.FC = () => {
     setCurrentRoom(updated);
     setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
     postSystemChatMessage(currentRoom.id, `${botName} joined.`);
+    networkManager.send({ type: 'SYNC_ROOM', room: updated });
   };
 
   // 5. HOST KICK PLAYER (Lobby)
@@ -298,6 +421,7 @@ export const App: React.FC = () => {
 
     addToast('alert', 'PLAYER REMOVED', `${kicked.name} was removed from the room.`);
     postSystemChatMessage(currentRoom.id, `Host removed ${kicked.name} from the room.`);
+    networkManager.send({ type: 'SYNC_ROOM', room: updated, kickedPlayerId: playerId });
   };
 
   // 6. TRANSFER HOST
@@ -321,6 +445,7 @@ export const App: React.FC = () => {
     setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
     postSystemChatMessage(currentRoom.id, `Host role transferred to ${newHostPlayer.name}.`);
     addToast('info', 'HOST TRANSFERRED', `${newHostPlayer.name} is now the room host.`);
+    networkManager.send({ type: 'SYNC_ROOM', room: updated });
   };
 
   // 7. START MATCH (Lobby -> Arena)
@@ -336,6 +461,8 @@ export const App: React.FC = () => {
 
     unlockAchievement('first-bout');
     postSystemChatMessage(currentRoom.id, 'The game has started!');
+    networkManager.send({ type: 'SYNC_ROOM', room: updated });
+    networkManager.send({ type: 'START_GAME', roomId: updated.id });
   };
 
   // 8. SCORE IN GAME
@@ -366,6 +493,9 @@ export const App: React.FC = () => {
   // 9. LEAVE MATCH / FORFEIT (Critical Quorum & Host Migration Rule)
   const handleLeaveMatch = () => {
     if (!currentRoom) {
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
       setCurrentView('browser');
       return;
     }
@@ -379,6 +509,10 @@ export const App: React.FC = () => {
       setRooms((prev) => prev.filter((r) => r.id !== currentRoom.id));
       setCurrentRoom(null);
       setCurrentView('browser');
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      networkManager.send({ type: 'ROOM_CLOSED', roomId: currentRoom.id });
       addToast('info', 'ROOM CLOSED', 'All players left the room.');
       return;
     }
@@ -408,6 +542,10 @@ export const App: React.FC = () => {
       setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? finishedRoom : r)));
       setCurrentRoom(null);
       setCurrentView('browser');
+      if (window.location.search) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+      networkManager.send({ type: 'SYNC_ROOM', room: finishedRoom });
       addToast('alert', 'MATCH ENDED', winReason);
       return;
     }
@@ -422,73 +560,11 @@ export const App: React.FC = () => {
     setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updatedRoom : r)));
     setCurrentRoom(null);
     setCurrentView('browser');
+    if (window.location.search) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    networkManager.send({ type: 'SYNC_ROOM', room: updatedRoom, leftPlayerId: userProfile.id });
     addToast('info', 'LEFT GAME', 'You left the game.');
-  };
-
-  // 10. SIMULATE OPPONENT LEAVING (Testing trigger)
-  const handleSimulateOpponentLeave = () => {
-    if (!currentRoom) return;
-
-    const opponent = currentRoom.players.find((p) => p.id !== userProfile.id);
-    if (!opponent) return;
-
-    soundstage.playSlideDown();
-    const remainingPlayers = currentRoom.players.filter((p) => p.id !== opponent.id);
-
-    // If opponent was host, transfer host to user or next player
-    let newHostId = currentRoom.hostId;
-    if (currentRoom.hostId === opponent.id) {
-      newHostId = remainingPlayers[0].id;
-      remainingPlayers[0].isHost = true;
-      addToast('info', 'HOST TRANSFERRED', `${opponent.name} (Host) left. You are now the host!`);
-    }
-
-    postSystemChatMessage(currentRoom.id, `${opponent.name} left the game.`);
-
-    // Quorum check
-    if (remainingPlayers.length < currentRoom.minPlayers) {
-      const champ = remainingPlayers.find((p) => p.id === userProfile.id) || remainingPlayers[0];
-      const reason = `Opponent left the game. Minimum player count (${currentRoom.minPlayers}) not met. Victory by default!`;
-
-      const finishedRoom: Room = {
-        ...currentRoom,
-        hostId: newHostId,
-        players: remainingPlayers,
-        status: 'finished',
-        winnerId: champ.id,
-        winReason: reason,
-      };
-
-      setCurrentRoom(finishedRoom);
-      setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? finishedRoom : r)));
-
-      // Trigger Victory Screen
-      setBoutWinner(champ);
-      setWinReasonText(reason);
-      setIsVictoryModalOpen(true);
-      soundstage.playVictoryFanfare();
-
-      unlockAchievement('last-man-standing');
-      unlockAchievement('ring-champion');
-
-      setUserProfile((prev) => ({
-        ...prev,
-        stats: {
-          ...prev.stats,
-          matchesPlayed: prev.stats.matchesPlayed + 1,
-          matchesWon: prev.stats.matchesWon + 1,
-          walkoverWins: prev.stats.walkoverWins + 1,
-        },
-      }));
-    } else {
-      const updatedRoom: Room = {
-        ...currentRoom,
-        hostId: newHostId,
-        players: remainingPlayers,
-      };
-      setCurrentRoom(updatedRoom);
-      setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updatedRoom : r)));
-    }
   };
 
   // 11. MATCH FINISHED (Timer concluded)
@@ -521,6 +597,7 @@ export const App: React.FC = () => {
     };
     setCurrentRoom(finishedRoom);
     setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? finishedRoom : r)));
+    networkManager.send({ type: 'SYNC_ROOM', room: finishedRoom });
   };
 
   // 12. SEND CHAT MESSAGE (Scoped to current room)
@@ -547,6 +624,12 @@ export const App: React.FC = () => {
         ...prev,
         [currentRoom.id]: updatedList,
       };
+    });
+
+    networkManager.send({
+      type: 'CHAT_MESSAGE',
+      roomId: currentRoom.id,
+      chatMessage: newMsg,
     });
   };
 
@@ -592,6 +675,9 @@ export const App: React.FC = () => {
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onGoHome={() => {
           if (currentView !== 'browser') {
+            if (window.location.search) {
+              window.history.replaceState({}, document.title, window.location.pathname);
+            }
             setCurrentView('browser');
           }
         }}
@@ -631,7 +717,6 @@ export const App: React.FC = () => {
             chatMessages={activeChatMessages}
             onPlayerScore={handlePlayerScore}
             onLeaveMatch={handleLeaveMatch}
-            onSimulateOpponentLeave={handleSimulateOpponentLeave}
             onMatchComplete={handleMatchComplete}
             onSendMessage={handleSendMessage}
             onToggleMutePlayer={handleToggleMutePlayer}
