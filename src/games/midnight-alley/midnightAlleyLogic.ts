@@ -5,6 +5,7 @@ import {
   TrickResult,
   RoundScoreBreakdown,
 } from './types';
+import { Player, RoomSettings, AbstractGameEngine } from '../../types';
 
 // Build the standard 70-card Midnight Alley deck
 export function createMidnightDeck(): MidnightCard[] {
@@ -541,5 +542,35 @@ export function chooseBotPlay(
     // 4. Lowest card available
     const sortedLowest = [...legalCards].sort((a, b) => (a.value || 0) - (b.value || 0));
     return { card: sortedLowest[0] };
+  }
+}
+
+/**
+ * Concrete Midnight Alley logic implementing the platform's AbstractGameEngine contract.
+ */
+export class MidnightAlleyGameLogic extends AbstractGameEngine<
+  { round: number; maxRounds: number },
+  { type: string; payload?: unknown }
+> {
+  readonly gameId = 'midnight-alley' as const;
+  readonly title = 'Midnight Alley: The Mob Trick';
+
+  initialize(_players: Player[], _settings?: RoomSettings) {
+    return {
+      round: 1,
+      maxRounds: 10,
+    };
+  }
+
+  processAction(state: { round: number; maxRounds: number }, _action: { type: string; payload?: unknown }) {
+    return state;
+  }
+
+  calculateScores(): Record<string, number> {
+    return {};
+  }
+
+  checkGameOver(state: { round: number; maxRounds: number }): boolean {
+    return state.round > state.maxRounds;
   }
 }

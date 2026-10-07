@@ -1,4 +1,4 @@
-import { AbstractGameEngine } from '../types';
+import { AbstractGameEngine } from '../../types';
 
 export const INITIAL_VORTILEX_GRID: string[][] = [
   ['B', 'O', 'N', 'E'],

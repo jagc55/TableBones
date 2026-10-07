@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { BaseGameEngineProps } from '../types';
-import { soundstage } from '../utils/audio';
+import { BaseGameEngineProps } from '../../types';
+import { soundstage } from '../../utils/audio';
 import { Dices, Swords } from 'lucide-react';
 import { DiceBid } from './types';
 import { rollDiceSet, evaluateBluff } from './skullBonesLogic';

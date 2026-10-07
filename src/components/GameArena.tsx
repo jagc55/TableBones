@@ -7,6 +7,7 @@ import { ChatPanel } from './ChatPanel';
 import { GameStageFrame } from './GameStageFrame';
 import { RulesModal } from './RulesModal';
 import { soundstage } from '../utils/audio';
+import { getGameManifest } from '../games';
 
 interface GameArenaProps {
   room: Room;
@@ -36,6 +37,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
   const [showRulesModal, setShowRulesModal] = useState(false);
 
   const currentUserPlayer = room.players.find((p) => p.id === currentUser.id) || room.players[0];
+  const manifest = getGameManifest(room.gameId);
   const isUrgentTimer = timeLeftSec <= 15 && timeLeftSec > 0;
 
   // Track sounds played so they only trigger once per round
@@ -46,10 +48,9 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
   // Single robust interval for countdown timer
   useEffect(() => {
-    if (room.gameId === 'midnight-alley') return;
+    if (manifest?.hasRoundTimer === false) return;
     playedWarningRef.current = false;
     playedEndRef.current = false;
-
 
     const timer = setInterval(() => {
       setTimeLeftSec((prev) => {
@@ -66,7 +67,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
             playedEndRef.current = true;
             soundstage.playRoundEnd();
           }
-          if (room.gameId !== 'bonegle') {
+          if (!manifest?.hideContinuousScoreboard) {
             const sorted = [...room.players].sort((a, b) => b.score - a.score);
             const champion = sorted[0] || currentUserPlayer;
             onMatchCompleteRef.current(champion, `Time's up! Highest score wins the game.`);
@@ -79,11 +80,11 @@ export const GameArena: React.FC<GameArenaProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [room.gameId, room.players, currentUserPlayer]);
+  }, [manifest?.hasRoundTimer, manifest?.hideContinuousScoreboard, room.players, currentUserPlayer]);
 
-  // Periodic bot scoring to simulate multiplayer action (disabled for Bonegle where scores reveal at the end)
+  // Periodic bot scoring to simulate multiplayer action (disabled for games with secret end-round calculation)
   useEffect(() => {
-    if (room.gameId === 'bonegle' || room.gameId === 'midnight-alley') return;
+    if (manifest?.hideContinuousScoreboard) return;
 
     const botPlayers = room.players.filter((p) => p.isBot && p.id !== currentUser.id);
     if (botPlayers.length === 0) return;
@@ -98,7 +99,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
     }, 5500);
 
     return () => clearInterval(interval);
-  }, [room.gameId, room.players, currentUser.id, onPlayerScore, onDispatchSystemNotice]);
+  }, [manifest?.hideContinuousScoreboard, room.players, currentUser.id, onPlayerScore, onDispatchSystemNotice]);
 
   const handleConfirmForfeit = () => {
     soundstage.playSlideDown();
@@ -119,12 +120,12 @@ export const GameArena: React.FC<GameArenaProps> = ({
   const strokeDashoffset = circumference - progressRatio * circumference;
 
   return (
-    <div className={`arena-page-layout ${room.gameId === 'midnight-alley' ? 'arena-midnight-layout' : ''}`}>
+    <div className={`arena-page-layout ${manifest?.arenaLayoutClass || ''}`}>
       {/* Top HUD (Symmetric 3-column grid for perfect centering matching screenshot) */}
       <div className="cel-card arena-hud-bar">
         {/* Left: Stopwatch or empty placeholder to maintain perfect symmetry */}
         <div className="hud-left-meta">
-          {room.gameId !== 'midnight-alley' ? (
+          {manifest?.hasRoundTimer !== false ? (
             <div className={`brass-stopwatch-housing ${isUrgentTimer ? 'timer-urgent animate-tremble' : ''}`}>
               <div className="stopwatch-dial">
                 <svg width="72" height="72" viewBox="0 0 72 72" className="stopwatch-svg">
@@ -195,8 +196,8 @@ export const GameArena: React.FC<GameArenaProps> = ({
         {/* Main Game Stage wrapped inside iframe */}
         <div className="arena-center-stage">
           <GameStageFrame className="game-stage-iframe" title="TableBones Game Stage">
-            {/* Scoreboard (Only for non-Midnight Alley and non-Bonegle games) */}
-            {room.gameId !== 'midnight-alley' && room.gameId !== 'bonegle' && (
+            {/* Scoreboard (Hidden for games like Midnight Alley and Bonegle) */}
+            {!manifest?.hideContinuousScoreboard && (
               <div className="cel-card ring-scoreboard-strip">
                 <span className="scoreboard-title">ROUND STANDINGS:</span>
                 <div className="scoreboard-players-row">

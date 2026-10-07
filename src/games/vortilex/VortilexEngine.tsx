@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { BaseGameEngineProps } from '../types';
-import { soundstage } from '../utils/audio';
+import { BaseGameEngineProps } from '../../types';
+import { soundstage } from '../../utils/audio';
 import { RotateCcw, Check, AlertCircle } from 'lucide-react';
 import { INITIAL_VORTILEX_GRID, calculateVortilexWordScore } from './vortilexLogic';
 import { VortilexCoord, VortilexFeedback } from './types';

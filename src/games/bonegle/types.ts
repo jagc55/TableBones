@@ -1,4 +1,4 @@
-import { Player, RoomSettings, BaseGameEngineProps } from '../types';
+import { Player, RoomSettings, BaseGameEngineProps } from '../../types';
 
 export type BonegleGridSize = 4 | 5 | 6;
 export type BonegleLang = 'es' | 'en';

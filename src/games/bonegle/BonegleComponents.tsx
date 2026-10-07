@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, AlertCircle, Sparkles, Trophy } from 'lucide-react';
 import { BonegleSubmissionFeedback, BoneglePlayerBreakdown } from './types';
-import { FlagIcon } from '../components/FlagIcon';
+import { FlagIcon } from '../../components/FlagIcon';
 
 interface BonegleWordBannerProps {
   currentWord: string;

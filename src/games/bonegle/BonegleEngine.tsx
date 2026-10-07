@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Player, BaseGameEngineProps } from '../types';
-import { soundstage } from '../utils/audio';
+import { Player, BaseGameEngineProps } from '../../types';
+import { soundstage } from '../../utils/audio';
 import {
   generatePlayableBoard,
   calculateWordPoints,

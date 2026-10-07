@@ -1,4 +1,4 @@
-import { BaseGameEngineProps } from '../types';
+import { BaseGameEngineProps } from '../../types';
 
 export interface VortilexCoord {
   r: number;

@@ -1,4 +1,4 @@
-import { AbstractGameEngine } from '../types';
+import { AbstractGameEngine } from '../../types';
 import { DiceBid } from './types';
 
 export function rollDiceSet(count = 5): number[] {

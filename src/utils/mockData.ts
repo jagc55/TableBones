@@ -1,73 +1,7 @@
 import { GameDefinition, Room, Achievement } from '../types';
+import { getAllGameDefinitions } from '../games';
 
-export const GAMES_CATALOG: GameDefinition[] = [
-  {
-    id: 'bonegle',
-    title: 'Bonegle',
-    subtitle: 'Fast-Paced Word Scramble',
-    description: 'Find as many words as you can by connecting adjacent letters in any direction before time runs out!',
-    minPlayers: 2,
-    maxPlayers: 6,
-    estimatedTimeMin: 2,
-    iconName: 'Swords',
-    badge: 'NEW',
-  },
-  {
-    id: 'vortilex',
-    title: 'Vortilex: Word Search',
-    subtitle: 'Classic Word Puzzle',
-    description: 'Connect adjacent letter dice against the clock to discover valid words and score points.',
-    minPlayers: 2,
-    maxPlayers: 4,
-    estimatedTimeMin: 3,
-    iconName: 'Swords',
-    badge: 'POPULAR',
-  },
-  {
-    id: 'skull-bones',
-    title: "Liar's Dice: Duel",
-    subtitle: 'Dice Bluffing & Bidding',
-    description: 'Roll dice behind your cup, place bids on total faces, and call bluffs against opponents.',
-    minPlayers: 2,
-    maxPlayers: 6,
-    estimatedTimeMin: 5,
-    iconName: 'Dices',
-    badge: 'CLASSIC',
-  },
-  {
-    id: 'royal-checkers',
-    title: 'Classic Checkers',
-    subtitle: 'Strategy Board Game',
-    description: 'Diagonal leaps, king promotions, and board control in a traditional checkers match.',
-    minPlayers: 2,
-    maxPlayers: 2,
-    estimatedTimeMin: 6,
-    iconName: 'Crown',
-    badge: '2 PLAYERS',
-  },
-  {
-    id: 'mystery-manor',
-    title: 'Mystery Manor',
-    subtitle: 'Deduction & Clue Game',
-    description: 'Share clues, eliminate suspects, and deduce the mystery before the round ends.',
-    minPlayers: 3,
-    maxPlayers: 5,
-    estimatedTimeMin: 8,
-    iconName: 'Shield',
-    badge: 'MYSTERY',
-  },
-  {
-    id: 'midnight-alley',
-    title: 'Midnight Alley: The Mob Trick',
-    subtitle: 'Underworld Trick-Taking Duel',
-    description: 'A cutthroat trick-taking card game of skeleton mobsters. Predict your tricks, unleash The Boss and Gangsters, and beware the Femme Fatale!',
-    minPlayers: 2,
-    maxPlayers: 8,
-    estimatedTimeMin: 7,
-    iconName: 'Skull',
-    badge: 'NEW',
-  },
-];
+export const GAMES_CATALOG: GameDefinition[] = getAllGameDefinitions();
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
   {

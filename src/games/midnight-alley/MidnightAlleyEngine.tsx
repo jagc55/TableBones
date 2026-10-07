@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Player, AFK_CONFIG } from '../types';
+import { Player, AFK_CONFIG, BaseGameEngineProps } from '../../types';
 import {
   MidnightCard,
   MidnightPhase,
@@ -18,11 +18,11 @@ import {
   getEstablishedLeadSuit,
 } from './midnightAlleyLogic';
 import { MidnightCardView, SuitIcon, BossIcon, FemmeFataleIcon, GangsterIcon, ChameleonIcon, AlibiIcon } from './MidnightCards';
-import { AvatarIcon } from '../utils/avatars';
-import { soundstage } from '../utils/audio';
+import { AvatarIcon } from '../../utils/avatars';
+import { soundstage } from '../../utils/audio';
 import { Trophy, Play, CheckCircle2, ShieldCheck, Users, Crown, Sparkles, ArrowUpDown, Table, X, Clock, Swords } from 'lucide-react';
 
-interface MidnightAlleyEngineProps {
+interface MidnightAlleyEngineProps extends BaseGameEngineProps {
   currentUserPlayer: Player;
   players: Player[];
   onPlayerScore: (playerId: string, addedScore: number) => void;

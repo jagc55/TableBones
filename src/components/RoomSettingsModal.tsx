@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Lock, Globe, Check, Clock, Settings } from 'lucide-react';
 import { Room, RoomSettings } from '../types';
 import { soundstage } from '../utils/audio';
-import { FlagIcon } from './FlagIcon';
+import { getGameManifest } from '../games';
 
 interface RoomSettingsModalProps {
   isOpen: boolean;
@@ -21,11 +21,15 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
 }) => {
   const [roomTitle, setRoomTitle] = useState(room.title);
   const [isPrivate, setIsPrivate] = useState(room.isPrivate);
-  const [roundDurationSec, setRoundDurationSec] = useState(room.settings.roundDurationSec);
-  const [dictionaryLang, setDictionaryLang] = useState<'es' | 'en'>(room.settings.dictionaryLang || 'es');
-  const [bonegleGridSize, setBonegleGridSize] = useState<4 | 5 | 6>(room.settings.bonegleGridSize || 5);
+  const [localSettings, setLocalSettings] = useState<RoomSettings>({ ...room.settings });
+
+  const handleUpdateSetting = <K extends keyof RoomSettings>(key: K, value: RoomSettings[K]) => {
+    setLocalSettings((prev) => ({ ...prev, [key]: value }));
+  };
 
   if (!isOpen) return null;
+
+  const manifest = getGameManifest(room.gameId);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,12 +39,7 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
     }
     soundstage.playTap();
     onUpdateSettings(
-      {
-        ...room.settings,
-        roundDurationSec,
-        dictionaryLang,
-        bonegleGridSize,
-      },
+      localSettings,
       roomTitle.trim() || room.title,
       isPrivate
     );
@@ -130,84 +129,41 @@ export const RoomSettingsModal: React.FC<RoomSettingsModalProps> = ({
             </div>
           </div>
 
-          {/* Bonegle specific options matching CreateRoomModal */}
-          {room.gameId === 'bonegle' && (
-            <>
-              <div className="form-group">
-                <label className="group-label">3. BONEGLE BOARD SIZE</label>
-                <div className="clock-options-row">
-                  {([4, 5, 6] as const).map((sz) => (
-                    <button
-                      key={sz}
-                      type="button"
-                      disabled={!isHost}
-                      onClick={() => {
-                        soundstage.playTap();
-                        setBonegleGridSize(sz);
-                      }}
-                      className={`duration-chip ${bonegleGridSize === sz ? 'duration-selected' : ''}`}
-                    >
-                      <span>{sz}x{sz} {sz === 4 ? 'Classic' : sz === 5 ? 'Pro (Recommended)' : 'Heavyweight'}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label className="group-label">4. DICTIONARY LANGUAGE</label>
-                <div className="clock-options-row">
-                  <button
-                    type="button"
-                    disabled={!isHost}
-                    onClick={() => {
-                      soundstage.playTap();
-                      setDictionaryLang('en');
-                    }}
-                    className={`duration-chip ${dictionaryLang === 'en' ? 'duration-selected' : ''}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <FlagIcon country="uk" size={16} />
-                    <span>English</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!isHost}
-                    onClick={() => {
-                      soundstage.playTap();
-                      setDictionaryLang('es');
-                    }}
-                    className={`duration-chip ${dictionaryLang === 'es' ? 'duration-selected' : ''}`}
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
-                  >
-                    <FlagIcon country="es" size={16} />
-                    <span>Español</span>
-                  </button>
-                </div>
-              </div>
-            </>
+          {/* Game-specific custom options */}
+          {manifest?.settingsComponent && (
+            <manifest.settingsComponent
+              settings={localSettings}
+              onUpdateSetting={handleUpdateSetting}
+              isHost={isHost}
+              stepOffset={3}
+            />
           )}
 
           {/* Round Duration */}
-          <div className="form-group">
-            <label className="group-label">{room.gameId === 'bonegle' ? '5.' : '3.'} ROUND DURATION</label>
-            <div className="clock-options-row">
-              {[60, 120, 180, 240].map((dur) => (
-                <button
-                  key={dur}
-                  type="button"
-                  disabled={!isHost}
-                  onClick={() => {
-                    soundstage.playTap();
-                    setRoundDurationSec(dur);
-                  }}
-                  className={`duration-chip ${roundDurationSec === dur ? 'duration-selected' : ''}`}
-                >
-                  <Clock size={16} strokeWidth={2.5} />
-                  <span>{dur / 60} MIN</span>
-                </button>
-              ))}
+          {manifest?.hasRoundTimer !== false && (
+            <div className="form-group">
+              <label className="group-label">
+                {manifest?.settingsComponent ? '5.' : '3.'} ROUND DURATION
+              </label>
+              <div className="clock-options-row">
+                {[60, 120, 180, 240].map((dur) => (
+                  <button
+                    key={dur}
+                    type="button"
+                    disabled={!isHost}
+                    onClick={() => {
+                      soundstage.playTap();
+                      handleUpdateSetting('roundDurationSec', dur);
+                    }}
+                    className={`duration-chip ${localSettings.roundDurationSec === dur ? 'duration-selected' : ''}`}
+                  >
+                    <Clock size={16} strokeWidth={2.5} />
+                    <span>{dur / 60} MIN</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Footer Action Buttons */}
           <div className="settings-actions-footer">

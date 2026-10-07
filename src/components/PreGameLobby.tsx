@@ -7,7 +7,7 @@ import { ChatPanel } from './ChatPanel';
 import { RulesModal } from './RulesModal';
 import { InviteFriendsModal } from './InviteFriendsModal';
 import { soundstage } from '../utils/audio';
-import { FlagIcon } from './FlagIcon';
+import { getGameManifest } from '../games';
 import { RoomSettingsModal } from './RoomSettingsModal';
 import { buildInviteUrl } from '../utils/networkSync';
 
@@ -46,7 +46,8 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  const gameDef = GAMES_CATALOG.find((g) => g.id === room.gameId) || GAMES_CATALOG[0];
+  const manifest = getGameManifest(room.gameId);
+  const gameDef = manifest?.definition || GAMES_CATALOG.find((g) => g.id === room.gameId) || GAMES_CATALOG[0];
   const isHost = room.hostId === currentUser.id;
   const myPlayerState = room.players.find((p) => p.id === currentUser.id);
 
@@ -191,9 +192,9 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                 <strong>Capacity:</strong> {room.minPlayers}–{room.maxPlayers} Contenders
               </span>
               <span className="meta-chip">
-                {room.gameId === 'midnight-alley' ? (
+                {manifest?.formatBadge ? (
                   <>
-                    <strong>Format:</strong> 10 Rounds
+                    <strong>Format:</strong> {manifest.formatBadge}
                   </>
                 ) : (
                   <>
@@ -201,21 +202,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                   </>
                 )}
               </span>
-              {room.gameId === 'bonegle' && (
-                <>
-                  <span className="meta-chip">
-                    <strong>Grid:</strong> {room.settings.bonegleGridSize || 5}x{room.settings.bonegleGridSize || 5}
-                  </span>
-                  <span className="meta-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
-                    <strong>Dictionary:</strong>
-                    <FlagIcon country={room.settings.dictionaryLang === 'es' ? 'es' : 'uk'} size={14} />
-                    <span>{room.settings.dictionaryLang === 'es' ? 'Español' : 'English'}</span>
-                  </span>
-                  <span className="meta-chip" style={{ backgroundColor: 'var(--color-golden-buttercup)', color: 'var(--color-ink-black)', fontWeight: 700 }}>
-                    ★ Unique words score x2!
-                  </span>
-                </>
-              )}
+              {manifest?.lobbyMetaChips?.(room)}
               <span className="meta-chip">
                 <strong>Access:</strong> {room.isPrivate ? 'Ticket Code' : 'Public Lobby'}
               </span>

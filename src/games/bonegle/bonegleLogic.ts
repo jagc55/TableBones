@@ -1,4 +1,4 @@
-import { Player, RoomSettings, AbstractGameEngine } from '../types';
+import { Player, RoomSettings, AbstractGameEngine } from '../../types';
 import {
   BonegleGridSize,
   BonegleLang,

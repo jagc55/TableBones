@@ -1,0 +1,35 @@
+import { GameManifest } from '../../types';
+import { MidnightAlleyEngine } from './MidnightAlleyEngine';
+import { MidnightRules } from './MidnightRules';
+import { MidnightAlleyGameLogic } from './midnightAlleyLogic';
+
+export const midnightAlleyManifest: GameManifest = {
+  id: 'midnight-alley',
+  definition: {
+    id: 'midnight-alley',
+    title: 'Midnight Alley: The Mob Trick',
+    subtitle: 'Underworld Trick-Taking Duel',
+    description:
+      'A cutthroat trick-taking card game of skeleton mobsters. Predict your tricks, unleash The Boss and Gangsters, and beware the Femme Fatale!',
+    minPlayers: 2,
+    maxPlayers: 8,
+    estimatedTimeMin: 7,
+    iconName: 'Skull',
+    badge: 'NEW',
+  },
+  formatBadge: '10 Rounds',
+  hasRoundTimer: false,
+  hideContinuousScoreboard: true,
+  arenaLayoutClass: 'arena-midnight-layout',
+  engine: (props) => (
+    <MidnightAlleyEngine
+      currentUserPlayer={props.currentUserPlayer}
+      players={props.players && props.players.length > 0 ? props.players : [props.currentUserPlayer]}
+      onPlayerScore={props.onPlayerScore}
+      onActionNotification={props.onActionNotification}
+      onLeaveMatch={props.onLeaveMatch}
+    />
+  ),
+  rulesComponent: MidnightRules,
+  logic: new MidnightAlleyGameLogic(),
+};
