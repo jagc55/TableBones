@@ -21,6 +21,7 @@ Before writing any code, familiarize yourself with TableSkull's plugin architect
 2. Every game is self-contained inside `src/games/<game-id>/`.
 3. The game connects to the platform solely via `GameManifest` registered in `src/games/registry.ts` and `GameId` in `src/types/index.ts`.
 4. All games follow the authentic **1930s Fleischer / Cuphead rubber-hose aesthetic** (ink outlines, aged parchment, cel-card drop-shadows, brass stopwatches, and mechanical click/bell/trumpet audio).
+5. **CRITICAL: Prevent Infinite Re-render Loops with Mutable Callback Refs (`useRef`)**: Platform callbacks (`onActionNotification`, `onPlayerScore`, `onMatchResolved`) trigger state changes in `App.tsx` (like room chat feeds). **Never** put these callbacks or high-frequency timers (`timeLeftSec`) in effect dependency arrays! Always stabilize them using `useRef`.
 
 ---
 
@@ -109,9 +110,27 @@ src/games/<game-id>/
    - Subcomponents styled with `.cel-card`, `.btn-cel`, and TableSkull design tokens.
 4. **`<Game>Engine.tsx`**:
    - Main component taking `BaseGameEngineProps`.
-   - Triggers `onPlayerScore(playerId, pts)` when points are earned.
-   - Triggers `onActionNotification(text)` to broadcast moves to the match chat feed.
-   - Triggers `onMatchResolved(winner, reason)` when victory condition is met.
+   - **Crucial Anti-Loop Pattern**:
+     - Maintain mutable refs for platform callbacks:
+       ```typescript
+       const onActionNotificationRef = useRef(onActionNotification);
+       onActionNotificationRef.current = onActionNotification;
+       const onPlayerScoreRef = useRef(onPlayerScore);
+       onPlayerScoreRef.current = onPlayerScore;
+       const onMatchResolvedRef = useRef(onMatchResolved);
+       onMatchResolvedRef.current = onMatchResolved;
+       const timeLeftSecRef = useRef(timeLeftSec);
+       timeLeftSecRef.current = timeLeftSec;
+       ```
+     - Guard board generation / initialization so it executes strictly once:
+       ```typescript
+       const hasInitializedRef = useRef(false);
+       ```
+     - **NEVER** include `onActionNotification`, `onPlayerScore`, or `timeLeftSec` in initialization `useEffect` dependency arrays.
+     - Bot intervals must read `timeLeftSecRef.current` internally rather than re-creating `setInterval` every second.
+   - Triggers `onPlayerScoreRef.current?.(playerId, pts)` when points are earned.
+   - Triggers `onActionNotificationRef.current?.(text)` to broadcast moves to the match chat feed.
+   - Triggers `onMatchResolvedRef.current?.(winner, reason)` when victory condition is met.
 5. **`<Game>Rules.tsx`**:
    - Styled with `.codex-header`, `.codex-section`, `.codex-scoring-grid`, and `.score-rule-badge`.
 6. **`<Game>Settings.tsx`**:
@@ -170,12 +189,16 @@ That is all! The platform shell will immediately and dynamically handle:
    npm run build
    ```
    Ensure **0 errors** and clean minification.
-2. **Visual & Styling Check**:
+2. **Re-render & Callback Stability Audit (Critical)**:
+   - Check that calling `onActionNotification` or `onPlayerScore` does NOT cause the board/cards/dice to re-randomize or re-initialize.
+   - Check that `timeLeftSec` ticking down every second does not reset bot intervals or scramble board state.
+   - Verify that all platform callbacks in `Engine.tsx` are wrapped in mutable refs and omitted from effect dependency arrays.
+3. **Visual & Styling Check**:
    - Verify that 1930s Fleischer aesthetics are preserved (ink borders, typography, cel-shadows).
    - Ensure the canvas layout fits responsively inside `GameStageFrame`.
-3. **Soundstage & Interactions**:
+4. **Soundstage & Interactions**:
    - Check that interactive clicks trigger `soundstage.playTap()`.
    - Check that scoring triggers `soundstage.playScoreTrumpet()`.
    - Check that round/turn starts trigger bells or card deals.
-4. **Multiplayer & Bot Simulation**:
+5. **Multiplayer & Bot Simulation**:
    - Ensure bot players take turns or generate simulated actions so solo testing works seamlessly.

@@ -15,7 +15,6 @@ import {
 } from './types';
 import {
   BonegleWordBanner,
-  BonegleWordBank,
   BonegleRevelationView,
 } from './BonegleComponents';
 import { Flame } from 'lucide-react';
@@ -43,6 +42,19 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
   const [submissionFeedback, setSubmissionFeedback] = useState<BonegleSubmissionFeedback | null>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Callback refs to prevent re-render feedback loops
+  const onActionNotificationRef = useRef(onActionNotification);
+  onActionNotificationRef.current = onActionNotification;
+
+  const onPlayerScoreRef = useRef(onPlayerScore);
+  onPlayerScoreRef.current = onPlayerScore;
+
+  const onMatchResolvedRef = useRef(onMatchResolved);
+  onMatchResolvedRef.current = onMatchResolved;
+
+  const timeLeftSecRef = useRef(timeLeftSec);
+  timeLeftSecRef.current = timeLeftSec;
+
   // Bot words storage: botId -> Set of words
   const botWordsRef = useRef<Map<string, Set<string>>>(new Map());
 
@@ -60,8 +72,17 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
   >([]);
   const cursorCoordsRef = useRef({ x: 0, y: 0 });
 
-  // 1. Generate Board on Mount
+  // Key to track active configuration and prevent regeneration loops
+  const lastGeneratedKeyRef = useRef<string>('');
+
+  // 1. Generate Board on Mount or when size/lang explicitly changes
   useEffect(() => {
+    const configKey = `${size}-${lang}`;
+    if (lastGeneratedKeyRef.current === configKey && board !== null) {
+      return;
+    }
+    lastGeneratedKeyRef.current = configKey;
+
     let isMounted = true;
     setIsLoading(true);
 
@@ -70,7 +91,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
       setBoard(newBoard);
       setSolution(newSolution);
       setIsLoading(false);
-      onActionNotification(
+      onActionNotificationRef.current?.(
         lang === 'es'
           ? `¡Las letras han caído en el tablero! Hay ${newSolution.totalPossibleWords} palabras escondidas.`
           : `The letters rattled into place! ${newSolution.totalPossibleWords} words hidden in the grid.`
@@ -80,7 +101,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [size, lang, onActionNotification]);
+  }, [size, lang]);
 
   // Update cached tile positions for fast collision detection
   const updateTileCenters = useCallback(() => {
@@ -129,12 +150,14 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
 
   // 2. Simulated Bot Activity
   useEffect(() => {
-    if (!solution || solution.words.length === 0 || timeLeftSec <= 0 || isResolved) return;
+    if (!solution || solution.words.length === 0 || isResolved) return;
 
     const botPlayers = players.filter((p) => p.isBot && p.id !== currentUserPlayer.id);
     if (botPlayers.length === 0) return;
 
     const interval = setInterval(() => {
+      if (timeLeftSecRef.current <= 0 || isResolved) return;
+
       botPlayers.forEach((bot) => {
         if (Math.random() > 0.4) {
           if (!botWordsRef.current.has(bot.id)) {
@@ -151,7 +174,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     }, 4500);
 
     return () => clearInterval(interval);
-  }, [solution, players, currentUserPlayer.id, timeLeftSec, isResolved]);
+  }, [solution, players, currentUserPlayer.id, isResolved]);
 
   // 3. Final Round Revelation
   const resolveRoundRevelation = useCallback(() => {
@@ -166,7 +189,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     );
     setBreakdownResults(breakdowns);
 
-    onActionNotification(
+    onActionNotificationRef.current?.(
       lang === 'es'
         ? `🔔 ¡HA SONADO LA CAMPANA! Puntuaciones finales reveladas:`
         : `🔔 THE BELL HAS SOUNDED! Final scores revealed:`
@@ -175,7 +198,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     breakdowns.forEach((b, idx) => {
       const uniquePts = b.uniqueWords.reduce((acc, w) => acc + w.pts, 0);
       const sharedPts = b.sharedWords.reduce((acc, w) => acc + w.pts, 0);
-      onActionNotification(
+      onActionNotificationRef.current?.(
         `#${idx + 1} ${b.player.name}: ${b.totalScore} PTS (${b.uniqueWords.length} ${
           lang === 'es' ? 'únicas' : 'unique'
         } x2 = +${uniquePts} pts, ${b.sharedWords.length} ${
@@ -185,7 +208,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     });
 
     if (solution.longestWord) {
-      onActionNotification(
+      onActionNotificationRef.current?.(
         `🏆 ${
           lang === 'es' ? 'Palabra más larga en el tablero' : 'Longest word on board'
         }: "${solution.longestWord}" (${solution.longestWordLength} ${lang === 'es' ? 'letras' : 'letters'}).`
@@ -193,7 +216,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     }
 
     breakdowns.forEach((b) => {
-      onPlayerScore(b.player.id, b.totalScore);
+      onPlayerScoreRef.current?.(b.player.id, b.totalScore);
     });
 
     const finalPlayers: Player[] = players.map((p) => {
@@ -222,9 +245,9 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         : undefined,
     };
 
-    if (onMatchResolved) {
+    if (onMatchResolvedRef.current) {
       setTimeout(() => {
-        onMatchResolved(
+        onMatchResolvedRef.current?.(
           champWithScore,
           lang === 'es'
             ? `¡Fin del asalto! Campeón: 1º ${champ.name} (${breakdowns[0]?.totalScore || 0} pts)`
@@ -240,9 +263,6 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     myFoundWords,
     currentUserPlayer,
     lang,
-    onActionNotification,
-    onPlayerScore,
-    onMatchResolved,
   ]);
 
   useEffect(() => {
@@ -543,7 +563,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         onSubmit={() => handleWordSubmission(currentPath)}
       />
 
-      {/* Main Board Area + Word List */}
+      {/* Main Board Arena Stage */}
       <div className="bonegle-arena-body">
         <div className="bonegle-board-container">
           <div
@@ -560,7 +580,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
               row.map((letter, cIdx) => {
                 const pathIdx = currentPath.findIndex((p) => p.r === rIdx && p.c === cIdx);
                 const isSelected = pathIdx !== -1;
-                const isHead = pathIdx === currentPath.length - 1;
+                const isHead = isSelected && pathIdx === currentPath.length - 1;
 
                 return (
                   <div
@@ -580,9 +600,6 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
             )}
           </div>
         </div>
-
-        {/* Word Sidebar */}
-        <BonegleWordBank myFoundWords={myFoundWords} lang={lang} />
       </div>
 
       {/* Post-Match Revelation View */}
@@ -623,11 +640,18 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 12px 20px;
+          padding: 8px 16px;
           background-color: var(--color-glove-ivory);
           border: var(--border-ink-standard);
+          border-radius: var(--radius-cel-box);
           box-shadow: var(--shadow-cel-sm);
-          min-height: 72px;
+          width: 100%;
+          max-width: 600px;
+          height: 64px;
+          min-height: 64px;
+          max-height: 64px;
+          box-sizing: border-box;
+          overflow: hidden;
           transition: background-color 0.2s ease, border-color 0.2s ease;
         }
         .feedback-banner-valid {
@@ -645,7 +669,11 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         .word-banner-left {
           display: flex;
           flex-direction: column;
+          justify-content: center;
           gap: 2px;
+          flex: 1;
+          min-width: 0;
+          height: 100%;
         }
         .word-banner-top-row {
           display: flex;
@@ -669,23 +697,39 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           font-size: 11px;
           font-weight: 700;
         }
+        .word-banner-display-line {
+          height: 28px;
+          min-height: 28px;
+          max-height: 28px;
+          display: flex;
+          align-items: center;
+          overflow: hidden;
+        }
         .constructed-word-bold {
           font-family: var(--font-luckiest-guy);
-          font-size: 32px;
-          letter-spacing: 0.06em;
+          font-size: 24px;
+          letter-spacing: 0.08em;
           color: var(--color-ink-black);
-          line-height: 1.1;
+          line-height: 1;
+          margin: 0;
+          white-space: nowrap;
         }
         .word-placeholder {
           font-family: var(--font-comic-fredoka);
-          font-size: 16px;
+          font-size: 14px;
           color: var(--color-text-muted);
           font-style: italic;
+          line-height: 1;
+          margin: 0;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .feedback-content-row {
+          height: 28px;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
         }
         .feedback-icon-ok {
           color: #278848;
@@ -698,73 +742,90 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         }
         .feedback-word-text {
           font-family: var(--font-luckiest-guy);
-          font-size: 32px;
+          font-size: 24px;
           color: var(--color-ink-black);
           letter-spacing: 0.06em;
+          line-height: 1;
         }
         .feedback-pts-tag {
           font-family: var(--font-luckiest-guy);
-          font-size: 20px;
+          font-size: 16px;
           color: #278848;
           background-color: rgba(39, 136, 72, 0.15);
-          padding: 2px 10px;
+          padding: 1px 8px;
           border-radius: 6px;
+          line-height: 1.2;
         }
         .word-banner-actions {
+          height: 36px;
           display: flex;
           align-items: center;
           gap: 8px;
+          flex-shrink: 0;
         }
         .submit-word-btn {
-          font-size: 16px;
-          padding: 8px 18px;
+          height: 34px;
+          min-width: 105px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          font-size: 14px;
+          padding: 0 14px;
         }
         .clear-word-btn {
-          font-size: 13px;
+          height: 34px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          padding: 0 12px;
         }
         .bonegle-arena-body {
-          display: grid;
-          grid-template-columns: 1fr 280px;
-          gap: 16px;
-          align-items: start;
-        }
-        @media (max-width: 820px) {
-          .bonegle-arena-body {
-            grid-template-columns: 1fr;
-          }
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          width: 100%;
         }
         .bonegle-board-container {
-          background-color: #2a1a14;
+          background-color: #241712;
           padding: 20px;
           border: var(--border-ink-thick);
-          border-radius: var(--radius-cel-box);
-          box-shadow: var(--shadow-cel-md);
+          border-radius: 20px;
+          box-shadow: var(--shadow-cel-lg);
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
+          width: 580px;
+          height: 580px;
+          max-width: min(580px, 94vw);
+          max-height: min(580px, 94vw);
+          box-sizing: border-box;
+          user-select: none;
+          touch-action: none;
+          margin: 0 auto;
         }
         .bonegle-board-grid {
           position: relative;
           display: grid;
-          gap: 12px;
           width: 100%;
-          max-width: 520px;
-          aspect-ratio: 1 / 1;
+          height: 100%;
         }
         .grid-size-4 {
           grid-template-columns: repeat(4, 1fr);
           grid-template-rows: repeat(4, 1fr);
+          gap: 14px;
         }
         .grid-size-5 {
           grid-template-columns: repeat(5, 1fr);
           grid-template-rows: repeat(5, 1fr);
-          gap: 9px;
+          gap: 11px;
         }
         .grid-size-6 {
           grid-template-columns: repeat(6, 1fr);
           grid-template-rows: repeat(6, 1fr);
-          gap: 7px;
+          gap: 8px;
         }
         .bonegle-svg-overlay {
           position: absolute;
@@ -796,9 +857,9 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           opacity: 0.85;
         }
         .bonegle-die {
-          background-color: var(--color-glove-ivory);
+          background-color: var(--color-cuphead-red);
           border: 3.5px solid var(--color-ink-black);
-          border-radius: 12px;
+          border-radius: 14px;
           box-shadow: 0px 4px 0px var(--color-ink-black);
           display: flex;
           align-items: center;
@@ -806,11 +867,16 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           cursor: pointer;
           position: relative;
           z-index: 2;
-          transition: transform 0.08s ease, background-color 0.08s ease;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          transition: transform 0.08s ease, background-color 0.08s ease, box-shadow 0.08s ease;
           touch-action: none;
+          user-select: none;
         }
         .bonegle-die:hover {
           transform: translateY(-2px);
+          box-shadow: 0px 6px 0px var(--color-ink-black);
         }
         .die-selected {
           background-color: var(--color-golden-buttercup) !important;
@@ -818,108 +884,54 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           box-shadow: 0px 2px 0px var(--color-ink-black) !important;
         }
         .die-head {
-          border-color: var(--color-cuphead-red) !important;
-          animation: headPulse 0.6s ease infinite alternate;
+          background-color: #f59e0b !important;
+          transform: scale(1.03) !important;
+          box-shadow: 0px 3px 0px var(--color-ink-black) !important;
+          animation: headPulse 0.5s ease infinite alternate;
         }
         @keyframes headPulse {
-          0% { transform: scale(0.97); }
-          100% { transform: scale(1.03); }
+          0% { transform: scale(1); }
+          100% { transform: scale(1.05); }
         }
         .die-letter-char {
           font-family: var(--font-luckiest-guy);
-          font-size: 38px;
-          color: var(--color-ink-black);
+          font-size: 42px;
+          color: var(--color-glove-ivory);
+          text-shadow: 1.5px 1.5px 0px rgba(0, 0, 0, 0.45);
           pointer-events: none;
           user-select: none;
+          line-height: 1;
+        }
+        .die-selected .die-letter-char,
+        .die-head .die-letter-char {
+          color: var(--color-ink-black) !important;
+          text-shadow: none !important;
+        }
+        .grid-size-4 .die-letter-char {
+          font-size: 52px;
         }
         .grid-size-5 .die-letter-char {
-          font-size: 30px;
+          font-size: 42px;
         }
         .grid-size-6 .die-letter-char {
-          font-size: 24px;
+          font-size: 32px;
         }
         .die-step-badge {
           position: absolute;
-          top: 3px;
+          top: 4px;
           right: 4px;
-          background-color: var(--color-cuphead-red);
-          color: var(--color-glove-ivory);
+          background-color: var(--color-ink-black);
+          color: var(--color-golden-buttercup);
           font-family: var(--font-luckiest-guy);
-          font-size: 11px;
-          width: 18px;
-          height: 18px;
+          font-size: 12px;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
           display: flex;
           align-items: center;
           justify-content: center;
-          border: 1.5px solid var(--color-ink-black);
+          border: 1.5px solid var(--color-golden-buttercup);
           pointer-events: none;
-        }
-        .bonegle-words-sidebar {
-          background-color: var(--color-canvas-parchment);
-          border: var(--border-ink-standard);
-          box-shadow: var(--shadow-cel-sm);
-          padding: 14px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          height: 480px;
-        }
-        .sidebar-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 2px dashed var(--color-ink-stroke);
-          padding-bottom: 8px;
-        }
-        .sidebar-title {
-          font-family: var(--font-theatre-rye);
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--color-text-main);
-        }
-        .sidebar-subscore {
-          font-family: var(--font-luckiest-guy);
-          font-size: 18px;
-          color: var(--color-cuphead-red);
-        }
-        .words-chips-scroll {
-          overflow-y: auto;
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .words-empty-state {
-          padding: 30px 10px;
-          text-align: center;
-          color: var(--color-text-muted);
-          font-size: 13px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 8px;
-        }
-        .bonegle-chip {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 6px 12px;
-          background-color: var(--color-glove-ivory);
-          border: 2px solid var(--color-ink-black);
-          border-radius: 6px;
-          box-shadow: 1px 1px 0px var(--color-ink-black);
-        }
-        .chip-word {
-          font-family: var(--font-comic-fredoka);
-          font-size: 15px;
-          font-weight: 700;
-          color: var(--color-ink-black);
-        }
-        .chip-pts {
-          font-family: var(--font-luckiest-guy);
-          font-size: 14px;
-          color: var(--color-cuphead-red);
         }
         .bonegle-revelation-card {
           padding: 20px;

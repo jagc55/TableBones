@@ -54,12 +54,12 @@ export const BonegleWordBanner: React.FC<BonegleWordBannerProps> = ({
         <div className="word-banner-display-line">
           {feedback ? (
             <div className="feedback-content-row">
-              {feedback.status === 'valid' && <Check size={26} strokeWidth={3} className="feedback-icon-ok" />}
+              {feedback.status === 'valid' && <Check size={20} strokeWidth={3} className="feedback-icon-ok" />}
               {feedback.status === 'duplicate' && (
-                <AlertCircle size={26} strokeWidth={3} className="feedback-icon-dup" />
+                <AlertCircle size={20} strokeWidth={3} className="feedback-icon-dup" />
               )}
               {feedback.status === 'invalid' && (
-                <AlertCircle size={26} strokeWidth={3} className="feedback-icon-err" />
+                <AlertCircle size={20} strokeWidth={3} className="feedback-icon-err" />
               )}
               <span className="feedback-word-text">{feedback.word}</span>
               {feedback.status === 'valid' && (
@@ -77,23 +77,25 @@ export const BonegleWordBanner: React.FC<BonegleWordBannerProps> = ({
       </div>
 
       <div className="word-banner-actions">
-        {currentWord.length > 0 && !feedback && (
-          <button
-            type="button"
-            onClick={onClear}
-            className="btn-cel btn-brawl-neutral btn-sm clear-word-btn"
-            title="Borrar palabra actual"
-          >
-            <span>{lang === 'es' ? 'BORRAR' : 'CLEAR'}</span>
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={onClear}
+          className="btn-cel btn-brawl-neutral btn-sm clear-word-btn"
+          title="Borrar palabra actual"
+          style={{
+            visibility: currentWord.length > 0 && !feedback ? 'visible' : 'hidden',
+            pointerEvents: currentWord.length > 0 && !feedback ? 'auto' : 'none',
+          }}
+        >
+          <span>{lang === 'es' ? 'BORRAR' : 'CLEAR'}</span>
+        </button>
         <button
           type="button"
           onClick={onSubmit}
           disabled={currentWord.length < 3 || !!feedback}
           className="btn-cel btn-brawl-primary btn-sm submit-word-btn"
         >
-          <Check size={16} strokeWidth={3} />
+          <Check size={15} strokeWidth={3} />
           <span>
             {currentWord.length >= 3 ? `+${potentialPoints} PTS` : '3+ LETRAS'}
           </span>

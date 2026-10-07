@@ -85,7 +85,7 @@ export class MyGameLogic extends AbstractGameEngine<GameState, GameAction> {
 ## 3. `<Game>Engine.tsx`
 
 ```typescript
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BaseGameEngineProps } from '../../types';
 import { soundstage } from '../../utils/audio';
 import { Sparkles, Trophy } from 'lucide-react';
@@ -98,19 +98,61 @@ export const MyGameEngine: React.FC<BaseGameEngineProps> = ({
   currentUserPlayer,
   players,
   settings,
-  timeLeftSec,
+  timeLeftSec = 0,
   onPlayerScore,
   onActionNotification,
   onMatchResolved,
 }) => {
   const [state, setState] = useState<GameState>(() => logic.initialize(players, settings));
 
+  // --- CRITICAL ANTI-LOOP PATTERN: Stabilize platform callbacks in mutable refs ---
+  const onActionNotificationRef = useRef(onActionNotification);
+  onActionNotificationRef.current = onActionNotification;
+
+  const onPlayerScoreRef = useRef(onPlayerScore);
+  onPlayerScoreRef.current = onPlayerScore;
+
+  const onMatchResolvedRef = useRef(onMatchResolved);
+  onMatchResolvedRef.current = onMatchResolved;
+
+  const timeLeftSecRef = useRef(timeLeftSec);
+  timeLeftSecRef.current = timeLeftSec;
+
+  // Single-execution initialization guard
+  const hasInitializedRef = useRef(false);
+  useEffect(() => {
+    if (hasInitializedRef.current) return;
+    hasInitializedRef.current = true;
+
+    // Trigger board generation or card distribution notice safely
+    onActionNotificationRef.current?.('The contest has begun! Make your moves.');
+  }, []);
+
+  // Bot simulation loop: does NOT depend on timeLeftSec to prevent 1-second interval resets
+  useEffect(() => {
+    const bots = players.filter((p) => p.isBot);
+    if (bots.length === 0) return;
+
+    const botInterval = setInterval(() => {
+      // Check countdown time atomically without interval churn
+      if (timeLeftSecRef.current <= 0) return;
+
+      const randomBot = bots[Math.floor(Math.random() * bots.length)];
+      if (Math.random() > 0.5) {
+        onActionNotificationRef.current?.(`${randomBot.name} calculated a swift maneuver.`);
+        onPlayerScoreRef.current?.(randomBot.id, 2);
+      }
+    }, 4500);
+
+    return () => clearInterval(botInterval);
+  }, [players]);
+
   // Handle local player action
   const handleAction = () => {
     soundstage.playScoreTrumpet();
     const pts = 5;
-    onPlayerScore(currentUserPlayer.id, pts);
-    onActionNotification(`${currentUserPlayer.name} executed a master stroke!`);
+    onPlayerScoreRef.current?.(currentUserPlayer.id, pts);
+    onActionNotificationRef.current?.(`${currentUserPlayer.name} executed a master stroke!`);
   };
 
   return (
