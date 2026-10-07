@@ -5,6 +5,7 @@ import {
   Achievement,
   ChatMessage,
   Player,
+  RoomSettings,
 } from './types';
 import { INITIAL_PUBLIC_ROOMS } from './utils/mockData';
 import {
@@ -118,15 +119,21 @@ export const App: React.FC = () => {
     saveAchievements(achievements);
   }, [achievements]);
 
-  // Helper: Show Toast
+  // Helper: Show Toast (with deduplication guard)
   const addToast = (type: 'achievement' | 'alert' | 'info', title: string, message: string) => {
-    const newToast: ToastData = {
-      id: 'toast-' + Date.now() + '-' + Math.random(),
-      type,
-      title,
-      message,
-    };
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => {
+      // Prevent duplicate notification if identical toast is already active
+      const exists = prev.some((t) => t.title === title && t.message === message);
+      if (exists) return prev;
+
+      const newToast: ToastData = {
+        id: 'toast-' + Date.now() + '-' + Math.random(),
+        type,
+        title,
+        message,
+      };
+      return [...prev, newToast];
+    });
   };
 
   // Helper: Unlock Achievement
@@ -304,6 +311,21 @@ export const App: React.FC = () => {
     addToast('info', 'HOST TRANSFERRED', `${newHostPlayer.name} is now the room host.`);
   };
 
+  // Update room settings (from gear configuration modal inside lobby or arena)
+  const handleUpdateRoomSettings = (newSettings: RoomSettings, newTitle?: string, isPrivate?: boolean) => {
+    if (!currentRoom) return;
+    const updated: Room = {
+      ...currentRoom,
+      title: newTitle || currentRoom.title,
+      isPrivate: isPrivate !== undefined ? isPrivate : currentRoom.isPrivate,
+      settings: newSettings,
+    };
+    setCurrentRoom(updated);
+    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
+    postSystemChatMessage(currentRoom.id, `Room settings updated by host.`);
+    addToast('info', 'SETTINGS UPDATED', 'Room configuration saved.');
+  };
+
   // 7. START MATCH (Lobby -> Arena)
   const handleStartGame = () => {
     if (!currentRoom) return;
@@ -473,14 +495,17 @@ export const App: React.FC = () => {
   };
 
   // 11. MATCH FINISHED (Timer concluded)
-  const handleMatchComplete = (winner: Player, winReason?: string) => {
+  const handleMatchComplete = (winner: Player, winReason?: string, finalPlayers?: Player[]) => {
     if (!currentRoom) return;
 
-    setBoutWinner(winner);
+    const resolvedPlayers = finalPlayers || currentRoom.players;
+    const resolvedWinner = resolvedPlayers.find((p) => p.id === winner.id) || winner;
+
+    setBoutWinner(resolvedWinner);
     setWinReasonText(winReason || 'Timer concluded. Final scores tallied.');
     setIsVictoryModalOpen(true);
 
-    const isMeWinner = winner.id === userProfile.id;
+    const isMeWinner = resolvedWinner.id === userProfile.id;
     if (isMeWinner) {
       unlockAchievement('ring-champion');
     }
@@ -496,8 +521,9 @@ export const App: React.FC = () => {
 
     const finishedRoom: Room = {
       ...currentRoom,
+      players: resolvedPlayers,
       status: 'finished',
-      winnerId: winner.id,
+      winnerId: resolvedWinner.id,
       winReason: winReason || null,
     };
     setCurrentRoom(finishedRoom);
@@ -602,6 +628,7 @@ export const App: React.FC = () => {
             onAddBotPlayer={handleAddBot}
             onSendMessage={handleSendMessage}
             onToggleMutePlayer={handleToggleMutePlayer}
+            onUpdateRoomSettings={handleUpdateRoomSettings}
           />
         )}
 

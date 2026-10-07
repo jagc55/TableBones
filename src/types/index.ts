@@ -1,4 +1,4 @@
-export type GameId = 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
+export type GameId = 'bonegle' | 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
 
 export interface GameDefinition {
   id: GameId;
@@ -23,6 +23,10 @@ export interface Player {
   score: number;
   isBot?: boolean;
   hasLeft?: boolean;
+  wordsBreakdown?: {
+    uniqueWords: { word: string; pts: number }[];
+    sharedWords: { word: string; pts: number; sharedWith?: string[] }[];
+  };
 }
 
 export interface ChatMessage {
@@ -39,6 +43,7 @@ export interface RoomSettings {
   roundDurationSec: number;
   turnTimeLimitSec: number;
   dictionaryLang: 'en' | 'es';
+  bonegleGridSize?: 4 | 5 | 6;
 }
 
 export interface Room {

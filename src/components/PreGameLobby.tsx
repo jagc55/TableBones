@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Crown, Check, UserX, Copy, Play, ArrowLeft, Bot, AlertCircle, Users } from 'lucide-react';
-import { Room, UserProfile, ChatMessage } from '../types';
+import { Crown, Check, UserX, Copy, Play, ArrowLeft, Bot, AlertCircle, Users, Settings } from 'lucide-react';
+import { Room, UserProfile, ChatMessage, RoomSettings } from '../types';
 import { GAMES_CATALOG } from '../utils/mockData';
 import { AvatarIcon, AVATAR_LIST } from '../utils/avatars';
 import { ChatPanel } from './ChatPanel';
 import { soundstage } from '../utils/audio';
+import { FlagIcon } from './FlagIcon';
+import { RoomSettingsModal } from './RoomSettingsModal';
 
 interface PreGameLobbyProps {
   room: Room;
@@ -18,6 +20,7 @@ interface PreGameLobbyProps {
   onAddBotPlayer: (botName: string, avatarId: string) => void;
   onSendMessage: (text: string) => void;
   onToggleMutePlayer: (playerId: string, playerName: string) => void;
+  onUpdateRoomSettings?: (newSettings: RoomSettings, newTitle?: string, isPrivate?: boolean) => void;
 }
 
 export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
@@ -32,8 +35,10 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
   onAddBotPlayer,
   onSendMessage,
   onToggleMutePlayer,
+  onUpdateRoomSettings,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const gameDef = GAMES_CATALOG.find((g) => g.id === room.gameId) || GAMES_CATALOG[0];
   const isHost = room.hostId === currentUser.id;
   const myPlayerState = room.players.find((p) => p.id === currentUser.id);
@@ -79,16 +84,32 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           <span>LEAVE LOBBY</span>
         </button>
 
-        {/* Room Admission Ticket */}
-        <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy room code">
-          <div className="ticket-tag">
-            <span className="ticket-tag-title">ADMIT ONE</span>
-            <span className="ticket-tag-sub">{room.isPrivate ? 'PRIVATE' : 'PUBLIC'}</span>
-          </div>
-          <div className="ticket-value">{room.code}</div>
-          <button className="ticket-copy-action" aria-label="Copy room code">
-            {copiedLink ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
+        {/* Right side actions: Settings gear + Room Admission Ticket */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <button
+            onClick={() => {
+              soundstage.playTap();
+              setIsSettingsModalOpen(true);
+            }}
+            className="btn-cel btn-brawl-neutral btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            title={isHost ? "Configure Game Settings" : "View Room Settings"}
+          >
+            <Settings size={16} strokeWidth={2.8} />
+            <span>SETTINGS</span>
           </button>
+
+          {/* Room Admission Ticket */}
+          <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy room code">
+            <div className="ticket-tag">
+              <span className="ticket-tag-title">ADMIT ONE</span>
+              <span className="ticket-tag-sub">{room.isPrivate ? 'PRIVATE' : 'PUBLIC'}</span>
+            </div>
+            <div className="ticket-value">{room.code}</div>
+            <button className="ticket-copy-action" aria-label="Copy room code">
+              {copiedLink ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -115,6 +136,21 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
               <span className="meta-chip">
                 <strong>Round Clock:</strong> {room.settings.roundDurationSec}s
               </span>
+              {room.gameId === 'bonegle' && (
+                <>
+                  <span className="meta-chip">
+                    <strong>Grid:</strong> {room.settings.bonegleGridSize || 5}x{room.settings.bonegleGridSize || 5}
+                  </span>
+                  <span className="meta-chip" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <strong>Dictionary:</strong>
+                    <FlagIcon country={room.settings.dictionaryLang === 'es' ? 'es' : 'uk'} size={14} />
+                    <span>{room.settings.dictionaryLang === 'es' ? 'Español' : 'English'}</span>
+                  </span>
+                  <span className="meta-chip" style={{ backgroundColor: 'var(--color-golden-buttercup)', color: 'var(--color-ink-black)', fontWeight: 700 }}>
+                    ★ Unique words score x2!
+                  </span>
+                </>
+              )}
               <span className="meta-chip">
                 <strong>Access:</strong> {room.isPrivate ? 'Ticket Code' : 'Public Lobby'}
               </span>
@@ -269,6 +305,19 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           />
         </div>
       </div>
+
+      {/* Room Settings Configuration Modal */}
+      <RoomSettingsModal
+        isOpen={isSettingsModalOpen}
+        onClose={() => setIsSettingsModalOpen(false)}
+        room={room}
+        isHost={isHost}
+        onUpdateSettings={(newSettings, newTitle, isPrivate) => {
+          if (onUpdateRoomSettings) {
+            onUpdateRoomSettings(newSettings, newTitle, isPrivate);
+          }
+        }}
+      />
 
       <style>{`
         .lobby-page-container {

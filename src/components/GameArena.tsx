@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Crown, AlertTriangle, UserMinus } from 'lucide-react';
 import { Room, Player, UserProfile, ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { GenericGameEngine } from './GenericGameEngine';
+import { BonegleEngine } from './BonegleEngine';
 import { ChatPanel } from './ChatPanel';
 import { soundstage } from '../utils/audio';
 
@@ -13,7 +14,7 @@ interface GameArenaProps {
   onPlayerScore: (playerId: string, addedScore: number) => void;
   onLeaveMatch: () => void;
   onSimulateOpponentLeave: () => void;
-  onMatchComplete: (winner: Player, winReason?: string) => void;
+  onMatchComplete: (winner: Player, winReason?: string, finalPlayers?: Player[]) => void;
   onSendMessage: (text: string) => void;
   onToggleMutePlayer: (playerId: string, playerName: string) => void;
   onDispatchSystemNotice: (text: string) => void;
@@ -37,25 +38,50 @@ export const GameArena: React.FC<GameArenaProps> = ({
   const currentUserPlayer = room.players.find((p) => p.id === currentUser.id) || room.players[0];
   const isUrgentTimer = timeLeftSec <= 15 && timeLeftSec > 0;
 
-  // Round countdown timer
+  // Track sounds played so they only trigger once per round
+  const playedWarningRef = useRef(false);
+  const playedEndRef = useRef(false);
+  const onMatchCompleteRef = useRef(onMatchComplete);
+  onMatchCompleteRef.current = onMatchComplete;
+
+  // Single robust interval for countdown timer
   useEffect(() => {
-    if (timeLeftSec <= 0) {
-      soundstage.playVictoryFanfare();
-      const sorted = [...room.players].sort((a, b) => b.score - a.score);
-      const champion = sorted[0] || currentUserPlayer;
-      onMatchComplete(champion, `Time's up! Highest score wins the game.`);
-      return;
-    }
+    playedWarningRef.current = false;
+    playedEndRef.current = false;
 
     const timer = setInterval(() => {
-      setTimeLeftSec((prev) => prev - 1);
+      setTimeLeftSec((prev) => {
+        const next = prev - 1;
+
+        if (next === 10 && !playedWarningRef.current) {
+          playedWarningRef.current = true;
+          soundstage.playTimerWarning();
+        } else if (next > 0 && next <= 5) {
+          soundstage.playTimerTick();
+        } else if (next <= 0) {
+          clearInterval(timer);
+          if (!playedEndRef.current) {
+            playedEndRef.current = true;
+            soundstage.playRoundEnd();
+          }
+          if (room.gameId !== 'bonegle') {
+            const sorted = [...room.players].sort((a, b) => b.score - a.score);
+            const champion = sorted[0] || currentUserPlayer;
+            onMatchCompleteRef.current(champion, `Time's up! Highest score wins the game.`);
+          }
+          return 0;
+        }
+
+        return next;
+      });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeftSec, room.players, currentUserPlayer, onMatchComplete]);
+  }, [room.gameId, room.players, currentUserPlayer]);
 
-  // Periodic bot scoring to simulate multiplayer action
+  // Periodic bot scoring to simulate multiplayer action (disabled for Bonegle where scores reveal at the end)
   useEffect(() => {
+    if (room.gameId === 'bonegle') return;
     const botPlayers = room.players.filter((p) => p.isBot && p.id !== currentUser.id);
     if (botPlayers.length === 0) return;
 
@@ -69,7 +95,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
     }, 5500);
 
     return () => clearInterval(interval);
-  }, [room.players, currentUser.id, onPlayerScore, onDispatchSystemNotice]);
+  }, [room.gameId, room.players, currentUser.id, onPlayerScore, onDispatchSystemNotice]);
 
   const handleConfirmForfeit = () => {
     soundstage.playSlideDown();
@@ -120,7 +146,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
         {/* Center: Match Details & Room Code */}
         <div className="hud-center-meta">
-          <div className="ticket-stub">
+          <div className="ticket-stub" style={{ marginBottom: '6px' }}>
             <span className="ticket-stub-label">ROOM</span>
             <span className="ticket-stub-code">{room.code}</span>
           </div>
@@ -131,7 +157,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
         </div>
 
         {/* Right: Leave Game Action */}
-        <div className="hud-actions-right">
+        <div className="hud-actions-right" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <button
             onClick={() => {
               soundstage.playTap();
@@ -150,39 +176,53 @@ export const GameArena: React.FC<GameArenaProps> = ({
       <div className="arena-stage-grid">
         {/* Main Game Stage */}
         <div className="arena-center-stage">
-          {/* Scoreboard */}
-          <div className="cel-card ring-scoreboard-strip">
-            <span className="scoreboard-title">ROUND STANDINGS:</span>
-            <div className="scoreboard-players-row">
-              {room.players.map((p) => {
-                const isMe = p.id === currentUser.id;
-                const isHost = p.id === room.hostId;
-                return (
-                  <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
-                    <div className="score-avatar-wrap">
-                      <AvatarIcon id={p.avatarId} size={22} />
-                      {isHost && (
-                        <div className="chip-crown" title="Host">
-                          <Crown size={8} strokeWidth={3} />
-                        </div>
-                      )}
+          {/* Scoreboard - Hidden in Bonegle until match ends because scores are secret until the Great Revelation */}
+          {room.gameId !== 'bonegle' && (
+            <div className="cel-card ring-scoreboard-strip">
+              <span className="scoreboard-title">ROUND STANDINGS:</span>
+              <div className="scoreboard-players-row">
+                {room.players.map((p) => {
+                  const isMe = p.id === currentUser.id;
+                  const isHost = p.id === room.hostId;
+                  return (
+                    <div key={p.id} className={`score-chip ${isMe ? 'score-chip-me' : ''}`}>
+                      <div className="score-avatar-wrap">
+                        <AvatarIcon id={p.avatarId} size={22} />
+                        {isHost && (
+                          <div className="chip-crown" title="Host">
+                            <Crown size={8} strokeWidth={3} />
+                          </div>
+                        )}
+                      </div>
+                      <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
+                      <strong className="score-chip-pts">{p.score} PTS</strong>
                     </div>
-                    <span className="score-chip-name">{p.name}{isMe ? ' (You)' : ''}</span>
-                    <strong className="score-chip-pts">{p.score} PTS</strong>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Tabletop Board Engine */}
-          <GenericGameEngine
-            gameId={room.gameId}
-            currentUserPlayer={currentUserPlayer}
-            players={room.players}
-            onPlayerScore={onPlayerScore}
-            onActionNotification={onDispatchSystemNotice}
-          />
+          {room.gameId === 'bonegle' ? (
+            <BonegleEngine
+              currentUserPlayer={currentUserPlayer}
+              players={room.players}
+              settings={room.settings}
+              timeLeftSec={timeLeftSec}
+              onPlayerScore={onPlayerScore}
+              onActionNotification={onDispatchSystemNotice}
+              onMatchResolved={(winner, reason, finalPlayers) => onMatchComplete(winner, reason, finalPlayers)}
+            />
+          ) : (
+            <GenericGameEngine
+              gameId={room.gameId}
+              currentUserPlayer={currentUserPlayer}
+              players={room.players}
+              onPlayerScore={onPlayerScore}
+              onActionNotification={onDispatchSystemNotice}
+            />
+          )}
 
           {/* Discreet Developer / Testing Harness */}
           {room.players.length > 1 && (
@@ -253,7 +293,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
 
       <style>{`
         .arena-page-layout {
-          max-width: 1080px;
+          max-width: 1200px;
           margin: 0 auto;
           padding: 16px 16px 40px;
           display: flex;
@@ -424,10 +464,10 @@ export const GameArena: React.FC<GameArenaProps> = ({
         }
         .arena-chat-sidebar {
           height: 100%;
-          max-height: 520px;
+          max-height: 600px;
         }
         .arena-chat-card {
-          height: 520px;
+          height: 600px;
         }
         .forfeit-modal {
           max-width: 400px;

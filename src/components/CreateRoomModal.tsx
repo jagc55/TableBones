@@ -3,6 +3,7 @@ import { X, Lock, Globe, Plus, Check, Clock } from 'lucide-react';
 import { GameId, Room, UserProfile } from '../types';
 import { GAMES_CATALOG } from '../utils/mockData';
 import { soundstage } from '../utils/audio';
+import { FlagIcon } from './FlagIcon';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -17,10 +18,12 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   currentUser,
   onCreateRoom,
 }) => {
-  const [selectedGameId, setSelectedGameId] = useState<GameId>('vortilex');
+  const [selectedGameId, setSelectedGameId] = useState<GameId>('bonegle');
   const [roomTitle, setRoomTitle] = useState(`${currentUser.name}’s Room`);
   const [isPrivate, setIsPrivate] = useState(false);
   const [roundDurationSec, setRoundDurationSec] = useState(120);
+  const [dictionaryLang, setDictionaryLang] = useState<'es' | 'en'>('es');
+  const [bonegleGridSize, setBonegleGridSize] = useState<4 | 5 | 6>(5);
 
   if (!isOpen) return null;
 
@@ -61,7 +64,8 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
       settings: {
         roundDurationSec,
         turnTimeLimitSec: 30,
-        dictionaryLang: 'en',
+        dictionaryLang,
+        bonegleGridSize,
       },
     };
 
@@ -172,9 +176,63 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </div>
           </div>
 
-          {/* Step 4: Round Duration */}
+          {/* Bonegle specific options */}
+          {selectedGameId === 'bonegle' && (
+            <>
+              <div className="form-group">
+                <label className="group-label">4. BONEGLE BOARD SIZE</label>
+                <div className="clock-options-row">
+                  {([4, 5, 6] as const).map((sz) => (
+                    <button
+                      key={sz}
+                      type="button"
+                      onClick={() => {
+                        soundstage.playTap();
+                        setBonegleGridSize(sz);
+                      }}
+                      className={`duration-chip ${bonegleGridSize === sz ? 'duration-selected' : ''}`}
+                    >
+                      <span>{sz}x{sz} {sz === 4 ? 'Classic' : sz === 5 ? 'Pro (Recommended)' : 'Heavyweight'}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="group-label">5. DICTIONARY LANGUAGE</label>
+                <div className="clock-options-row">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundstage.playTap();
+                      setDictionaryLang('en');
+                    }}
+                    className={`duration-chip ${dictionaryLang === 'en' ? 'duration-selected' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <FlagIcon country="uk" size={16} />
+                    <span>English</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      soundstage.playTap();
+                      setDictionaryLang('es');
+                    }}
+                    className={`duration-chip ${dictionaryLang === 'es' ? 'duration-selected' : ''}`}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+                  >
+                    <FlagIcon country="es" size={16} />
+                    <span>Español</span>
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Round Duration */}
           <div className="form-group">
-            <label className="group-label">4. ROUND DURATION</label>
+            <label className="group-label">{selectedGameId === 'bonegle' ? '6.' : '4.'} ROUND DURATION</label>
             <div className="clock-options-row">
               {[60, 120, 180, 240].map((dur) => (
                 <button

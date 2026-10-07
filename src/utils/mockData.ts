@@ -2,9 +2,20 @@ import { GameDefinition, Room, Achievement } from '../types';
 
 export const GAMES_CATALOG: GameDefinition[] = [
   {
+    id: 'bonegle',
+    title: 'Bonegle',
+    subtitle: 'Fast-Paced Word Scramble',
+    description: 'Find as many words as you can by connecting adjacent letters in any direction before time runs out!',
+    minPlayers: 2,
+    maxPlayers: 6,
+    estimatedTimeMin: 2,
+    iconName: 'Swords',
+    badge: 'NEW',
+  },
+  {
     id: 'vortilex',
     title: 'Vortilex: Word Search',
-    subtitle: 'Fast-Paced Word Puzzle',
+    subtitle: 'Classic Word Puzzle',
     description: 'Connect adjacent letter dice against the clock to discover valid words and score points.',
     minPlayers: 2,
     maxPlayers: 4,
@@ -125,9 +136,9 @@ export const INITIAL_ACHIEVEMENTS: Achievement[] = [
 export const INITIAL_PUBLIC_ROOMS: Room[] = [
   {
     id: 'room-pub-101',
-    code: 'WORD-924',
-    title: 'Barnaby’s Word Room',
-    gameId: 'vortilex',
+    code: 'BONE-924',
+    title: 'Barnaby’s Bonegle Ring',
+    gameId: 'bonegle',
     isPrivate: false,
     minPlayers: 2,
     maxPlayers: 4,
@@ -137,7 +148,7 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
       { id: 'host-barnaby', name: 'Barnaby Roy', avatarId: 'superman', isHost: true, isReady: true, score: 0 },
       { id: 'player-clara', name: 'Clara Bell', avatarId: 'nursse', isHost: false, isReady: true, score: 0 },
     ],
-    settings: { roundDurationSec: 120, turnTimeLimitSec: 30, dictionaryLang: 'en' },
+    settings: { roundDurationSec: 120, turnTimeLimitSec: 30, dictionaryLang: 'en', bonegleGridSize: 5 },
     createdAt: Date.now() - 1000 * 60 * 3,
   },
   {
