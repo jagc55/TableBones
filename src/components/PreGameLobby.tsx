@@ -1,12 +1,16 @@
 import React, { useState } from 'react';
-import { Crown, Check, UserX, Copy, Play, ArrowLeft, Bot, AlertCircle, Users, Settings } from 'lucide-react';
+import { Crown, Check, UserX, Copy, Play, ArrowLeft, Bot, AlertCircle, Users, Settings, HelpCircle, Share2 } from 'lucide-react';
 import { Room, UserProfile, ChatMessage, RoomSettings } from '../types';
 import { GAMES_CATALOG } from '../utils/mockData';
 import { AvatarIcon, AVATAR_LIST } from '../utils/avatars';
 import { ChatPanel } from './ChatPanel';
+import { RulesModal } from './RulesModal';
+import { InviteFriendsModal } from './InviteFriendsModal';
 import { soundstage } from '../utils/audio';
 import { FlagIcon } from './FlagIcon';
 import { RoomSettingsModal } from './RoomSettingsModal';
+import { buildInviteUrl } from '../utils/networkSync';
+
 
 interface PreGameLobbyProps {
   room: Room;
@@ -39,19 +43,37 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
   const gameDef = GAMES_CATALOG.find((g) => g.id === room.gameId) || GAMES_CATALOG[0];
   const isHost = room.hostId === currentUser.id;
   const myPlayerState = room.players.find((p) => p.id === currentUser.id);
 
   const canStart =
     room.players.length >= room.minPlayers &&
-    room.players.every((p) => p.isReady || p.isHost);
+    room.players.every((p) => p.isReady || p.isHost || p.isBot);
 
-  const handleCopyCode = () => {
+  const handleCopyInviteLink = async () => {
     soundstage.playTap();
-    navigator.clipboard.writeText(room.code);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+    const inviteUrl = buildInviteUrl(room);
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(inviteUrl);
+      } else {
+        const input = document.createElement('input');
+        input.value = inviteUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+      }
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2500);
+    } catch {
+      // Ignored
+    }
+    setShowInviteModal(true);
   };
 
   const handleAddRandomBot = () => {
@@ -72,17 +94,38 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
     <div className="lobby-page-container">
       {/* Top Banner Navigation & Ticket Stub */}
       <div className="lobby-top-bar">
-        <button
-          onClick={() => {
-            soundstage.playTap();
-            onLeaveLobby();
-          }}
-          className="btn-cel btn-brawl-neutral btn-sm"
-          title="Return to Room Browser"
-        >
-          <ArrowLeft size={16} strokeWidth={2.8} />
-          <span>LEAVE LOBBY</span>
-        </button>
+        <div className="lobby-top-left-actions">
+          <button
+            onClick={() => {
+              soundstage.playTap();
+              onLeaveLobby();
+            }}
+            className="btn-cel btn-brawl-neutral btn-sm"
+            title="Return to Room Browser"
+          >
+            <ArrowLeft size={16} strokeWidth={2.8} />
+            <span>LEAVE LOBBY</span>
+          </button>
+          <button
+            onClick={() => {
+              soundstage.playTap();
+              setShowRulesModal(true);
+            }}
+            className="btn-cel btn-brawl-neutral btn-sm"
+            title="View game rules & character hierarchy"
+          >
+            <HelpCircle size={16} strokeWidth={2.8} />
+            <span>RULES</span>
+          </button>
+          <button
+            onClick={handleCopyInviteLink}
+            className="btn-cel btn-brawl-primary btn-sm invite-link-btn"
+            title="Copy invite link to share with friends"
+          >
+            {copiedLink ? <Check size={16} strokeWidth={3} /> : <Share2 size={16} strokeWidth={2.8} />}
+            <span>{copiedLink ? 'LINK COPIED!' : 'INVITE FRIENDS'}</span>
+          </button>
+        </div>
 
         {/* Right side actions: Settings gear + Room Admission Ticket */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -100,13 +143,13 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           </button>
 
           {/* Room Admission Ticket */}
-          <div className="lobby-ticket-hero" onClick={handleCopyCode} title="Click to copy room code">
+          <div className="lobby-ticket-hero" onClick={handleCopyInviteLink} title="Click to copy invite link for friends">
             <div className="ticket-tag">
               <span className="ticket-tag-title">ADMIT ONE</span>
               <span className="ticket-tag-sub">{room.isPrivate ? 'PRIVATE' : 'PUBLIC'}</span>
             </div>
             <div className="ticket-value">{room.code}</div>
-            <button className="ticket-copy-action" aria-label="Copy room code">
+            <button className="ticket-copy-action" aria-label="Copy invite link">
               {copiedLink ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
             </button>
           </div>
@@ -124,7 +167,21 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                 <span className="ribbon-banner">{gameDef.title}</span>
                 <h2 className="woodcut-title summary-game-title">{room.title}</h2>
               </div>
-              <span className="game-kind-pill">{room.isPrivate ? 'Private Room' : 'Public Room'}</span>
+              <div className="summary-header-actions">
+                <button
+                  type="button"
+                  onClick={() => {
+                    soundstage.playTap();
+                    setShowRulesModal(true);
+                  }}
+                  className="btn-cel btn-brawl-secondary btn-sm"
+                  title="View complete rules"
+                >
+                  <HelpCircle size={14} strokeWidth={2.8} />
+                  <span>RULES</span>
+                </button>
+                <span className="game-kind-pill">{room.isPrivate ? 'Private Room' : 'Public Room'}</span>
+              </div>
             </div>
 
             <p className="summary-desc">{gameDef.description}</p>
@@ -134,7 +191,15 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
                 <strong>Capacity:</strong> {room.minPlayers}–{room.maxPlayers} Contenders
               </span>
               <span className="meta-chip">
-                <strong>Round Clock:</strong> {room.settings.roundDurationSec}s
+                {room.gameId === 'midnight-alley' ? (
+                  <>
+                    <strong>Format:</strong> 10 Rounds
+                  </>
+                ) : (
+                  <>
+                    <strong>Round Clock:</strong> {room.settings.roundDurationSec}s
+                  </>
+                )}
               </span>
               {room.gameId === 'bonegle' && (
                 <>
@@ -183,7 +248,7 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
               {room.players.map((player) => {
                 const isThisPlayerHost = player.id === room.hostId;
                 const isMe = player.id === currentUser.id;
-                const isReady = player.isReady || isThisPlayerHost;
+                const isReady = player.isReady || isThisPlayerHost || player.isBot;
 
                 return (
                   <div
@@ -319,7 +384,44 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
         }}
       />
 
+      {/* Game Rules Modal */}
+      <RulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        gameId={room.gameId}
+      />
+
+      {/* Invite Friends Modal */}
+      <InviteFriendsModal
+        isOpen={showInviteModal}
+        onClose={() => setShowInviteModal(false)}
+        room={room}
+      />
+
       <style>{`
+        .lobby-top-left-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex-wrap: wrap;
+        }
+        .invite-link-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          background: linear-gradient(180deg, #df3737 0%, #ba2020 100%);
+          color: #ffffff !important;
+          font-weight: 700;
+          box-shadow: 2px 2px 0px var(--color-ink-black);
+        }
+        .invite-link-btn:hover {
+          background: linear-gradient(180deg, #ee4040 0%, #ca2525 100%);
+        }
+        .summary-header-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
         .lobby-page-container {
           max-width: 1040px;
           margin: 0 auto;
@@ -610,10 +712,6 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           height: 100%;
           max-height: 520px;
         }
-        .lobby-chat-card {
-          height: 520px;
-        }
-
         @media (max-width: 800px) {
           .lobby-grid { grid-template-columns: 1fr; }
           .roster-player-item { flex-direction: column; align-items: flex-start; }

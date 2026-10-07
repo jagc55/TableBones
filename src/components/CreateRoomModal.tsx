@@ -230,26 +230,28 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </>
           )}
 
-          {/* Round Duration */}
-          <div className="form-group">
-            <label className="group-label">{selectedGameId === 'bonegle' ? '6.' : '4.'} ROUND DURATION</label>
-            <div className="clock-options-row">
-              {[60, 120, 180, 240].map((dur) => (
-                <button
-                  key={dur}
-                  type="button"
-                  onClick={() => {
-                    soundstage.playTap();
-                    setRoundDurationSec(dur);
-                  }}
-                  className={`duration-chip ${roundDurationSec === dur ? 'duration-selected' : ''}`}
-                >
-                  <Clock size={16} strokeWidth={2.5} />
-                  <span>{dur / 60} MIN</span>
-                </button>
-              ))}
+          {/* Round Duration (Hidden for round-based games like Midnight Alley) */}
+          {selectedGameId !== 'midnight-alley' && (
+            <div className="form-group">
+              <label className="group-label">{selectedGameId === 'bonegle' ? '6.' : '4.'} ROUND DURATION</label>
+              <div className="clock-options-row">
+                {[60, 120, 180, 240].map((dur) => (
+                  <button
+                    key={dur}
+                    type="button"
+                    onClick={() => {
+                      soundstage.playTap();
+                      setRoundDurationSec(dur);
+                    }}
+                    className={`duration-chip ${roundDurationSec === dur ? 'duration-selected' : ''}`}
+                  >
+                    <Clock size={16} strokeWidth={2.5} />
+                    <span>{dur / 60} MIN</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Action Button */}
           <div className="create-actions-footer">

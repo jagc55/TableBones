@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { GameId, Player } from '../types';
 import { soundstage } from '../utils/audio';
 import { Dices, Swords, Sparkles, Check, RotateCcw, AlertCircle } from 'lucide-react';
+import { MidnightAlleyEngine } from '../midnight-alley';
 
 interface GenericGameEngineProps {
   gameId: GameId;
@@ -9,13 +10,16 @@ interface GenericGameEngineProps {
   players?: Player[];
   onPlayerScore: (playerId: string, addedScore: number) => void;
   onActionNotification: (text: string) => void;
+  onLeaveMatch?: () => void;
 }
 
 export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
   gameId,
   currentUserPlayer,
+  players = [],
   onPlayerScore,
   onActionNotification,
+  onLeaveMatch,
 }) => {
   // 1. Vortilex Word Dice State
   const initialLetterGrid = [
@@ -136,6 +140,18 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
       onActionNotification(`${currentUserPlayer.name} called an honest bid.`);
     }
   };
+
+  if (gameId === 'midnight-alley') {
+    return (
+      <MidnightAlleyEngine
+        currentUserPlayer={currentUserPlayer}
+        players={players && players.length > 0 ? players : [currentUserPlayer]}
+        onPlayerScore={onPlayerScore}
+        onActionNotification={onActionNotification}
+        onLeaveMatch={onLeaveMatch}
+      />
+    );
+  }
 
   return (
     <div className="game-engine-container">

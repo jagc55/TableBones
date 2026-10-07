@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
-import { Trophy, Crown, RotateCcw, ArrowLeft, Award, ChevronDown, ChevronUp } from 'lucide-react';
-import { Player } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Trophy, Crown, RotateCcw, ArrowLeft, Award, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { Player, AFK_CONFIG } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { soundstage } from '../utils/audio';
 
@@ -22,6 +22,31 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   onReturnToLobby,
 }) => {
   const [expandedPlayerIds, setExpandedPlayerIds] = useState<Record<string, boolean>>({});
+  const [rematchCountdown, setRematchCountdown] = useState<number>(AFK_CONFIG.REMATCH_TIMEOUT_SEC);
+
+  useEffect(() => {
+    if (!isOpen || !winnerPlayer) return;
+    setRematchCountdown(AFK_CONFIG.REMATCH_TIMEOUT_SEC);
+
+    let timeLeft = AFK_CONFIG.REMATCH_TIMEOUT_SEC;
+    let hasExited = false;
+
+    const timer = setInterval(() => {
+      timeLeft -= 1;
+      setRematchCountdown(timeLeft);
+
+      if (timeLeft <= 0) {
+        clearInterval(timer);
+        if (!hasExited) {
+          hasExited = true;
+          onReturnToLobby();
+        }
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [isOpen, winnerPlayer, onReturnToLobby]);
+
 
   if (!isOpen || !winnerPlayer) return null;
 
@@ -167,6 +192,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </div>
         </div>
 
+        {/* Anti-AFK Rematch Notice */}
+        <div className="afk-rematch-notice">
+          <Clock size={12} strokeWidth={2.5} />
+          <span>Auto-forfeit and leave match in <strong>{rematchCountdown}s</strong> if no rematch selected</span>
+        </div>
+
         {/* Footer Actions */}
         <div className="victory-actions-footer">
           <button
@@ -188,7 +219,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>PLAY AGAIN</span>
+            <span>PLAY AGAIN ({rematchCountdown}s)</span>
           </button>
         </div>
 
@@ -431,6 +462,19 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             justify-content: center;
             color: var(--color-ink-stroke);
             cursor: pointer;
+          }
+          .afk-rematch-notice {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-family: var(--font-accent);
+            font-size: 10px;
+            color: var(--color-cuphead-red);
+            background-color: rgba(211, 56, 51, 0.08);
+            border-top: 1px dashed var(--color-ink-stroke);
+            padding: 6px 14px;
+            letter-spacing: 0.03em;
           }
           .player-words-expander {
             background-color: var(--color-parchment-deep);

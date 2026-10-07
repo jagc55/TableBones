@@ -1,4 +1,5 @@
-export type GameId = 'bonegle' | 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
+export type GameId = 'bonegle' | 'midnight-alley' | 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
+
 
 export interface GameDefinition {
   id: GameId;
@@ -88,3 +89,9 @@ export interface UserProfile {
   };
   mutedPlayerIds: string[];
 }
+
+export const AFK_CONFIG = {
+  TURN_TIMEOUT_SEC: 45,
+  BID_TIMEOUT_SEC: 45,
+  REMATCH_TIMEOUT_SEC: 45,
+} as const;

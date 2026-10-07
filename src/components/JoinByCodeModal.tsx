@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Key, ArrowRight, AlertTriangle } from 'lucide-react';
 import { Room } from '../types';
 import { soundstage } from '../utils/audio';
+import { decodeRoomInvite, DEFAULT_ROOM_SETTINGS } from '../utils/storage';
 
 interface JoinByCodeModalProps {
   isOpen: boolean;
@@ -23,11 +24,52 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
 
   const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanCode = ticketCode.trim().toUpperCase();
-    if (!cleanCode) return;
+    const rawInput = ticketCode.trim();
+    if (!rawInput) return;
+
+    let targetCode = rawInput.toUpperCase();
+    let decodedData: Partial<Room> | null = null;
+
+    // Check if input is a full URL or query string
+    if (rawInput.includes('?') || rawInput.includes('join=') || rawInput.includes('room=')) {
+      try {
+        const urlStr = rawInput.startsWith('http')
+          ? rawInput
+          : `http://localhost/${rawInput.startsWith('?') ? rawInput : '?' + rawInput}`;
+        const parsedUrl = new URL(urlStr);
+        const codeParam = parsedUrl.searchParams.get('join') || parsedUrl.searchParams.get('room');
+        const dataParam = parsedUrl.searchParams.get('data');
+        if (codeParam) {
+          targetCode = codeParam.toUpperCase();
+        }
+        if (dataParam) {
+          decodedData = decodeRoomInvite(dataParam);
+        }
+      } catch {
+        const match = rawInput.match(/(?:join|room)=([^&]+)/i);
+        if (match) targetCode = decodeURIComponent(match[1]).toUpperCase();
+      }
+    }
 
     // Search room by code
-    const targetRoom = rooms.find((r) => r.code.toUpperCase() === cleanCode);
+    let targetRoom = rooms.find((r) => r.code.toUpperCase() === targetCode);
+
+    if (!targetRoom && decodedData) {
+      targetRoom = {
+        id: decodedData.id || `room-${Date.now()}`,
+        code: decodedData.code || targetCode,
+        title: decodedData.title || 'Midnight Alley Table',
+        gameId: decodedData.gameId || 'midnight-alley',
+        isPrivate: decodedData.isPrivate ?? true,
+        minPlayers: decodedData.minPlayers ?? 2,
+        maxPlayers: decodedData.maxPlayers ?? 6,
+        hostId: decodedData.hostId || 'host',
+        players: [],
+        settings: decodedData.settings || DEFAULT_ROOM_SETTINGS,
+        status: 'waiting',
+        createdAt: Date.now(),
+      };
+    }
 
     if (targetRoom) {
       soundstage.playRoundBell();
@@ -35,7 +77,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
       onClose();
     } else {
       soundstage.playSlideDown();
-      setErrorMessage(`No room found with code "${cleanCode}". Confirm code with host.`);
+      setErrorMessage(`No room found with code "${targetCode}". Confirm code or link with host.`);
     }
   };
 
@@ -55,7 +97,7 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
 
         <form onSubmit={handleJoin} className="join-code-form">
           <p className="join-instruction">
-            Enter the private room code shared by your host (e.g. <code>TB-8491</code> or <code>GAME-924</code>).
+            Enter the private room code or invite link shared by your host (e.g. <code>TB-8491</code> or <code>http://...</code>).
           </p>
 
           <div className="ticket-input-container">
@@ -67,11 +109,11 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
               type="text"
               value={ticketCode}
               onChange={(e) => {
-                setTicketCode(e.target.value.toUpperCase());
+                setTicketCode(e.target.value);
                 setErrorMessage('');
               }}
-              placeholder="TB-XXXX"
-              maxLength={12}
+              placeholder="TB-XXXX or Invite Link"
+              maxLength={2000}
               className="ticket-field-input"
               autoFocus
               required
