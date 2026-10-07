@@ -795,14 +795,20 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           align-items: center;
           justify-content: center;
           position: relative;
+          width: 480px;
+          height: 480px;
+          max-width: 92vw;
+          max-height: 92vw;
+          box-sizing: border-box;
+          user-select: none;
+          touch-action: none;
           margin: 0 auto;
         }
         .bonegle-board-grid {
           position: relative;
           display: grid;
           width: 100%;
-          max-width: 480px;
-          aspect-ratio: 1 / 1;
+          height: 100%;
         }
         .grid-size-4 {
           grid-template-columns: repeat(4, 1fr);
@@ -847,6 +853,83 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           stroke-dasharray: 6 4;
           stroke-linecap: round;
           opacity: 0.85;
+        }
+        .bonegle-die {
+          background-color: var(--color-cuphead-red);
+          border: 3.5px solid var(--color-ink-black);
+          border-radius: 12px;
+          box-shadow: 0px 4px 0px var(--color-ink-black);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          position: relative;
+          z-index: 2;
+          width: 100%;
+          height: 100%;
+          box-sizing: border-box;
+          transition: transform 0.08s ease, background-color 0.08s ease, box-shadow 0.08s ease;
+          touch-action: none;
+          user-select: none;
+        }
+        .bonegle-die:hover {
+          transform: translateY(-2px);
+          box-shadow: 0px 6px 0px var(--color-ink-black);
+        }
+        .die-selected {
+          background-color: var(--color-golden-buttercup) !important;
+          transform: scale(0.97) !important;
+          box-shadow: 0px 2px 0px var(--color-ink-black) !important;
+        }
+        .die-head {
+          background-color: #f59e0b !important;
+          transform: scale(1.03) !important;
+          box-shadow: 0px 3px 0px var(--color-ink-black) !important;
+          animation: headPulse 0.5s ease infinite alternate;
+        }
+        @keyframes headPulse {
+          0% { transform: scale(1); }
+          100% { transform: scale(1.05); }
+        }
+        .die-letter-char {
+          font-family: var(--font-luckiest-guy);
+          font-size: 38px;
+          color: var(--color-glove-ivory);
+          text-shadow: 1.5px 1.5px 0px rgba(0, 0, 0, 0.45);
+          pointer-events: none;
+          user-select: none;
+          line-height: 1;
+        }
+        .die-selected .die-letter-char,
+        .die-head .die-letter-char {
+          color: var(--color-ink-black) !important;
+          text-shadow: none !important;
+        }
+        .grid-size-4 .die-letter-char {
+          font-size: 46px;
+        }
+        .grid-size-5 .die-letter-char {
+          font-size: 34px;
+        }
+        .grid-size-6 .die-letter-char {
+          font-size: 26px;
+        }
+        .die-step-badge {
+          position: absolute;
+          top: 3px;
+          right: 3px;
+          background-color: var(--color-ink-black);
+          color: var(--color-golden-buttercup);
+          font-family: var(--font-luckiest-guy);
+          font-size: 11px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 1.5px solid var(--color-golden-buttercup);
+          pointer-events: none;
         }
         .bonegle-revelation-card {
           padding: 20px;
