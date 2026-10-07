@@ -95,3 +95,5 @@ export const AFK_CONFIG = {
   BID_TIMEOUT_SEC: 45,
   REMATCH_TIMEOUT_SEC: 45,
 } as const;
+
+export * from './game';

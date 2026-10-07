@@ -3,7 +3,6 @@ import { LogOut, Crown, AlertTriangle, HelpCircle } from 'lucide-react';
 import { Room, Player, UserProfile, ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { GenericGameEngine } from './GenericGameEngine';
-import { BonegleEngine } from './BonegleEngine';
 import { ChatPanel } from './ChatPanel';
 import { GameStageFrame } from './GameStageFrame';
 import { RulesModal } from './RulesModal';
@@ -224,26 +223,17 @@ export const GameArena: React.FC<GameArenaProps> = ({
             )}
 
             {/* Tabletop Board Engine */}
-            {room.gameId === 'bonegle' ? (
-              <BonegleEngine
-                currentUserPlayer={currentUserPlayer}
-                players={room.players}
-                settings={room.settings}
-                timeLeftSec={timeLeftSec}
-                onPlayerScore={onPlayerScore}
-                onActionNotification={onDispatchSystemNotice}
-                onMatchResolved={(winner, reason, finalPlayers) => onMatchComplete(winner, reason, finalPlayers)}
-              />
-            ) : (
-              <GenericGameEngine
-                gameId={room.gameId}
-                currentUserPlayer={currentUserPlayer}
-                players={room.players}
-                onPlayerScore={onPlayerScore}
-                onActionNotification={onDispatchSystemNotice}
-                onLeaveMatch={onLeaveMatch}
-              />
-            )}
+            <GenericGameEngine
+              gameId={room.gameId}
+              currentUserPlayer={currentUserPlayer}
+              players={room.players}
+              settings={room.settings}
+              timeLeftSec={timeLeftSec}
+              onPlayerScore={onPlayerScore}
+              onActionNotification={onDispatchSystemNotice}
+              onLeaveMatch={onLeaveMatch}
+              onMatchResolved={(winner, reason, finalPlayers) => onMatchComplete(winner, reason, finalPlayers)}
+            />
           </GameStageFrame>
         </div>
 
