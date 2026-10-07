@@ -144,9 +144,59 @@ When a game is created:
 2. **Register**: Import `myGameManifest` into `src/games/registry.ts` and add it to `GAME_REGISTRY`.
 3. **Verify**: Run `npm run build` (`tsc && vite build`).
 4. **Done**: The game immediately works in:
-   - Room creation game selector
+   - Room creation game selection card
    - Room browser filter tabs
    - Pre-game lobby chips & invite URLs
    - Rules modal codex view
    - Game arena stage
    - Victory & rematch modals
+
+---
+
+## 5. Lifecycle, Callback Stability & The Anti-Loop Pattern
+
+### The Feedback Loop Trap
+In TableSkull:
+1. `GenericGameEngine` receives callbacks like `onActionNotification`, `onPlayerScore`, and `onMatchResolved` from `GameArena` and `App.tsx`.
+2. Invoking `onActionNotification("...")` posts a message to `App.tsx`'s chat state (`roomChats`).
+3. Updating chat state triggers a re-render of `App.tsx` and child components.
+4. If a game engine includes `onActionNotification` in a `useEffect` dependency array (such as board generation or card dealing), the effect **runs again on every chat notice**.
+5. This creates an **infinite loop**: Board generates -> notifies chat -> App re-renders -> effect re-runs -> board generates again -> endless scrambling/restarting!
+6. Furthermore, `timeLeftSec` changes every single second. Including it in bot interval dependency arrays tears down and recreates `setInterval` every second, breaking timers.
+
+### The Standard Anti-Loop Rules for Engine Implementers:
+1. **Always wrap platform callbacks in mutable refs**:
+   ```typescript
+   const onActionNotificationRef = useRef(onActionNotification);
+   onActionNotificationRef.current = onActionNotification;
+
+   const onPlayerScoreRef = useRef(onPlayerScore);
+   onPlayerScoreRef.current = onPlayerScore;
+
+   const onMatchResolvedRef = useRef(onMatchResolved);
+   onMatchResolvedRef.current = onMatchResolved;
+
+   const timeLeftSecRef = useRef(timeLeftSec);
+   timeLeftSecRef.current = timeLeftSec;
+   ```
+2. **Never include callback props or `timeLeftSec` in initialization effects**:
+   Call them via `onActionNotificationRef.current?.(text)`.
+3. **Add an initialization guard**:
+   ```typescript
+   const hasInitializedRef = useRef(false);
+   useEffect(() => {
+     if (hasInitializedRef.current) return;
+     hasInitializedRef.current = true;
+     // Generate board / deal cards strictly once
+   }, []);
+   ```
+4. **Read `timeLeftSecRef.current` inside intervals**:
+   ```typescript
+   useEffect(() => {
+     const interval = setInterval(() => {
+       if (timeLeftSecRef.current <= 0) return;
+       // Bot tick logic
+     }, 4000);
+     return () => clearInterval(interval);
+   }, []); // Note: timeLeftSec is NOT in dependencies!
+   ```
