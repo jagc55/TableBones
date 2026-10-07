@@ -1,4 +1,4 @@
-export type GameId = 'bonegle' | 'midnight-alley' | 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
+export type GameId = 'bonegle' | 'midnight-alley';
 
 
 export interface GameDefinition {

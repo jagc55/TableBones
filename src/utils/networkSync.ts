@@ -1,18 +1,71 @@
-import { Room, ChatMessage } from '../types';
-import { encodeRoomInvite } from './storage';
+import { ChatMessage, Room } from '../types';
+import type { MidnightCard, PlayedTrickCard } from '../games/midnight-alley/types';
+import { api } from './api';
+
+export interface BonegleWordFeedback {
+  word: string;
+  status: 'valid' | 'duplicate' | 'invalid';
+  id: number;
+}
+
+export interface BonegleMatchState {
+  gameId: 'bonegle';
+  roomId: string;
+  board: string[][];
+  deadline: number;
+  phase: 'active' | 'resolved';
+  language?: 'en' | 'es';
+  submittedWords: Record<string, Array<{ word: string; path: Array<{ row: number; col: number }> }>>;
+  wordFeedback?: BonegleWordFeedback;
+  breakdowns?: Record<string, { score: number; words: Array<{ word: string; points: number; shared: boolean; awarded: number }> }>;
+  winnerId?: string | null;
+  winReason?: string;
+}
+
+export interface MidnightMatchState {
+  gameId: 'midnight-alley';
+  roomId: string;
+  round: number;
+  maxRounds: number;
+  phase: 'bidding' | 'playing' | 'game_over';
+  hands: Record<string, MidnightCard[]>;
+  handCounts: Record<string, number>;
+  bids: Record<string, number | undefined>;
+  tricksWon: Record<string, number>;
+  roundBonuses: Record<string, number>;
+  cumulativeScores: Record<string, number>;
+  leadPlayerId: string | null;
+  turnPlayerId: string | null;
+  currentTrick: PlayedTrickCard[];
+  lastResult: {
+    winnerPlayerId: string;
+    winningCard: MidnightCard;
+    bonusPoints: number;
+    bonusReason?: string;
+  } | null;
+  history: unknown[];
+  deadline: number | null;
+  winnerId?: string | null;
+  winReason?: string;
+}
+
+export type MatchState = BonegleMatchState | MidnightMatchState;
+
+export type GameAction =
+  | { type: 'SUBMIT_WORD'; word: string; path: Array<{ row: number; col: number }> }
+  | { type: 'PLACE_BID'; bid: number }
+  | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' };
 
 export type NetworkEvent =
-  | { type: 'SYNC_ROOM'; room: Room; kickedPlayerId?: string; leftPlayerId?: string }
-  | { type: 'START_GAME'; roomId: string }
+  | { type: 'CONNECTED'; userId: string }
+  | { type: 'ROOM_UPDATED'; room: Room }
+  | { type: 'MATCH_STARTED'; room: Room }
+  | { type: 'MATCH_STATE'; roomId: string; state: MatchState }
+  | { type: 'MATCH_FINISHED'; roomId: string; state: MatchState; room?: Room }
+  | { type: 'BONEGLE_WORD_RESULT'; roomId: string; word: string; status: BonegleWordFeedback['status'] }
   | { type: 'ROOM_CLOSED'; roomId: string }
   | { type: 'CHAT_MESSAGE'; roomId: string; chatMessage: ChatMessage }
-  | { type: 'GAME_MESSAGE'; roomId: string; playerId: string; messageType: string; payload: unknown }
-  | { type: 'BONEGLE_WORDS'; roomId: string; playerId: string; words: string[] };
-
-type NetworkEnvelope = NetworkEvent & {
-  _senderSessionId: string;
-  _msgId: string;
-};
+  | { type: 'ERROR'; message: string };
 
 let cachedLanUrl = '';
 
@@ -29,14 +82,13 @@ export const fetchNetworkInfo = async (): Promise<string> => {
         return data.lanUrl;
       }
     }
-  } catch (e) {
-    console.warn('Could not fetch network info', e);
+  } catch {
+    // Network details are optional for invite links.
   }
   return '';
 };
 
-// Immediate background fetch
-fetchNetworkInfo();
+void fetchNetworkInfo();
 
 export const getCachedLanUrl = (): string => cachedLanUrl;
 
@@ -49,126 +101,89 @@ export const buildInviteUrl = (room: Room): string => {
     baseUrl = cachedLanUrl;
   }
 
-  const encoded = encodeRoomInvite(room);
-  return `${baseUrl}${window.location.pathname}?join=${encodeURIComponent(room.code)}&data=${encoded}`;
+  return `${baseUrl}${window.location.pathname}?join=${encodeURIComponent(room.code)}`;
 };
 
 class NetworkManager {
-  private ws: WebSocket | null = null;
-  private bc: BroadcastChannel | null = null;
+  private socket: WebSocket | null = null;
   private listeners: Set<(event: NetworkEvent) => void> = new Set();
-  private processedMsgIds: Set<string> = new Set();
-  private sessionId: string;
-  private reconnectTimer: any = null;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private roomId: string | null = null;
 
-  constructor() {
-    this.sessionId = 'net-' + Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 7);
+  public connect(): void {
+    if (typeof window === 'undefined' || this.socket?.readyState === WebSocket.OPEN || this.socket?.readyState === WebSocket.CONNECTING) return;
+    const token = api.getAuthToken();
+    if (!token) return;
 
-    // 1. Initialize BroadcastChannel for same-browser tabs
-    if (typeof BroadcastChannel !== 'undefined') {
-      this.bc = new BroadcastChannel('tablebones_rooms_sync');
-      this.bc.onmessage = (event: MessageEvent) => {
-        this.handleIncoming(event.data);
-      };
-    }
-
-    // 2. Initialize WebSocket for LAN and Internet cross-device connections
-    this.connectWebSocket();
-  }
-
-  private connectWebSocket() {
-    if (typeof window === 'undefined') return;
-
-    try {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const subpath = window.location.pathname.startsWith('/tablebones') ? '/tablebones' : '';
-      const wsUrl = `${protocol}//${window.location.host}${subpath}/tablebones-ws`;
-
-      this.ws = new WebSocket(wsUrl);
-
-      this.ws.onmessage = (event: MessageEvent) => {
-        try {
-          const envelope = JSON.parse(event.data);
-          this.handleIncoming(envelope);
-        } catch (e) {
-          console.warn('Error parsing WS message', e);
-        }
-      };
-
-      this.ws.onclose = () => {
-        // Auto-reconnect after 2 seconds
-        if (!this.reconnectTimer) {
-          this.reconnectTimer = setTimeout(() => {
-            this.reconnectTimer = null;
-            this.connectWebSocket();
-          }, 2000);
-        }
-      };
-
-      this.ws.onerror = () => {
-        if (this.ws) {
-          this.ws.close();
-        }
-      };
-    } catch (e) {
-      console.warn('Failed to initiate WebSocket connection', e);
-    }
-  }
-
-  private handleIncoming(data: any) {
-    if (!data || !data.type) return;
-
-    // Filter out messages we sent ourselves
-    if (data._senderSessionId === this.sessionId) return;
-
-    // Deduplicate messages received through both WS and BC
-    if (data._msgId) {
-      if (this.processedMsgIds.has(data._msgId)) return;
-      this.processedMsgIds.add(data._msgId);
-      if (this.processedMsgIds.size > 200) {
-        // Keep set size bounded
-        const first = this.processedMsgIds.values().next().value;
-        if (first) this.processedMsgIds.delete(first);
-      }
-    }
-
-    // Notify all active listeners
-    this.listeners.forEach((listener) => {
-      try {
-        listener(data as NetworkEvent);
-      } catch (err) {
-        console.error('Network listener error', err);
-      }
-    });
-  }
-
-  public send(event: NetworkEvent) {
-    const envelope: NetworkEnvelope = {
-      ...event,
-      _senderSessionId: this.sessionId,
-      _msgId: Date.now().toString(36) + '-' + Math.random().toString(36).substring(2, 8),
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const subpath = window.location.pathname.startsWith('/tablebones') ? '/tablebones' : '';
+    const socket = new WebSocket(`${protocol}//${window.location.host}${subpath}/tablebones-ws?token=${encodeURIComponent(token)}`);
+    this.socket = socket;
+    socket.onopen = () => {
+      if (this.roomId) this.sendSubscription(this.roomId);
     };
-
-    // 1. Send via WebSocket to all other devices
-    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(JSON.stringify(envelope));
-    }
-
-    // 2. Send via BroadcastChannel to other tabs on this machine
-    if (this.bc) {
+    socket.onmessage = (message) => {
       try {
-        this.bc.postMessage(envelope);
-      } catch (e) {
-        console.warn('BroadcastChannel error', e);
+        const event = JSON.parse(message.data) as NetworkEvent;
+        if (event?.type) this.emit(event);
+      } catch {
+        this.emit({ type: 'ERROR', message: 'Received an invalid realtime message.' });
       }
+    };
+    socket.onerror = () => socket.close();
+    socket.onclose = () => {
+      if (this.socket === socket) this.socket = null;
+      this.scheduleReconnect();
+    };
+  }
+
+  public subscribeRoom(roomId: string): void {
+    this.roomId = roomId;
+    this.connect();
+    if (this.socket?.readyState === WebSocket.OPEN) this.sendSubscription(roomId);
+  }
+
+  public clearRoom(roomId?: string): void {
+    if (!roomId || this.roomId === roomId) this.roomId = null;
+  }
+
+  public sendChat(roomId: string, text: string): void {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      this.emit({ type: 'ERROR', message: 'Realtime connection is unavailable. Please try again.' });
+      this.connect();
+      return;
     }
+    this.socket.send(JSON.stringify({ type: 'CHAT_SEND', roomId, text }));
+  }
+
+  public sendGameAction(roomId: string, action: GameAction): void {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
+      this.emit({ type: 'ERROR', message: 'Realtime connection is unavailable. Please try again.' });
+      this.connect();
+      return;
+    }
+    this.socket.send(JSON.stringify({ type: 'GAME_ACTION', roomId, action }));
   }
 
   public subscribe(listener: (event: NetworkEvent) => void): () => void {
     this.listeners.add(listener);
-    return () => {
-      this.listeners.delete(listener);
-    };
+    return () => this.listeners.delete(listener);
+  }
+
+  private sendSubscription(roomId: string): void {
+    this.socket?.send(JSON.stringify({ type: 'SUBSCRIBE_ROOM', roomId }));
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      this.connect();
+    }, 2000);
+  }
+
+  private emit(event: NetworkEvent): void {
+    this.listeners.forEach((listener) => listener(event));
   }
 }
 

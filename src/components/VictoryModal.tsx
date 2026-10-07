@@ -10,6 +10,7 @@ interface VictoryModalProps {
   allPlayers: Player[];
   winReason?: string | null;
   onRematch: () => void;
+  isRematching?: boolean;
   onReturnToLobby: () => void;
 }
 
@@ -19,6 +20,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   allPlayers,
   winReason,
   onRematch,
+  isRematching = false,
   onReturnToLobby,
 }) => {
   const [expandedPlayerIds, setExpandedPlayerIds] = useState<Record<string, boolean>>({});
@@ -244,14 +246,16 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </button>
 
           <button
+            disabled={isRematching}
             onClick={() => {
+              if (isRematching) return;
               soundstage.playRoundBell();
               onRematch();
             }}
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>PLAY AGAIN ({rematchCountdown}s)</span>
+            <span>{isRematching ? 'STARTING REMATCH...' : `PLAY AGAIN (${rematchCountdown}s)`}</span>
           </button>
         </div>
 

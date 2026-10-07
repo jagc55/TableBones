@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LogOut, Crown, AlertTriangle, HelpCircle } from 'lucide-react';
-import { Room, Player, UserProfile, ChatMessage } from '../types';
+import { Room, UserProfile, ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
+import { GameAction, MatchState } from '../utils/networkSync';
 import { GenericGameEngine } from './GenericGameEngine';
 import { ChatPanel } from './ChatPanel';
 import { GameStageFrame } from './GameStageFrame';
@@ -13,93 +14,41 @@ interface GameArenaProps {
   room: Room;
   currentUser: UserProfile;
   chatMessages: ChatMessage[];
-  onPlayerScore: (playerId: string, addedScore: number) => void;
   onLeaveMatch: () => void;
-  onMatchComplete: (winner: Player, winReason?: string, finalPlayers?: Player[]) => void;
   onSendMessage: (text: string) => void;
   onToggleMutePlayer: (playerId: string, playerName: string) => void;
   onDispatchSystemNotice: (text: string) => void;
+  matchState: MatchState | null;
+  onGameAction: (action: GameAction) => void;
 }
 
 export const GameArena: React.FC<GameArenaProps> = ({
   room,
   currentUser,
   chatMessages,
-  onPlayerScore,
   onLeaveMatch,
-  onMatchComplete,
   onSendMessage,
   onToggleMutePlayer,
   onDispatchSystemNotice,
+  matchState,
+  onGameAction,
 }) => {
-  const [timeLeftSec, setTimeLeftSec] = useState(room.settings.roundDurationSec);
+  const [now, setNow] = useState(Date.now());
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
 
   const currentUserPlayer = room.players.find((p) => p.id === currentUser.id) || room.players[0];
   const manifest = getGameManifest(room.gameId);
+  const deadline = matchState?.deadline || null;
+  const timeLeftSec = deadline ? Math.max(0, Math.ceil((deadline - now) / 1000)) : 0;
   const isUrgentTimer = timeLeftSec <= 15 && timeLeftSec > 0;
 
-  // Track sounds played so they only trigger once per round
-  const playedWarningRef = useRef(false);
-  const playedEndRef = useRef(false);
-  const onMatchCompleteRef = useRef(onMatchComplete);
-  onMatchCompleteRef.current = onMatchComplete;
-
-  // Single robust interval for countdown timer
+  // The clock is display-only; the server resolves deadline outcomes.
   useEffect(() => {
-    if (manifest?.hasRoundTimer === false) return;
-    playedWarningRef.current = false;
-    playedEndRef.current = false;
-
-    const timer = setInterval(() => {
-      setTimeLeftSec((prev) => {
-        const next = prev - 1;
-
-        if (next === 10 && !playedWarningRef.current) {
-          playedWarningRef.current = true;
-          soundstage.playTimerWarning();
-        } else if (next > 0 && next <= 5) {
-          soundstage.playTimerTick();
-        } else if (next <= 0) {
-          clearInterval(timer);
-          if (!playedEndRef.current) {
-            playedEndRef.current = true;
-            soundstage.playRoundEnd();
-          }
-          if (!manifest?.hideContinuousScoreboard) {
-            const sorted = [...room.players].sort((a, b) => b.score - a.score);
-            const champion = sorted[0] || currentUserPlayer;
-            onMatchCompleteRef.current(champion, `Time's up! Highest score wins the game.`);
-          }
-          return 0;
-        }
-
-        return next;
-      });
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [manifest?.hasRoundTimer, manifest?.hideContinuousScoreboard, room.players, currentUserPlayer]);
-
-  // Periodic bot scoring to simulate multiplayer action (disabled for games with secret end-round calculation)
-  useEffect(() => {
-    if (manifest?.hideContinuousScoreboard) return;
-
-    const botPlayers = room.players.filter((p) => p.isBot && p.id !== currentUser.id);
-    if (botPlayers.length === 0) return;
-
-    const interval = setInterval(() => {
-      if (Math.random() > 0.45) {
-        const randomBot = botPlayers[Math.floor(Math.random() * botPlayers.length)];
-        const pts = Math.floor(Math.random() * 6) + 4;
-        onPlayerScore(randomBot.id, pts);
-        onDispatchSystemNotice(`${randomBot.name} scored +${pts} pts!`);
-      }
-    }, 5500);
-
-    return () => clearInterval(interval);
-  }, [manifest?.hideContinuousScoreboard, room.players, currentUser.id, onPlayerScore, onDispatchSystemNotice]);
+    if (!deadline) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [deadline]);
 
   const handleConfirmForfeit = () => {
     soundstage.playSlideDown();
@@ -113,7 +62,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const totalSec = room.settings.roundDurationSec;
+  const totalSec = Math.max(1, room.settings.roundDurationSec);
   const progressRatio = Math.max(0, timeLeftSec / totalSec);
   const radius = 30;
   const circumference = 2 * Math.PI * radius;
@@ -232,10 +181,11 @@ export const GameArena: React.FC<GameArenaProps> = ({
               players={room.players}
               settings={room.settings}
               timeLeftSec={timeLeftSec}
-              onPlayerScore={onPlayerScore}
+              matchState={matchState}
+              onGameAction={onGameAction}
+              onPlayerScore={() => undefined}
               onActionNotification={onDispatchSystemNotice}
               onLeaveMatch={onLeaveMatch}
-              onMatchResolved={onMatchComplete}
             />
           </GameStageFrame>
         </div>

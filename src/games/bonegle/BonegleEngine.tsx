@@ -1,1073 +1,279 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Player, BaseGameEngineProps } from '../../types';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { BaseGameEngineProps } from '../../types';
 import { soundstage } from '../../utils/audio';
-import { networkManager } from '../../utils/networkSync';
-import {
-  generatePlayableBoard,
-  calculateWordPoints,
-  calculateBonegleBreakdowns,
-  getDictionary,
-  solveBoard,
-  Trie,
-} from './bonegleLogic';
-import {
-  BonegleGridSize,
-  BonegleLang,
-  BoardSolution,
-  BoneglePathStep,
-  BonegleSubmissionFeedback,
-} from './types';
-import {
-  BonegleWordBanner,
-  BonegleRevelationView,
-} from './BonegleComponents';
 import { Flame } from 'lucide-react';
 
+interface AuthoritativePathStep {
+  row: number;
+  col: number;
+  letter: string;
+}
+
+interface PathPoint {
+  x: number;
+  y: number;
+}
+
+interface WordFeedback {
+  word: string;
+  status: 'valid' | 'duplicate' | 'invalid';
+  id: number;
+}
+
 export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
-  roomCode,
-  roomId,
-  currentUserPlayer,
-  players,
-  settings,
-  timeLeftSec = 0,
-  onPlayerScore,
-  onActionNotification,
-  onMatchResolved,
+  matchState,
+  onGameAction,
 }) => {
-  const size: BonegleGridSize = (settings?.bonegleGridSize || 5) as BonegleGridSize;
-  const lang: BonegleLang = (settings?.dictionaryLang || 'es') as BonegleLang;
-  const effectiveSeed = settings?.matchSeed || settings?.bonegleSeed || roomCode || 'bonegle-shared-arena';
+  const match = matchState?.gameId === 'bonegle' ? matchState : null;
+  const board = match?.board || [];
+  const boardKey = board.map((row) => row.join('|')).join('/');
+  const [path, setPath] = useState<AuthoritativePathStep[]>([]);
+  const [pathLine, setPathLine] = useState<{ width: number; height: number; points: PathPoint[] }>({ width: 0, height: 0, points: [] });
+  const [feedback, setFeedback] = useState<WordFeedback | null>(null);
+  const [submittedWord, setSubmittedWord] = useState('');
+  const pathRef = useRef<AuthoritativePathStep[]>([]);
+  const boardRef = useRef<HTMLDivElement>(null);
+  const draggingPointerIdRef = useRef<number | null>(null);
+  const suppressClickRef = useRef(false);
 
-  // Board and Solution State
-  const [board, setBoard] = useState<string[][] | null>(null);
-  const [solution, setSolution] = useState<BoardSolution | null>(null);
-  const [dictTrie, setDictTrie] = useState<Trie | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  // User input state
-  const [currentPath, setCurrentPath] = useState<BoneglePathStep[]>([]);
-  const [myFoundWords, setMyFoundWords] = useState<Map<string, number>>(new Map());
-  const [submissionFeedback, setSubmissionFeedback] = useState<BonegleSubmissionFeedback | null>(null);
-  const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Callback refs to prevent re-render feedback loops
-  const onActionNotificationRef = useRef(onActionNotification);
-  onActionNotificationRef.current = onActionNotification;
-
-  const onPlayerScoreRef = useRef(onPlayerScore);
-  onPlayerScoreRef.current = onPlayerScore;
-
-  const onMatchResolvedRef = useRef(onMatchResolved);
-  onMatchResolvedRef.current = onMatchResolved;
-
-  const timeLeftSecRef = useRef(timeLeftSec);
-  timeLeftSecRef.current = timeLeftSec;
-
-  // Bot words storage: botId -> Set of words
-  const botWordsRef = useRef<Map<string, Set<string>>>(new Map());
-  // Other human players words storage: playerId -> Set of words (synced via network)
-  const otherHumanWordsRef = useRef<Map<string, Set<string>>>(new Map());
-
-  // Revealed Results State at end of match
-  const [isResolved, setIsResolved] = useState(false);
-  const [breakdownResults, setBreakdownResults] = useState<ReturnType<typeof calculateBonegleBreakdowns> | null>(null);
-
-  // Drag interaction refs
-  const boardFrameRef = useRef<HTMLDivElement>(null);
-  const svgOverlayRef = useRef<SVGSVGElement>(null);
-  const isDraggingRef = useRef(false);
-  const currentPointerIdRef = useRef<number | null>(null);
-  const cachedCentersRef = useRef<
-    { r: number; c: number; el: HTMLElement; cx: number; cy: number; radius: number }[]
-  >([]);
-  const cursorCoordsRef = useRef({ x: 0, y: 0 });
-
-  // Key to track active configuration and prevent regeneration loops
-  const lastGeneratedKeyRef = useRef<string>('');
-
-  // 1. Generate Board deterministically on Mount or when size/lang/seed explicitly changes
   useEffect(() => {
-    const configKey = `${size}-${lang}-${effectiveSeed}-${settings?.bonegleBoard ? 'board' : 'gen'}`;
-    if (lastGeneratedKeyRef.current === configKey && board !== null) {
-      return;
-    }
-    lastGeneratedKeyRef.current = configKey;
+    pathRef.current = [];
+    setPath([]);
+    setPathLine((previous) => ({ ...previous, points: [] }));
+    setFeedback(null);
+    setSubmittedWord('');
+  }, [boardKey, match?.phase]);
 
-    let isMounted = true;
-    setIsLoading(true);
+  useEffect(() => {
+    const nextFeedback = match?.wordFeedback;
+    if (!nextFeedback) return;
 
-    if (settings?.bonegleBoard && settings.bonegleBoard.length === size) {
-      getDictionary(lang).then((trie) => {
-        if (!isMounted) return;
-        const newSolution = solveBoard(settings.bonegleBoard!, trie, lang);
-        setBoard(settings.bonegleBoard!);
-        setSolution(newSolution);
-        setDictTrie(trie);
-        setIsLoading(false);
-        onActionNotificationRef.current?.(
-          lang === 'es'
-            ? `¡Las letras han caído en el tablero! Hay ${newSolution.totalPossibleWords} palabras escondidas.`
-            : `The letters rattled into place! ${newSolution.totalPossibleWords} words hidden in the grid.`
-        );
-      });
-      return;
-    }
+    setFeedback(nextFeedback);
+    setSubmittedWord(nextFeedback.word);
+    if (nextFeedback.status === 'valid') soundstage.playScoreTrumpet();
+    else if (nextFeedback.status === 'duplicate') soundstage.playBulbHorn();
+    else soundstage.playSlideDown();
 
-    generatePlayableBoard(size, lang, effectiveSeed).then(({ board: newBoard, solution: newSolution }) => {
-      if (!isMounted) return;
-      setBoard(newBoard);
-      setSolution(newSolution);
-      getDictionary(lang).then((trie) => {
-        if (isMounted) setDictTrie(trie);
-      });
-      setIsLoading(false);
-      onActionNotificationRef.current?.(
-        lang === 'es'
-          ? `¡Las letras han caído en el tablero! Hay ${newSolution.totalPossibleWords} palabras escondidas.`
-          : `The letters rattled into place! ${newSolution.totalPossibleWords} words hidden in the grid.`
-      );
-    });
+    const timeout = window.setTimeout(() => {
+      setFeedback(null);
+      setSubmittedWord('');
+    }, 1100);
+    return () => window.clearTimeout(timeout);
+  }, [match?.wordFeedback?.id]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [size, lang, effectiveSeed, settings?.bonegleBoard]);
-
-  // Update cached tile positions for fast collision detection
-  const updateTileCenters = useCallback(() => {
-    if (!boardFrameRef.current) return;
-    const tiles = boardFrameRef.current.querySelectorAll<HTMLElement>('.bonegle-die');
-    if (tiles.length === 0) {
-      cachedCentersRef.current = [];
-      return;
-    }
-    cachedCentersRef.current = Array.from(tiles).map((tile) => {
-      const rect = tile.getBoundingClientRect();
-      const diameter = Math.min(rect.width, rect.height);
-      return {
-        r: parseInt(tile.dataset.r || '0', 10),
-        c: parseInt(tile.dataset.c || '0', 10),
-        el: tile,
-        cx: rect.left + rect.width / 2,
-        cy: rect.top + rect.height / 2,
-        radius: (diameter / 2) * 0.65,
-      };
+  const updatePath = useCallback((updater: (previous: AuthoritativePathStep[]) => AuthoritativePathStep[]) => {
+    setPath((previous) => {
+      const next = updater(previous);
+      pathRef.current = next;
+      return next;
     });
   }, []);
 
-  useEffect(() => {
-    window.addEventListener('resize', updateTileCenters);
-    window.addEventListener('scroll', updateTileCenters, true);
-    return () => {
-      window.removeEventListener('resize', updateTileCenters);
-      window.removeEventListener('scroll', updateTileCenters, true);
-    };
-  }, [updateTileCenters]);
+  const addCell = useCallback((row: number, col: number) => {
+    if (!match || match.phase !== 'active') return;
+    const letter = board[row]?.[col];
+    if (!letter) return;
 
-  useEffect(() => {
-    if (!isLoading && board) {
-      setTimeout(updateTileCenters, 50);
-    }
-  }, [isLoading, board, updateTileCenters]);
-
-  useEffect(() => {
-    return () => {
-      if (feedbackTimeoutRef.current) {
-        clearTimeout(feedbackTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // 2. Simulated Bot Activity
-  useEffect(() => {
-    if (!solution || solution.words.length === 0 || isResolved) return;
-
-    const botPlayers = players.filter((p) => p.isBot && p.id !== currentUserPlayer.id);
-    if (botPlayers.length === 0) return;
-
-    const interval = setInterval(() => {
-      if (timeLeftSecRef.current <= 0 || isResolved) return;
-
-      botPlayers.forEach((bot) => {
-        if (Math.random() > 0.4) {
-          if (!botWordsRef.current.has(bot.id)) {
-            botWordsRef.current.set(bot.id, new Set());
-          }
-          const botSet = botWordsRef.current.get(bot.id)!;
-          const candidates = solution.words.filter((w) => !botSet.has(w) && w.length <= 6);
-          if (candidates.length > 0) {
-            const picked = candidates[Math.floor(Math.random() * candidates.length)];
-            botSet.add(picked);
-          }
-        }
-      });
-    }, 4500);
-
-    return () => clearInterval(interval);
-  }, [solution, players, currentUserPlayer.id, isResolved]);
-
-  // Synchronize found words from other human contenders at round end
-  useEffect(() => {
-    const unsub = networkManager.subscribe((event) => {
-      if (
-        event.type === 'BONEGLE_WORDS' &&
-        event.playerId !== currentUserPlayer.id &&
-        (!event.roomId || event.roomId === roomId || event.roomId === roomCode)
-      ) {
-        otherHumanWordsRef.current.set(event.playerId, new Set(event.words));
-        // If already resolved, recalculate breakdowns with the new contender data
-        if (isResolved && solution) {
-          const combinedOtherWords = new Map<string, Set<string>>(botWordsRef.current);
-          otherHumanWordsRef.current.forEach((words, pId) => {
-            combinedOtherWords.set(pId, words);
-          });
-          const breakdowns = calculateBonegleBreakdowns(
-            players,
-            myFoundWords,
-            currentUserPlayer.id,
-            combinedOtherWords
-          );
-          setBreakdownResults(breakdowns);
-        }
-      }
-    });
-    return unsub;
-  }, [currentUserPlayer.id, roomId, roomCode, isResolved, solution, players, myFoundWords]);
-
-  // 3. Final Round Revelation
-  const resolveRoundRevelation = useCallback(() => {
-    if (isResolved || !solution) return;
-    setIsResolved(true);
-
-    // Broadcast our found words to other players in the room
-    networkManager.send({
-      type: 'BONEGLE_WORDS',
-      roomId: roomId || roomCode || '',
-      playerId: currentUserPlayer.id,
-      words: Array.from(myFoundWords.keys()),
-    });
-
-    const combinedOtherWords = new Map<string, Set<string>>(botWordsRef.current);
-    otherHumanWordsRef.current.forEach((words, pId) => {
-      combinedOtherWords.set(pId, words);
-    });
-
-    const breakdowns = calculateBonegleBreakdowns(
-      players,
-      myFoundWords,
-      currentUserPlayer.id,
-      combinedOtherWords
-    );
-    setBreakdownResults(breakdowns);
-
-    onActionNotificationRef.current?.(
-      lang === 'es'
-        ? `🔔 ¡HA SONADO LA CAMPANA! Puntuaciones finales reveladas:`
-        : `🔔 THE BELL HAS SOUNDED! Final scores revealed:`
-    );
-
-    breakdowns.forEach((b, idx) => {
-      const uniquePts = b.uniqueWords.reduce((acc, w) => acc + w.pts, 0);
-      const sharedPts = b.sharedWords.reduce((acc, w) => acc + w.pts, 0);
-      onActionNotificationRef.current?.(
-        `#${idx + 1} ${b.player.name}: ${b.totalScore} PTS (${b.uniqueWords.length} ${
-          lang === 'es' ? 'únicas' : 'unique'
-        } x2 = +${uniquePts} pts, ${b.sharedWords.length} ${
-          lang === 'es' ? 'compartidas' : 'shared'
-        } = +${sharedPts} pts)`
-      );
-    });
-
-    if (solution.longestWord) {
-      onActionNotificationRef.current?.(
-        `🏆 ${
-          lang === 'es' ? 'Palabra más larga en el tablero' : 'Longest word on board'
-        }: "${solution.longestWord}" (${solution.longestWordLength} ${lang === 'es' ? 'letras' : 'letters'}).`
-      );
-    }
-
-    breakdowns.forEach((b) => {
-      onPlayerScoreRef.current?.(b.player.id, b.totalScore);
-    });
-
-    const finalPlayers: Player[] = players.map((p) => {
-      const b = breakdowns.find((item) => item.player.id === p.id);
-      return {
-        ...p,
-        score: b ? b.totalScore : p.score,
-        wordsBreakdown: b
-          ? {
-              uniqueWords: b.uniqueWords,
-              sharedWords: b.sharedWords,
-            }
-          : undefined,
-      };
-    });
-
-    const champ = breakdowns[0]?.player || currentUserPlayer;
-    const champWithScore = finalPlayers.find((p) => p.id === champ.id) || {
-      ...champ,
-      score: breakdowns[0]?.totalScore || 0,
-      wordsBreakdown: breakdowns[0]
-        ? {
-            uniqueWords: breakdowns[0].uniqueWords,
-            sharedWords: breakdowns[0].sharedWords,
-          }
-        : undefined,
-    };
-
-    if (onMatchResolvedRef.current) {
-      setTimeout(() => {
-        onMatchResolvedRef.current?.(
-          champWithScore,
-          lang === 'es'
-            ? `¡Fin del asalto! Campeón: 1º ${champ.name} (${breakdowns[0]?.totalScore || 0} pts)`
-            : `Time's up! Final scores: 1st ${champ.name} (${breakdowns[0]?.totalScore || 0} pts)`,
-          finalPlayers
-        );
-      }, 500);
-    }
-  }, [
-    isResolved,
-    solution,
-    players,
-    myFoundWords,
-    currentUserPlayer,
-    lang,
-  ]);
-
-  useEffect(() => {
-    if (timeLeftSec <= 0 && !isResolved && solution) {
-      resolveRoundRevelation();
-    }
-  }, [timeLeftSec, isResolved, solution, resolveRoundRevelation]);
-
-  // 4. Draw Rubberhose Trail in SVG
-  const drawTrail = useCallback((path: { r: number; c: number }[], trailStatus?: 'valid' | 'invalid' | 'duplicate') => {
-    const svg = svgOverlayRef.current;
-    const frame = boardFrameRef.current;
-    if (!svg || !frame) return;
-
-    const frameRect = frame.getBoundingClientRect();
-    svg.innerHTML = '';
-
-    if (path.length === 0) return;
-
-    const points = path.map((step) => {
-      const item = cachedCentersRef.current.find((c) => c.r === step.r && c.c === step.c);
-      if (!item) {
-        return { x: 0, y: 0 };
-      }
-      return {
-        x: item.cx - frameRect.left,
-        y: item.cy - frameRect.top,
-      };
-    });
-
-    if (points.length >= 2) {
-      let d = `M ${points[0].x} ${points[0].y}`;
-      for (let i = 1; i < points.length; i++) {
-        d += ` L ${points[i].x} ${points[i].y}`;
-      }
-
-      const outer = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      outer.setAttribute('d', d);
-      outer.setAttribute('class', 'bonegle-trail-outer');
-      svg.appendChild(outer);
-
-      const inner = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      inner.setAttribute('d', d);
-      const innerClass = trailStatus ? `bonegle-trail-inner trail-${trailStatus}` : 'bonegle-trail-inner';
-      inner.setAttribute('class', innerClass);
-      svg.appendChild(inner);
-    }
-
-    if (isDraggingRef.current && points.length > 0) {
-      const last = points[points.length - 1];
-      const curX = cursorCoordsRef.current.x - frameRect.left;
-      const curY = cursorCoordsRef.current.y - frameRect.top;
-
-      const cursorLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-      cursorLine.setAttribute('x1', String(last.x));
-      cursorLine.setAttribute('y1', String(last.y));
-      cursorLine.setAttribute('x2', String(curX));
-      cursorLine.setAttribute('y2', String(curY));
-      cursorLine.setAttribute('class', 'bonegle-trail-cursor');
-      svg.appendChild(cursorLine);
-    }
-  }, []);
-
-  const clearTrail = useCallback(() => {
-    if (svgOverlayRef.current) {
-      svgOverlayRef.current.innerHTML = '';
-    }
-  }, []);
-
-  // 5. Circular Hitbox Tile Lookup
-  const getTileFromCoords = (x: number, y: number): BoneglePathStep | null => {
-    if (cachedCentersRef.current.length === 0) {
-      updateTileCenters();
-    }
-    const lastStep = currentPath.length > 0 ? currentPath[currentPath.length - 1] : null;
-    const prevStep = currentPath.length > 1 ? currentPath[currentPath.length - 2] : null;
-
-    let bestTile: BoneglePathStep | null = null;
-    let minDist = Infinity;
-
-    for (const item of cachedCentersRef.current) {
-      const dist = Math.hypot(x - item.cx, y - item.cy);
-      let effectiveRadius = item.radius;
-
-      if (lastStep) {
-        const isNeighbor = Math.abs(item.r - lastStep.r) <= 1 && Math.abs(item.c - lastStep.c) <= 1;
-        const isBacktrack = prevStep && item.r === prevStep.r && item.c === prevStep.c;
-        if (isNeighbor || isBacktrack) {
-          effectiveRadius = item.radius * 1.1;
-        }
-      }
-
-      if (dist <= effectiveRadius && dist < minDist) {
-        minDist = dist;
-        bestTile = {
-          r: item.r,
-          c: item.c,
-          letter: board ? board[item.r][item.c] : '',
-        };
-      }
-    }
-
-    return bestTile;
-  };
-
-  // 6. Word Submission Logic
-  const handleWordSubmission = (path = currentPath) => {
-    const word = path.map((p) => p.letter).join('').toUpperCase();
-    if (!word || word.length < 3) {
-      setCurrentPath([]);
-      clearTrail();
-      return;
-    }
-
-    if (feedbackTimeoutRef.current) {
-      clearTimeout(feedbackTimeoutRef.current);
-    }
-
-    if (myFoundWords.has(word)) {
-      soundstage.playBulbHorn();
-      setSubmissionFeedback({ word, status: 'duplicate' });
-      clearTrail();
-      setCurrentPath([]);
-
-      feedbackTimeoutRef.current = setTimeout(() => {
-        setSubmissionFeedback(null);
-      }, 900);
-      return;
-    }
-
-    const isWordValid =
-      (solution && solution.wordsSet.has(word)) ||
-      (dictTrie && dictTrie.hasWord(word));
-
-    if (!isWordValid) {
-      soundstage.playSlideDown();
-      setSubmissionFeedback({ word, status: 'invalid' });
-      clearTrail();
-      setCurrentPath([]);
-
-      feedbackTimeoutRef.current = setTimeout(() => {
-        setSubmissionFeedback(null);
-      }, 900);
-      return;
-    }
-
-    const basePts = calculateWordPoints(word);
-    soundstage.playScoreTrumpet();
-    setMyFoundWords((prev) => new Map(prev).set(word, basePts));
-    setSubmissionFeedback({ word, status: 'valid', pts: basePts });
-    clearTrail();
-    setCurrentPath([]);
-
-    feedbackTimeoutRef.current = setTimeout(() => {
-      setSubmissionFeedback(null);
-    }, 900);
-  };
-
-  // 7. Pointer Events
-  const handlePointerDown = (e: React.PointerEvent) => {
-    if (timeLeftSec <= 0 || isResolved) return;
-    updateTileCenters();
-    const tile = getTileFromCoords(e.clientX, e.clientY);
-    if (!tile) return;
-
-    if (submissionFeedback) {
-      setSubmissionFeedback(null);
-      clearTrail();
-    }
-
-    isDraggingRef.current = true;
-    currentPointerIdRef.current = e.pointerId;
-    boardFrameRef.current?.setPointerCapture(e.pointerId);
-
-    cursorCoordsRef.current = { x: e.clientX, y: e.clientY };
-    const newPath = [tile];
-    setCurrentPath(newPath);
-    soundstage.playTileSelect(0);
-    drawTrail(newPath);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current || e.pointerId !== currentPointerIdRef.current) return;
-    cursorCoordsRef.current = { x: e.clientX, y: e.clientY };
-
-    const tile = getTileFromCoords(e.clientX, e.clientY);
-    if (!tile) {
-      drawTrail(currentPath);
-      return;
-    }
-
-    if (currentPath.length >= 2) {
-      const prev = currentPath[currentPath.length - 2];
-      if (prev.r === tile.r && prev.c === tile.c) {
-        const nextPath = currentPath.slice(0, -1);
-        setCurrentPath(nextPath);
+    updatePath((previous) => {
+      const last = previous[previous.length - 1];
+      const penultimate = previous[previous.length - 2];
+      if (last?.row === row && last.col === col) return previous;
+      if (penultimate?.row === row && penultimate.col === col) {
         soundstage.playTileBacktrack();
-        drawTrail(nextPath);
-        return;
+        return previous.slice(0, -1);
+      }
+      if (previous.some((step) => step.row === row && step.col === col)) return previous;
+      if (last && (Math.abs(last.row - row) > 1 || Math.abs(last.col - col) > 1)) return previous;
+      soundstage.playTileSelect(previous.length);
+      return [...previous, { row, col, letter }];
+    });
+  }, [board, match, updatePath]);
+
+  const cellAtPointer = (boardElement: HTMLElement, clientX: number, clientY: number): { row: number; col: number } | null => {
+    let closestCell: { row: number; col: number; distance: number } | null = null;
+
+    for (const cell of Array.from(boardElement.querySelectorAll<HTMLElement>('[data-bonegle-cell]'))) {
+      const rect = cell.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const distance = Math.hypot(clientX - centerX, clientY - centerY);
+      const radius = Math.min(rect.width, rect.height) * 0.4;
+      if (distance <= radius && (!closestCell || distance < closestCell.distance)) {
+        closestCell = { row: Number(cell.dataset.row), col: Number(cell.dataset.col), distance };
       }
     }
 
-    const isVisited = currentPath.some((p) => p.r === tile.r && p.c === tile.c);
-    if (isVisited) {
-      drawTrail(currentPath);
-      return;
-    }
-
-    const last = currentPath[currentPath.length - 1];
-    if (last) {
-      const dr = Math.abs(tile.r - last.r);
-      const dc = Math.abs(tile.c - last.c);
-      if (dr <= 1 && dc <= 1 && dr + dc > 0) {
-        const nextPath = [...currentPath, tile];
-        setCurrentPath(nextPath);
-        soundstage.playTileSelect(nextPath.length);
-        drawTrail(nextPath);
-      } else {
-        drawTrail(currentPath);
-      }
-    }
+    return closestCell ? { row: closestCell.row, col: closestCell.col } : null;
   };
 
-  const handlePointerUp = (e: React.PointerEvent) => {
-    if (!isDraggingRef.current || (e && e.pointerId !== currentPointerIdRef.current)) return;
-    isDraggingRef.current = false;
-    currentPointerIdRef.current = null;
-    handleWordSubmission(currentPath);
-  };
+  const syncPathLine = useCallback(() => {
+    const boardElement = boardRef.current;
+    if (!boardElement) return;
+    const boardRect = boardElement.getBoundingClientRect();
+    const points = pathRef.current.flatMap((step) => {
+      const cell = boardElement.querySelector<HTMLElement>(`[data-row="${step.row}"][data-col="${step.col}"]`);
+      if (!cell) return [];
+      const rect = cell.getBoundingClientRect();
+      return [{ x: rect.left - boardRect.left + rect.width / 2, y: rect.top - boardRect.top + rect.height / 2 }];
+    });
+    setPathLine({ width: boardRect.width, height: boardRect.height, points });
+  }, []);
 
-  const handlePointerCancel = () => {
-    isDraggingRef.current = false;
-    currentPointerIdRef.current = null;
-    setCurrentPath([]);
-    clearTrail();
-  };
+  useLayoutEffect(() => {
+    const boardElement = boardRef.current;
+    if (!boardElement) return;
+    syncPathLine();
+    const observer = new ResizeObserver(syncPathLine);
+    observer.observe(boardElement);
+    boardElement.ownerDocument.defaultView?.addEventListener('resize', syncPathLine);
+    return () => {
+      observer.disconnect();
+      boardElement.ownerDocument.defaultView?.removeEventListener('resize', syncPathLine);
+    };
+  }, [boardKey, path, syncPathLine]);
 
-  // Keyboard / Click fallback
-  const handleTileClick = (r: number, c: number) => {
-    if (timeLeftSec <= 0 || isResolved || isDraggingRef.current || !board) return;
+  const submitPath = useCallback(() => {
+    const submittedPath = pathRef.current;
+    const word = submittedPath.map((step) => step.letter).join('').toUpperCase();
+    if (!match || match.phase !== 'active' || !word) return;
+    onGameAction?.({
+      type: 'SUBMIT_WORD',
+      word,
+      path: submittedPath.map(({ row, col }) => ({ row, col })),
+    });
+    soundstage.playTap();
+    setSubmittedWord(word);
+    pathRef.current = [];
+    setPath([]);
+    setPathLine((previous) => ({ ...previous, points: [] }));
+  }, [match, onGameAction]);
 
-    if (
-      currentPath.length > 0 &&
-      currentPath[currentPath.length - 1].r === r &&
-      currentPath[currentPath.length - 1].c === c
-    ) {
-      const nextPath = currentPath.slice(0, -1);
-      setCurrentPath(nextPath);
-      soundstage.playTileBacktrack();
-      drawTrail(nextPath);
-      return;
-    }
+  const cancelDrag = useCallback((pointerId: number) => {
+    if (draggingPointerIdRef.current !== pointerId) return;
+    draggingPointerIdRef.current = null;
+    pathRef.current = [];
+    setPath([]);
+    setPathLine((previous) => ({ ...previous, points: [] }));
+  }, []);
 
-    const already = currentPath.some((p) => p.r === r && p.c === c);
-    if (already) {
-      soundstage.playSlideDown();
-      return;
-    }
+  const finishDrag = useCallback((pointerId: number) => {
+    if (draggingPointerIdRef.current !== pointerId) return;
+    draggingPointerIdRef.current = null;
+    submitPath();
+  }, [submitPath]);
 
-    if (currentPath.length > 0) {
-      const last = currentPath[currentPath.length - 1];
-      const dr = Math.abs(last.r - r);
-      const dc = Math.abs(last.c - c);
-      if (dr > 1 || dc > 1) {
-        soundstage.playSlideDown();
-        return;
-      }
-    }
+  useEffect(() => {
+    const document = boardRef.current?.ownerDocument;
+    if (!document) return;
+    const handlePointerUp = (event: PointerEvent) => finishDrag(event.pointerId);
+    const handlePointerCancel = (event: PointerEvent) => cancelDrag(event.pointerId);
+    document.addEventListener('pointerup', handlePointerUp);
+    document.addEventListener('pointercancel', handlePointerCancel);
+    return () => {
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerCancel);
+    };
+  }, [boardKey, cancelDrag, finishDrag]);
 
-    const nextPath = [...currentPath, { r, c, letter: board[r][c] }];
-    setCurrentPath(nextPath);
-    soundstage.playTileSelect(nextPath.length);
-    drawTrail(nextPath);
-  };
-
-  const currentConstructedWord = currentPath.map((p) => p.letter).join('');
-  const potentialPoints = calculateWordPoints(currentConstructedWord);
-
-  if (isLoading || !board) {
-    return (
-      <div className="bonegle-loading-card cel-card">
-        <Flame size={32} className="spin-slow" style={{ color: 'var(--color-cuphead-red)' }} />
-        <h3 className="woodcut-title">PREPARING THE BOARD...</h3>
-        <p>Loading lexicon ({lang.toUpperCase()}) & laying out the letters.</p>
-      </div>
-    );
+  if (!match) {
+    return <div className="bonegle-status-card cel-card"><Flame size={30} /><strong className="woodcut-title">WAITING FOR THE BONEGLE BOARD</strong></div>;
   }
 
+  const currentWord = path.map((step) => step.letter).join('');
+  const isActive = match.phase === 'active';
+  const displayedWord = currentWord || feedback?.word || submittedWord;
+  const feedbackClass = feedback ? `word-feedback-${feedback.status}` : '';
+
   return (
-    <div className="bonegle-engine-wrapper">
-      {/* Word Input Banner */}
-      <BonegleWordBanner
-        currentWord={currentConstructedWord}
-        potentialPoints={potentialPoints}
-        lang={lang}
-        feedback={submissionFeedback}
-        onClear={() => {
-          soundstage.playTap();
-          setCurrentPath([]);
-          clearTrail();
-        }}
-        onSubmit={() => handleWordSubmission(currentPath)}
-      />
-
-      {/* Main Board Arena Stage */}
-      <div className="bonegle-arena-body">
-        <div className="bonegle-board-container">
-          <div
-            ref={boardFrameRef}
-            className={`bonegle-board-grid grid-size-${size}`}
-            onPointerDown={handlePointerDown}
-            onPointerMove={handlePointerMove}
-            onPointerUp={handlePointerUp}
-            onPointerCancel={handlePointerCancel}
-          >
-            <svg ref={svgOverlayRef} className="bonegle-svg-overlay" />
-
-            {board.map((row, rIdx) =>
-              row.map((letter, cIdx) => {
-                const pathIdx = currentPath.findIndex((p) => p.r === rIdx && p.c === cIdx);
-                const isSelected = pathIdx !== -1;
-                const isHead = isSelected && pathIdx === currentPath.length - 1;
-
-                return (
-                  <div
-                    key={`${rIdx}-${cIdx}`}
-                    data-r={rIdx}
-                    data-c={cIdx}
-                    onClick={() => handleTileClick(rIdx, cIdx)}
-                    className={`bonegle-die ${isSelected ? 'die-selected' : ''} ${
-                      isHead ? 'die-head' : ''
-                    }`}
-                  >
-                    <span className="die-letter-char">{letter}</span>
-                    {isSelected && <span className="die-step-badge">{pathIdx + 1}</span>}
-                  </div>
-                );
-              })
-            )}
-          </div>
+    <div className="bonegle-authoritative-engine">
+      <div className="bonegle-authoritative-header cel-card">
+        <div>
+          <span className="bonegle-status-label">{isActive ? 'WORD HUNT ACTIVE' : 'SERVER REVELATION'}</span>
+          <strong className={`bonegle-current-word ${feedbackClass}`} aria-live="polite">{displayedWord || 'TRACE A WORD'}</strong>
         </div>
       </div>
-
-      {/* Post-Match Revelation View */}
-      {isResolved && breakdownResults && (
-        <BonegleRevelationView
-          breakdowns={breakdownResults}
-          longestWord={solution?.longestWord}
-          lang={lang}
-        />
-      )}
-
+      <div className="bonegle-authoritative-layout">
+        <div
+          ref={boardRef}
+          className="bonegle-board-container"
+          style={{ gridTemplateColumns: `repeat(${board.length}, minmax(0, 1fr))` }}
+          onPointerDown={(event) => {
+            if (!isActive) return;
+            event.preventDefault();
+            event.currentTarget.setPointerCapture(event.pointerId);
+            suppressClickRef.current = true;
+            draggingPointerIdRef.current = event.pointerId;
+            const cell = cellAtPointer(event.currentTarget, event.clientX, event.clientY);
+            if (cell) addCell(cell.row, cell.col);
+          }}
+          onPointerMove={(event) => {
+            if (draggingPointerIdRef.current !== event.pointerId) return;
+            const cell = cellAtPointer(event.currentTarget, event.clientX, event.clientY);
+            if (cell) addCell(cell.row, cell.col);
+          }}
+          onPointerUp={(event) => {
+            finishDrag(event.pointerId);
+          }}
+          onPointerCancel={(event) => {
+            cancelDrag(event.pointerId);
+          }}
+          onLostPointerCapture={(event) => {
+            finishDrag(event.pointerId);
+          }}
+        >
+          {board.map((row, rowIndex) => row.map((letter, colIndex) => {
+            const selectedIndex = path.findIndex((step) => step.row === rowIndex && step.col === colIndex);
+            return (
+              <button
+                key={`${rowIndex}-${colIndex}`}
+                type="button"
+                data-bonegle-cell
+                data-row={rowIndex}
+                data-col={colIndex}
+                disabled={!isActive}
+                className={`bonegle-die ${selectedIndex >= 0 ? 'die-selected' : ''}`}
+                onClick={() => {
+                  if (suppressClickRef.current) {
+                    suppressClickRef.current = false;
+                    return;
+                  }
+                  addCell(rowIndex, colIndex);
+                }}
+              >
+                {letter}
+                {selectedIndex >= 0 && <span className="die-step-badge">{selectedIndex + 1}</span>}
+              </button>
+            );
+          }))}
+          {pathLine.points.length > 1 && (
+            <svg
+              aria-hidden="true"
+              className="bonegle-path-line"
+              viewBox={`0 0 ${pathLine.width} ${pathLine.height}`}
+              preserveAspectRatio="none"
+            >
+              <polyline points={pathLine.points.map((point) => `${point.x},${point.y}`).join(' ')} />
+              {pathLine.points.map((point, index) => <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="5" />)}
+            </svg>
+          )}
+        </div>
+      </div>
       <style>{`
-        .bonegle-engine-wrapper {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          width: 100%;
-          user-select: none;
-          touch-action: none;
-        }
-        .bonegle-loading-card {
-          padding: 40px;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          justify-content: center;
-          gap: 12px;
-          text-align: center;
-          background-color: var(--color-canvas-parchment);
-        }
-        .spin-slow {
-          animation: spin 3s linear infinite;
-        }
-        @keyframes spin {
-          100% { transform: rotate(360deg); }
-        }
-        .bonegle-word-banner {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          padding: 8px 16px;
-          background-color: var(--color-glove-ivory);
-          border: var(--border-ink-standard);
-          border-radius: var(--radius-cel-box);
-          box-shadow: var(--shadow-cel-sm);
-          width: 100%;
-          max-width: 600px;
-          height: 64px;
-          min-height: 64px;
-          max-height: 64px;
-          box-sizing: border-box;
-          overflow: hidden;
-          transition: background-color 0.2s ease, border-color 0.2s ease;
-        }
-        .feedback-banner-valid {
-          background-color: #e6f7ec !important;
-          border-color: #278848 !important;
-        }
-        .feedback-banner-invalid {
-          background-color: #fdeeee !important;
-          border-color: var(--color-cuphead-red) !important;
-        }
-        .feedback-banner-duplicate {
-          background-color: #fff6e5 !important;
-          border-color: #d9822b !important;
-        }
-        .word-banner-left {
-          display: flex;
-          flex-direction: column;
-          justify-content: center;
-          gap: 2px;
-          flex: 1;
-          min-width: 0;
-          height: 100%;
-        }
-        .word-banner-top-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .banner-subtag {
-          font-family: var(--font-theatre-rye);
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--color-text-muted);
-        }
-        .lang-indicator-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 1px 6px;
-          background: var(--color-parchment-deep);
-          border-radius: 4px;
-          font-family: var(--font-comic-fredoka);
-          font-size: 11px;
-          font-weight: 700;
-        }
-        .word-banner-display-line {
-          height: 28px;
-          min-height: 28px;
-          max-height: 28px;
-          display: flex;
-          align-items: center;
-          overflow: hidden;
-        }
-        .constructed-word-bold {
-          font-family: var(--font-luckiest-guy);
-          font-size: 24px;
-          letter-spacing: 0.08em;
-          color: var(--color-ink-black);
-          line-height: 1;
-          margin: 0;
-          white-space: nowrap;
-        }
-        .word-placeholder {
-          font-family: var(--font-comic-fredoka);
-          font-size: 14px;
-          color: var(--color-text-muted);
-          font-style: italic;
-          line-height: 1;
-          margin: 0;
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .feedback-content-row {
-          height: 28px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .feedback-icon-ok {
-          color: #278848;
-        }
-        .feedback-icon-dup {
-          color: #d9822b;
-        }
-        .feedback-icon-err {
-          color: var(--color-cuphead-red);
-        }
-        .feedback-word-text {
-          font-family: var(--font-luckiest-guy);
-          font-size: 24px;
-          color: var(--color-ink-black);
-          letter-spacing: 0.06em;
-          line-height: 1;
-        }
-        .feedback-pts-tag {
-          font-family: var(--font-luckiest-guy);
-          font-size: 16px;
-          color: #278848;
-          background-color: rgba(39, 136, 72, 0.15);
-          padding: 1px 8px;
-          border-radius: 6px;
-          line-height: 1.2;
-        }
-        .word-banner-actions {
-          height: 36px;
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          flex-shrink: 0;
-        }
-        .submit-word-btn {
-          height: 34px;
-          min-width: 105px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          font-size: 14px;
-          padding: 0 14px;
-        }
-        .clear-word-btn {
-          height: 34px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          font-size: 12px;
-          padding: 0 12px;
-        }
-        .bonegle-arena-body {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          width: 100%;
-        }
-        .bonegle-board-container {
-          background-color: #241712;
-          padding: 20px;
-          border: var(--border-ink-thick);
-          border-radius: 20px;
-          box-shadow: var(--shadow-cel-lg);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          width: 580px;
-          height: 580px;
-          max-width: min(580px, 94vw);
-          max-height: min(580px, 94vw);
-          box-sizing: border-box;
-          user-select: none;
-          touch-action: none;
-          margin: 0 auto;
-        }
-        .bonegle-board-grid {
-          position: relative;
-          display: grid;
-          width: 100%;
-          height: 100%;
-        }
-        .grid-size-4 {
-          grid-template-columns: repeat(4, 1fr);
-          grid-template-rows: repeat(4, 1fr);
-          gap: 14px;
-        }
-        .grid-size-5 {
-          grid-template-columns: repeat(5, 1fr);
-          grid-template-rows: repeat(5, 1fr);
-          gap: 11px;
-        }
-        .grid-size-6 {
-          grid-template-columns: repeat(6, 1fr);
-          grid-template-rows: repeat(6, 1fr);
-          gap: 8px;
-        }
-        .bonegle-svg-overlay {
-          position: absolute;
-          inset: 0;
-          width: 100%;
-          height: 100%;
-          pointer-events: none;
-          z-index: 10;
-        }
-        .bonegle-trail-outer {
-          stroke: var(--color-ink-black);
-          stroke-width: 14px;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          fill: none;
-        }
-        .bonegle-trail-inner {
-          stroke: var(--color-golden-buttercup);
-          stroke-width: 8px;
-          stroke-linecap: round;
-          stroke-linejoin: round;
-          fill: none;
-        }
-        .bonegle-trail-cursor {
-          stroke: var(--color-golden-buttercup);
-          stroke-width: 5px;
-          stroke-dasharray: 6 4;
-          stroke-linecap: round;
-          opacity: 0.85;
-        }
-        .bonegle-die {
-          background-color: var(--color-cuphead-red);
-          border: 3.5px solid var(--color-ink-black);
-          border-radius: 14px;
-          box-shadow: 0px 4px 0px var(--color-ink-black);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          position: relative;
-          z-index: 2;
-          width: 100%;
-          height: 100%;
-          box-sizing: border-box;
-          transition: transform 0.08s ease, background-color 0.08s ease, box-shadow 0.08s ease;
-          touch-action: none;
-          user-select: none;
-        }
-        .bonegle-die:hover {
-          transform: translateY(-2px);
-          box-shadow: 0px 6px 0px var(--color-ink-black);
-        }
-        .die-selected {
-          background-color: var(--color-golden-buttercup) !important;
-          transform: scale(0.97) !important;
-          box-shadow: 0px 2px 0px var(--color-ink-black) !important;
-        }
-        .die-head {
-          background-color: #f59e0b !important;
-          transform: scale(1.03) !important;
-          box-shadow: 0px 3px 0px var(--color-ink-black) !important;
-          animation: headPulse 0.5s ease infinite alternate;
-        }
-        @keyframes headPulse {
-          0% { transform: scale(1); }
-          100% { transform: scale(1.05); }
-        }
-        .die-letter-char {
-          font-family: var(--font-luckiest-guy);
-          font-size: 42px;
-          color: var(--color-glove-ivory);
-          text-shadow: 1.5px 1.5px 0px rgba(0, 0, 0, 0.45);
-          pointer-events: none;
-          user-select: none;
-          line-height: 1;
-        }
-        .die-selected .die-letter-char,
-        .die-head .die-letter-char {
-          color: var(--color-ink-black) !important;
-          text-shadow: none !important;
-        }
-        .grid-size-4 .die-letter-char {
-          font-size: 52px;
-        }
-        .grid-size-5 .die-letter-char {
-          font-size: 42px;
-        }
-        .grid-size-6 .die-letter-char {
-          font-size: 32px;
-        }
-        .die-step-badge {
-          position: absolute;
-          top: 4px;
-          right: 4px;
-          background-color: var(--color-ink-black);
-          color: var(--color-golden-buttercup);
-          font-family: var(--font-luckiest-guy);
-          font-size: 12px;
-          width: 22px;
-          height: 22px;
-          border-radius: 50%;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border: 1.5px solid var(--color-golden-buttercup);
-          pointer-events: none;
-        }
-        .bonegle-revelation-card {
-          padding: 20px;
-          background-color: var(--color-parchment-deep);
-          border: var(--border-ink-thick);
-          box-shadow: var(--shadow-cel-md);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 12px;
-          text-align: center;
-        }
-        .revelation-header-box {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-        }
-        .revelation-subtitle {
-          font-family: var(--font-comic-fredoka);
-          font-size: 15px;
-          font-weight: 600;
-          color: var(--color-cuphead-red);
-        }
-        .revelation-podium-strip {
-          padding: 12px 24px;
-          background-color: var(--color-golden-buttercup);
-          border: var(--border-ink-standard);
-          border-radius: 8px;
-          box-shadow: var(--shadow-cel-sm);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 2px;
-        }
-        .champ-label {
-          font-family: var(--font-theatre-rye);
-          font-size: 10px;
-          letter-spacing: 0.1em;
-          color: var(--color-ink-black);
-        }
-        .champ-name {
-          font-family: var(--font-luckiest-guy);
-          font-size: 26px;
-          color: var(--color-ink-black);
-        }
-        .champ-score {
-          font-family: var(--font-luckiest-guy);
-          font-size: 20px;
-          color: var(--color-cuphead-red);
-        }
-        .longest-word-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 8px;
-          padding: 6px 14px;
-          background-color: var(--color-glove-ivory);
-          border: 2px solid var(--color-ink-black);
-          border-radius: 6px;
-          font-size: 14px;
-        }
+        .bonegle-authoritative-engine { display: flex; flex-direction: column; gap: 14px; width: 100%; user-select: none; }
+        .bonegle-status-card, .bonegle-authoritative-header { display: flex; align-items: center; gap: 12px; padding: 16px; }
+        .bonegle-status-label { display: block; font-family: var(--font-theatre-rye); font-size: 11px; letter-spacing: .08em; color: var(--color-cuphead-red); }
+        .bonegle-current-word { display: block; font-family: var(--font-luckiest-guy); font-size: 24px; letter-spacing: .04em; min-height: 28px; }
+        .bonegle-current-word.word-feedback-valid { color: #1f9d55; }
+        .bonegle-current-word.word-feedback-duplicate { color: #e2821a; }
+        .bonegle-current-word.word-feedback-invalid { color: var(--color-cuphead-red); }
+        .bonegle-authoritative-layout { min-width: 0; }
+        .bonegle-board-container { display: grid; gap: 9px; padding: 16px; position: relative; overflow: hidden; background: #241712; border: var(--border-ink-thick); border-radius: 12px; box-shadow: var(--shadow-cel-lg); touch-action: none; }
+        .bonegle-die { aspect-ratio: 1; border: 3px solid var(--color-ink-black); border-radius: 10px; background: var(--color-cuphead-red); box-shadow: 0 3px 0 var(--color-ink-black); color: var(--color-glove-ivory); font-family: var(--font-luckiest-guy); font-size: clamp(24px, 6vw, 44px); position: relative; z-index: 2; touch-action: none; }
+        .bonegle-die.die-selected { background: var(--color-golden-buttercup); color: var(--color-ink-black); transform: translateY(2px); box-shadow: 0 1px 0 var(--color-ink-black); }
+        .die-step-badge { position: absolute; top: 3px; right: 3px; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; background: var(--color-ink-black); color: var(--color-golden-buttercup); font-size: 11px; }
+        .bonegle-path-line { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; filter: drop-shadow(0 0 3px rgba(255, 216, 72, .8)); }
+        .bonegle-path-line polyline { fill: none; stroke: var(--color-golden-buttercup); stroke-width: 10; stroke-linecap: round; stroke-linejoin: round; }
+        .bonegle-path-line circle { fill: var(--color-golden-buttercup); }
       `}</style>
     </div>
   );

@@ -1,41 +1,6 @@
 import { GameId, GameDefinition, GameManifest } from '../types';
 import { bonegleManifest } from './bonegle';
 import { midnightAlleyManifest } from './midnight-alley';
-import { vortilexManifest } from './vortilex';
-import { skullBonesManifest } from './skull-bones';
-
-// Fallback manifests for games in the catalog whose engines use the generic stage
-export const royalCheckersManifest: GameManifest = {
-  id: 'royal-checkers',
-  definition: {
-    id: 'royal-checkers',
-    title: 'Classic Checkers',
-    subtitle: 'Strategy Board Game',
-    description: 'Diagonal leaps, king promotions, and board control in a traditional checkers match.',
-    minPlayers: 2,
-    maxPlayers: 2,
-    estimatedTimeMin: 6,
-    iconName: 'Crown',
-    badge: '2 PLAYERS',
-  },
-  hasRoundTimer: true,
-};
-
-export const mysteryManorManifest: GameManifest = {
-  id: 'mystery-manor',
-  definition: {
-    id: 'mystery-manor',
-    title: 'Mystery Manor',
-    subtitle: 'Deduction & Clue Game',
-    description: 'Share clues, eliminate suspects, and deduce the mystery before the round ends.',
-    minPlayers: 3,
-    maxPlayers: 5,
-    estimatedTimeMin: 8,
-    iconName: 'Shield',
-    badge: 'MYSTERY',
-  },
-  hasRoundTimer: true,
-};
 
 /**
  * Central registry mapping all TableSkull games.
@@ -47,10 +12,6 @@ export const mysteryManorManifest: GameManifest = {
 export const GAME_REGISTRY: Record<GameId, GameManifest> = {
   bonegle: bonegleManifest,
   'midnight-alley': midnightAlleyManifest,
-  vortilex: vortilexManifest,
-  'skull-bones': skullBonesManifest,
-  'royal-checkers': royalCheckersManifest,
-  'mystery-manor': mysteryManorManifest,
 };
 
 /**

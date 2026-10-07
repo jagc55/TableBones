@@ -1,7 +1,6 @@
 import { GameManifest } from '../../types';
 import { MidnightAlleyEngine } from './MidnightAlleyEngine';
 import { MidnightRules } from './MidnightRules';
-import { MidnightAlleyGameLogic } from './midnightAlleyLogic';
 
 export const midnightAlleyManifest: GameManifest = {
   id: 'midnight-alley',
@@ -21,15 +20,6 @@ export const midnightAlleyManifest: GameManifest = {
   hasRoundTimer: false,
   hideContinuousScoreboard: true,
   arenaLayoutClass: 'arena-midnight-layout',
-  engine: (props) => (
-    <MidnightAlleyEngine
-      currentUserPlayer={props.currentUserPlayer}
-      players={props.players && props.players.length > 0 ? props.players : [props.currentUserPlayer]}
-      onPlayerScore={props.onPlayerScore}
-      onActionNotification={props.onActionNotification}
-      onLeaveMatch={props.onLeaveMatch}
-    />
-  ),
+  engine: (props) => <MidnightAlleyEngine {...props} />,
   rulesComponent: MidnightRules,
-  logic: new MidnightAlleyGameLogic(),
 };

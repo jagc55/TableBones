@@ -1,49 +1,39 @@
 import React, { useState } from 'react';
 import { X, Key, ArrowRight, AlertTriangle } from 'lucide-react';
-import { Room } from '../types';
 import { soundstage } from '../utils/audio';
-import { decodeRoomInvite, DEFAULT_ROOM_SETTINGS } from '../utils/storage';
 
 interface JoinByCodeModalProps {
   isOpen: boolean;
   onClose: () => void;
-  rooms: Room[];
-  onJoinSuccess: (room: Room) => void;
+  onJoinByCode: (code: string) => Promise<void>;
 }
 
 export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
   isOpen,
   onClose,
-  rooms,
-  onJoinSuccess,
+  onJoinByCode,
 }) => {
   const [ticketCode, setTicketCode] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   if (!isOpen) return null;
 
-  const handleJoin = (e: React.FormEvent) => {
+  const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     const rawInput = ticketCode.trim();
     if (!rawInput) return;
 
     let targetCode = rawInput.toUpperCase();
-    let decodedData: Partial<Room> | null = null;
 
     // Check if input is a full URL or query string
     if (rawInput.includes('?') || rawInput.includes('join=') || rawInput.includes('room=')) {
       try {
         const urlStr = rawInput.startsWith('http')
-          ? rawInput
-          : `http://localhost/${rawInput.startsWith('?') ? rawInput : '?' + rawInput}`;
+          ? rawInput : new URL(rawInput, window.location.origin).toString();
         const parsedUrl = new URL(urlStr);
         const codeParam = parsedUrl.searchParams.get('join') || parsedUrl.searchParams.get('room');
-        const dataParam = parsedUrl.searchParams.get('data');
         if (codeParam) {
-          targetCode = codeParam.toUpperCase();
-        }
-        if (dataParam) {
-          decodedData = decodeRoomInvite(dataParam);
+          targetCode = codeParam.trim().toUpperCase();
         }
       } catch {
         const match = rawInput.match(/(?:join|room)=([^&]+)/i);
@@ -51,33 +41,13 @@ export const JoinByCodeModal: React.FC<JoinByCodeModalProps> = ({
       }
     }
 
-    // Search room by code
-    let targetRoom = rooms.find((r) => r.code.toUpperCase() === targetCode);
-
-    if (!targetRoom && decodedData) {
-      targetRoom = {
-        id: decodedData.id || `room-${Date.now()}`,
-        code: decodedData.code || targetCode,
-        title: decodedData.title || 'Midnight Alley Table',
-        gameId: decodedData.gameId || 'midnight-alley',
-        isPrivate: decodedData.isPrivate ?? true,
-        minPlayers: decodedData.minPlayers ?? 2,
-        maxPlayers: decodedData.maxPlayers ?? 6,
-        hostId: decodedData.hostId || 'host',
-        players: [],
-        settings: decodedData.settings || DEFAULT_ROOM_SETTINGS,
-        status: 'waiting',
-        createdAt: Date.now(),
-      };
-    }
-
-    if (targetRoom) {
+    try {
+      await onJoinByCode(targetCode);
       soundstage.playRoundBell();
-      onJoinSuccess(targetRoom);
       onClose();
-    } else {
+    } catch (error) {
       soundstage.playSlideDown();
-      setErrorMessage(`No room found with code "${targetCode}". Confirm code or link with host.`);
+      setErrorMessage(error instanceof Error ? error.message : `No room found with code "${targetCode}". Confirm code or link with host.`);
     }
   };
 

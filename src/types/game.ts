@@ -1,4 +1,5 @@
 import { GameId, Player, RoomSettings, Room, GameDefinition } from './index';
+import type { GameAction, MatchState } from '../utils/networkSync';
 
 /**
  * Standard props contract for any game engine mounted inside GameArena / GameStageFrame.
@@ -12,6 +13,8 @@ export interface BaseGameEngineProps {
   players: Player[];
   settings?: RoomSettings;
   timeLeftSec?: number;
+  matchState?: MatchState | null;
+  onGameAction?: (action: GameAction) => void;
   onPlayerScore: (playerId: string, addedScore: number) => void;
   onActionNotification: (text: string) => void;
   onLeaveMatch?: () => void;
