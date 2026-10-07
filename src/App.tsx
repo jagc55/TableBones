@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Room,
   UserProfile,
@@ -239,7 +239,7 @@ export const App: React.FC = () => {
   };
 
   // Add system message to specific room chat
-  const postSystemChatMessage = (roomId: string, text: string) => {
+  const postSystemChatMessage = useCallback((roomId: string, text: string) => {
     const sysMsg: ChatMessage = {
       id: 'msg-sys-' + Date.now() + '-' + Math.random(),
       senderId: 'system',
@@ -253,7 +253,13 @@ export const App: React.FC = () => {
       ...prev,
       [roomId]: [...(prev[roomId] || []), sysMsg],
     }));
-  };
+  }, []);
+
+  const handleDispatchSystemNotice = useCallback((text: string) => {
+    if (currentRoom) {
+      postSystemChatMessage(currentRoom.id, text);
+    }
+  }, [currentRoom, postSystemChatMessage]);
 
   // 1. CREATE ROOM
   const handleCreateRoom = (roomData: Omit<Room, 'id' | 'createdAt'>) => {
@@ -749,7 +755,7 @@ export const App: React.FC = () => {
             onMatchComplete={handleMatchComplete}
             onSendMessage={handleSendMessage}
             onToggleMutePlayer={handleToggleMutePlayer}
-            onDispatchSystemNotice={(text) => postSystemChatMessage(currentRoom.id, text)}
+            onDispatchSystemNotice={handleDispatchSystemNotice}
           />
         )}
       </main>

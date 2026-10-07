@@ -43,6 +43,19 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
   const [submissionFeedback, setSubmissionFeedback] = useState<BonegleSubmissionFeedback | null>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Callback refs to prevent re-render feedback loops
+  const onActionNotificationRef = useRef(onActionNotification);
+  onActionNotificationRef.current = onActionNotification;
+
+  const onPlayerScoreRef = useRef(onPlayerScore);
+  onPlayerScoreRef.current = onPlayerScore;
+
+  const onMatchResolvedRef = useRef(onMatchResolved);
+  onMatchResolvedRef.current = onMatchResolved;
+
+  const timeLeftSecRef = useRef(timeLeftSec);
+  timeLeftSecRef.current = timeLeftSec;
+
   // Bot words storage: botId -> Set of words
   const botWordsRef = useRef<Map<string, Set<string>>>(new Map());
 
@@ -60,8 +73,17 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
   >([]);
   const cursorCoordsRef = useRef({ x: 0, y: 0 });
 
-  // 1. Generate Board on Mount
+  // Key to track active configuration and prevent regeneration loops
+  const lastGeneratedKeyRef = useRef<string>('');
+
+  // 1. Generate Board on Mount or when size/lang explicitly changes
   useEffect(() => {
+    const configKey = `${size}-${lang}`;
+    if (lastGeneratedKeyRef.current === configKey && board !== null) {
+      return;
+    }
+    lastGeneratedKeyRef.current = configKey;
+
     let isMounted = true;
     setIsLoading(true);
 
@@ -70,7 +92,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
       setBoard(newBoard);
       setSolution(newSolution);
       setIsLoading(false);
-      onActionNotification(
+      onActionNotificationRef.current?.(
         lang === 'es'
           ? `¡Las letras han caído en el tablero! Hay ${newSolution.totalPossibleWords} palabras escondidas.`
           : `The letters rattled into place! ${newSolution.totalPossibleWords} words hidden in the grid.`
@@ -80,7 +102,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [size, lang, onActionNotification]);
+  }, [size, lang]);
 
   // Update cached tile positions for fast collision detection
   const updateTileCenters = useCallback(() => {
@@ -129,12 +151,14 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
 
   // 2. Simulated Bot Activity
   useEffect(() => {
-    if (!solution || solution.words.length === 0 || timeLeftSec <= 0 || isResolved) return;
+    if (!solution || solution.words.length === 0 || isResolved) return;
 
     const botPlayers = players.filter((p) => p.isBot && p.id !== currentUserPlayer.id);
     if (botPlayers.length === 0) return;
 
     const interval = setInterval(() => {
+      if (timeLeftSecRef.current <= 0 || isResolved) return;
+
       botPlayers.forEach((bot) => {
         if (Math.random() > 0.4) {
           if (!botWordsRef.current.has(bot.id)) {
@@ -151,7 +175,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     }, 4500);
 
     return () => clearInterval(interval);
-  }, [solution, players, currentUserPlayer.id, timeLeftSec, isResolved]);
+  }, [solution, players, currentUserPlayer.id, isResolved]);
 
   // 3. Final Round Revelation
   const resolveRoundRevelation = useCallback(() => {
@@ -166,7 +190,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     );
     setBreakdownResults(breakdowns);
 
-    onActionNotification(
+    onActionNotificationRef.current?.(
       lang === 'es'
         ? `🔔 ¡HA SONADO LA CAMPANA! Puntuaciones finales reveladas:`
         : `🔔 THE BELL HAS SOUNDED! Final scores revealed:`
@@ -175,7 +199,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     breakdowns.forEach((b, idx) => {
       const uniquePts = b.uniqueWords.reduce((acc, w) => acc + w.pts, 0);
       const sharedPts = b.sharedWords.reduce((acc, w) => acc + w.pts, 0);
-      onActionNotification(
+      onActionNotificationRef.current?.(
         `#${idx + 1} ${b.player.name}: ${b.totalScore} PTS (${b.uniqueWords.length} ${
           lang === 'es' ? 'únicas' : 'unique'
         } x2 = +${uniquePts} pts, ${b.sharedWords.length} ${
@@ -185,7 +209,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     });
 
     if (solution.longestWord) {
-      onActionNotification(
+      onActionNotificationRef.current?.(
         `🏆 ${
           lang === 'es' ? 'Palabra más larga en el tablero' : 'Longest word on board'
         }: "${solution.longestWord}" (${solution.longestWordLength} ${lang === 'es' ? 'letras' : 'letters'}).`
@@ -193,7 +217,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     }
 
     breakdowns.forEach((b) => {
-      onPlayerScore(b.player.id, b.totalScore);
+      onPlayerScoreRef.current?.(b.player.id, b.totalScore);
     });
 
     const finalPlayers: Player[] = players.map((p) => {
@@ -222,9 +246,9 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         : undefined,
     };
 
-    if (onMatchResolved) {
+    if (onMatchResolvedRef.current) {
       setTimeout(() => {
-        onMatchResolved(
+        onMatchResolvedRef.current?.(
           champWithScore,
           lang === 'es'
             ? `¡Fin del asalto! Campeón: 1º ${champ.name} (${breakdowns[0]?.totalScore || 0} pts)`
@@ -240,9 +264,6 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
     myFoundWords,
     currentUserPlayer,
     lang,
-    onActionNotification,
-    onPlayerScore,
-    onMatchResolved,
   ]);
 
   useEffect(() => {

@@ -233,7 +233,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
               onPlayerScore={onPlayerScore}
               onActionNotification={onDispatchSystemNotice}
               onLeaveMatch={onLeaveMatch}
-              onMatchResolved={(winner, reason, finalPlayers) => onMatchComplete(winner, reason, finalPlayers)}
+              onMatchResolved={onMatchComplete}
             />
           </GameStageFrame>
         </div>
