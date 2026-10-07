@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Plus, Key, Users, Clock, Play } from 'lucide-react';
+import { Search, Plus, Key, Users, Clock, Play, Lock } from 'lucide-react';
 import { Room, GameId, GameDefinition } from '../types';
 import { GAMES_CATALOG } from '../utils/mockData';
 import { soundstage } from '../utils/audio';
@@ -22,6 +22,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedGameFilter, setSelectedGameFilter] = useState<GameId | 'all'>('all');
   const [onlyOpenSlots, setOnlyOpenSlots] = useState(false);
+  const [onlyWaitingRooms, setOnlyWaitingRooms] = useState(false);
 
   // Filter public rooms
   const availableRooms = rooms.filter((r) => !r.isPrivate);
@@ -32,8 +33,12 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
       return false;
     }
 
-    // Slots filter
-    if (onlyOpenSlots && room.players.length >= room.maxPlayers) {
+    const isJoinable = room.status === 'waiting' && room.players.length < room.maxPlayers;
+    if (onlyOpenSlots && !isJoinable) {
+      return false;
+    }
+
+    if (onlyWaitingRooms && room.status !== 'waiting') {
       return false;
     }
 
@@ -114,6 +119,15 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
             />
             <span>Open spots only</span>
           </label>
+          <label className="checkbox-filter-label">
+            <input
+              type="checkbox"
+              checked={onlyWaitingRooms}
+              onChange={(e) => setOnlyWaitingRooms(e.target.checked)}
+              className="ink-checkbox"
+            />
+            <span>Waiting rooms only</span>
+          </label>
         </div>
 
         {/* Game Filter Tabs */}
@@ -173,6 +187,8 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
               const game = getGameDef(room.gameId);
               const host = room.players.find((p) => p.isHost) || room.players[0];
               const isFull = room.players.length >= room.maxPlayers;
+              const isInProgress = room.status === 'in_progress';
+              const isJoinable = room.status === 'waiting' && !isFull;
               const openSlots = room.maxPlayers - room.players.length;
 
               return (
@@ -181,6 +197,7 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                   <div className="room-row-main">
                     <div className="room-row-badge-line">
                       <span className="room-game-badge">{game ? game.title : 'Board Game'}</span>
+                      {isInProgress && <span className="room-status-badge">MATCH IN PROGRESS</span>}
                     </div>
                     <h4 className="room-row-title" title={room.title}>{room.title}</h4>
                   </div>
@@ -220,13 +237,13 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
                         soundstage.playTap();
                         onJoinRoom(room);
                       }}
-                      disabled={isFull}
+                      disabled={!isJoinable}
                       className={`btn-cel room-join-btn ${
-                        isFull ? 'btn-brawl-neutral' : 'btn-brawl-primary'
+                        isJoinable ? 'btn-brawl-primary' : 'btn-brawl-neutral'
                       }`}
                     >
-                      <Play size={16} strokeWidth={3} />
-                      <span>{isFull ? 'ROOM FULL' : 'JOIN TABLE'}</span>
+                      {isJoinable ? <Play size={16} strokeWidth={3} /> : <Lock size={16} strokeWidth={3} />}
+                      <span>{isInProgress ? 'MATCH IN PROGRESS' : isFull ? 'ROOM FULL' : 'JOIN TABLE'}</span>
                     </button>
                   </div>
                 </div>
@@ -397,6 +414,17 @@ export const RoomBrowser: React.FC<RoomBrowserProps> = ({
           border: 1.5px solid var(--color-ink-stroke);
           border-radius: 5px;
           color: var(--color-text-main);
+        }
+        .room-status-badge {
+          padding: 2px 8px;
+          border: 1.5px solid var(--color-ink-stroke);
+          border-radius: 5px;
+          background: var(--color-ink-black);
+          color: var(--color-golden-buttercup);
+          font-family: var(--font-theatre-rye);
+          font-size: 11px;
+          font-weight: 700;
+          letter-spacing: .04em;
         }
         .room-row-title {
           font-family: var(--font-luckiest-guy);

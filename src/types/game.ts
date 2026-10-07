@@ -1,4 +1,5 @@
 import { GameId, Player, RoomSettings, Room, GameDefinition } from './index';
+import type { GameAction, MatchState } from '../utils/networkSync';
 
 /**
  * Standard props contract for any game engine mounted inside GameArena / GameStageFrame.
@@ -12,6 +13,8 @@ export interface BaseGameEngineProps {
   players: Player[];
   settings?: RoomSettings;
   timeLeftSec?: number;
+  matchState?: MatchState | null;
+  onGameAction?: (action: GameAction) => void;
   onPlayerScore: (playerId: string, addedScore: number) => void;
   onActionNotification: (text: string) => void;
   onLeaveMatch?: () => void;
@@ -23,7 +26,7 @@ export interface BaseGameEngineProps {
  */
 export interface GameSettingsFormProps {
   settings: RoomSettings;
-  onUpdateSetting: <K extends keyof RoomSettings>(key: K, value: RoomSettings[K]) => void;
+  onUpdateSetting: (key: string, value: any) => void;
   isHost: boolean;
   stepOffset?: number;
 }
@@ -73,8 +76,8 @@ export interface GameManifest<TState = unknown, TAction = unknown> {
   hideContinuousScoreboard?: boolean;
   /** Optional layout CSS class for GameArena layout container (e.g. 'arena-midnight-layout') */
   arenaLayoutClass?: string;
-  /** The React component that renders the game inside GameStageFrame */
-  engine: React.ComponentType<BaseGameEngineProps>;
+  /** The React component that renders the game inside GameStageFrame (optional for catalog stubs) */
+  engine?: React.ComponentType<BaseGameEngineProps>;
   /** Optional custom rules component rendered in RulesModal */
   rulesComponent?: React.ComponentType;
   /** Optional custom settings form controls rendered in CreateRoomModal and RoomSettingsModal */

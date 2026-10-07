@@ -1,18 +1,16 @@
 import React from 'react';
 import { GameId, BaseGameEngineProps } from '../types';
 import { getGameManifest } from '../games';
-import { soundstage } from '../utils/audio';
-import { Sparkles } from 'lucide-react';
 
 export interface GenericGameEngineProps extends BaseGameEngineProps {
   gameId: GameId;
 }
 
 export const GenericGameEngine: React.FC<GenericGameEngineProps> = (props) => {
-  const { gameId, currentUserPlayer, onPlayerScore, onActionNotification } = props;
+  const { gameId } = props;
 
   const manifest = getGameManifest(gameId);
-  if (manifest && manifest.engine && manifest.id !== 'royal-checkers' && manifest.id !== 'mystery-manor') {
+  if (manifest?.engine) {
     const EngineComponent = manifest.engine;
     return <EngineComponent {...props} />;
   }
@@ -21,7 +19,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = (props) => {
     <div className="generic-table-stage cel-card">
       <div className="generic-table-header">
         <h3 className="woodcut-title">TACTICAL GAME TABLE</h3>
-        <span className="generic-turn-info">Active match in progress</span>
+        <span className="generic-turn-info">Waiting for an authoritative game engine</span>
       </div>
 
       <div className="generic-board-visual">
@@ -29,13 +27,7 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = (props) => {
           {Array.from({ length: 16 }).map((_, i) => (
             <div
               key={i}
-              onClick={() => {
-                soundstage.playTap();
-                onPlayerScore(currentUserPlayer.id, 4);
-                onActionNotification(`${currentUserPlayer.name} placed a tactical piece on cell #${i + 1}`);
-              }}
               className={`board-cell ${i % 2 === 0 ? 'cell-light' : 'cell-dark'}`}
-              title="Click to execute move"
             >
               <span className="cell-num">{i + 1}</span>
             </div>
@@ -43,19 +35,6 @@ export const GenericGameEngine: React.FC<GenericGameEngineProps> = (props) => {
         </div>
       </div>
 
-      <div className="generic-actions-strip">
-        <button
-          onClick={() => {
-            soundstage.playScoreTrumpet();
-            onPlayerScore(currentUserPlayer.id, 6);
-            onActionNotification(`${currentUserPlayer.name} captured an opponent piece!`);
-          }}
-          className="btn-cel btn-brawl-primary"
-        >
-          <Sparkles size={16} strokeWidth={2.8} />
-          <span>EXECUTE MOVE (+6 PTS)</span>
-        </button>
-      </div>
 
       <style>{`
         .generic-table-stage {

@@ -10,6 +10,7 @@ interface VictoryModalProps {
   allPlayers: Player[];
   winReason?: string | null;
   onRematch: () => void;
+  isRematching?: boolean;
   onReturnToLobby: () => void;
 }
 
@@ -19,6 +20,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   allPlayers,
   winReason,
   onRematch,
+  isRematching = false,
   onReturnToLobby,
 }) => {
   const [expandedPlayerIds, setExpandedPlayerIds] = useState<Record<string, boolean>>({});
@@ -60,6 +62,13 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
       [playerId]: !prev[playerId],
     }));
   };
+
+  const hasAnyWordsBreakdown = allPlayers.some(
+    (p) => p.wordsBreakdown && (p.wordsBreakdown.uniqueWords.length > 0 || p.wordsBreakdown.sharedWords.length > 0)
+  );
+  const hasAnyCustomBreakdown = allPlayers.some(
+    (p) => p.breakdownItems && p.breakdownItems.length > 0
+  );
 
   return (
     <div className="modal-overlay victory-overlay-wrap">
@@ -105,23 +114,32 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 
           {/* All Players Standings with Expanders */}
           <div className="runnerups-standings">
-            <h4 className="standings-heading">FINAL STANDINGS & FOUND WORDS</h4>
+            <h4 className="standings-heading">
+              {hasAnyWordsBreakdown
+                ? 'FINAL STANDINGS & FOUND WORDS'
+                : hasAnyCustomBreakdown
+                ? 'FINAL STANDINGS & ROUND DETAILS'
+                : 'FINAL STANDINGS'}
+            </h4>
             <div className="standings-list">
               {sortedPlayers.map((player, idx) => {
                 const isExpanded = !!expandedPlayerIds[player.id];
                 const breakdown = player.wordsBreakdown;
+                const customItems = player.breakdownItems;
                 const hasWords =
                   breakdown &&
                   (breakdown.uniqueWords.length > 0 || breakdown.sharedWords.length > 0);
+                const hasCustom = !!(customItems && customItems.length > 0);
+                const hasDetails = hasWords || hasCustom;
 
                 return (
                   <div key={player.id} className="player-standings-item">
                     <div
                       className={`standings-row ${
                         player.id === winnerPlayer.id ? 'standing-champ-row' : ''
-                      } ${hasWords ? 'standings-row-clickable' : ''}`}
-                      onClick={() => hasWords && togglePlayerExpanded(player.id)}
-                      title={hasWords ? 'Click to view found words' : undefined}
+                      } ${hasDetails ? 'standings-row-clickable' : ''}`}
+                      onClick={() => hasDetails && togglePlayerExpanded(player.id)}
+                      title={hasDetails ? 'Click to view details' : undefined}
                     >
                       <span className="standing-rank">#{idx + 1}</span>
                       <div className="standing-avatar">
@@ -130,11 +148,11 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                       <span className="standing-name">{player.name}</span>
                       <div className="standing-score-wrap">
                         <strong className="standing-score">{player.score} PTS</strong>
-                        {hasWords && (
+                        {hasDetails && (
                           <button
                             type="button"
                             className="standing-chevron-btn"
-                            aria-label="Toggle words details"
+                            aria-label="Toggle details"
                           >
                             {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                           </button>
@@ -143,7 +161,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                     </div>
 
                     {/* Word Details Expander */}
-                    {isExpanded && breakdown && (
+                    {isExpanded && breakdown && hasWords && (
                       <div className="player-words-expander cel-card">
                         {/* Unique Words */}
                         <div className="expander-section">
@@ -185,6 +203,22 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                         </div>
                       </div>
                     )}
+
+                    {/* Generic Game Stat Details Expander */}
+                    {isExpanded && !hasWords && hasCustom && customItems && (
+                      <div className="player-words-expander cel-card">
+                        <div className="expander-section">
+                          <span className="expander-subtitle">★ Match Details</span>
+                          <div className="expander-chips-box">
+                            {customItems.map((item, cIdx) => (
+                              <span key={cIdx} className="word-chip unique-chip">
+                                {item.label}: <strong>{item.value}</strong>
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -212,14 +246,16 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           </button>
 
           <button
+            disabled={isRematching}
             onClick={() => {
+              if (isRematching) return;
               soundstage.playRoundBell();
               onRematch();
             }}
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>PLAY AGAIN ({rematchCountdown}s)</span>
+            <span>{isRematching ? 'STARTING REMATCH...' : `PLAY AGAIN (${rematchCountdown}s)`}</span>
           </button>
         </div>
 

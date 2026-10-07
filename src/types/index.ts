@@ -1,4 +1,4 @@
-export type GameId = 'bonegle' | 'midnight-alley' | 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
+export type GameId = 'bonegle' | 'midnight-alley';
 
 
 export interface GameDefinition {
@@ -24,6 +24,11 @@ export interface Player {
   score: number;
   isBot?: boolean;
   hasLeft?: boolean;
+  /** Generic extensible payload for game-specific round/match breakdowns or stats */
+  customData?: Record<string, unknown>;
+  /** Optional game breakdown items for victory podium display */
+  breakdownItems?: Array<{ label: string; value: string | number }>;
+  /** @deprecated Word-search specific breakdown. Prefer customData or breakdownItems in new games */
   wordsBreakdown?: {
     uniqueWords: { word: string; pts: number }[];
     sharedWords: { word: string; pts: number; sharedWith?: string[] }[];
@@ -43,10 +48,18 @@ export interface ChatMessage {
 export interface RoomSettings {
   roundDurationSec: number;
   turnTimeLimitSec: number;
-  dictionaryLang: 'en' | 'es';
+  /** Deterministic seed string shared by all contenders in the match */
+  matchSeed?: string;
+  dictionaryLang?: 'en' | 'es';
+  /** Extensible custom settings bag for individual game parameters */
+  customSettings?: Record<string, unknown>;
+  /** @deprecated Specific to Bonegle. Maintained for backwards compatibility */
   bonegleGridSize?: 4 | 5 | 6;
+  /** @deprecated Use matchSeed instead */
   bonegleSeed?: string;
+  /** @deprecated Maintained for backwards compatibility */
   bonegleBoard?: string[][];
+  [key: string]: unknown;
 }
 
 export interface Room {

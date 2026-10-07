@@ -2,7 +2,6 @@ import { GameManifest, Room } from '../../types';
 import { BonegleEngine } from './BonegleEngine';
 import { BonegleRules } from './BonegleRules';
 import { BonegleSettings } from './BonegleSettings';
-import { BonegleGameLogic } from './bonegleLogic';
 import { FlagIcon } from '../../components/FlagIcon';
 
 export const bonegleManifest: GameManifest = {
@@ -41,5 +40,4 @@ export const bonegleManifest: GameManifest = {
       </span>
     </>
   ),
-  logic: new BonegleGameLogic(),
 };

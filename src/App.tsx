@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Room,
   UserProfile,
@@ -8,18 +8,12 @@ import {
   RoomSettings,
 } from './types';
 import {
-  loadUserProfile,
-  saveUserProfile,
-  loadAchievements,
-  saveAchievements,
   loadTheme,
-  loadActiveRooms,
-  saveActiveRooms,
-  decodeRoomInvite,
-  DEFAULT_ROOM_SETTINGS,
 } from './utils/storage';
 import { soundstage } from './utils/audio';
-import { networkManager } from './utils/networkSync';
+import { GameAction, MatchState, networkManager } from './utils/networkSync';
+import { api } from './utils/api';
+import { INITIAL_ACHIEVEMENTS } from './utils/mockData';
 
 import { Header } from './components/Header';
 import { RoomBrowser } from './components/RoomBrowser';
@@ -31,8 +25,16 @@ import { ProfileModal } from './components/ProfileModal';
 import { VictoryModal } from './components/VictoryModal';
 import { ToastNotification, ToastData } from './components/ToastNotification';
 
+const mergeAchievementStatus = (unlockedAchievements: Array<{ id: string; unlockedAt: number }>): Achievement[] => {
+  const unlockedAtById = new Map(unlockedAchievements.map((achievement) => [achievement.id, achievement.unlockedAt]));
+  return INITIAL_ACHIEVEMENTS.map((achievement) => {
+    const unlockedAt = unlockedAtById.get(achievement.id);
+    return unlockedAt === undefined ? achievement : { ...achievement, isUnlocked: true, unlockedAt };
+  });
+};
+
 // Initial isolated chat histories for rooms
-const INITIAL_ROOM_CHATS: Record<string, ChatMessage[]> = {
+export const INITIAL_ROOM_CHATS: Record<string, ChatMessage[]> = {
   'room-pub-101': [
     {
       id: 'msg-101-init',
@@ -97,21 +99,31 @@ export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'browser' | 'lobby' | 'arena'>('browser');
 
   // User Profile & Achievements
-  const [userProfile, setUserProfile] = useState<UserProfile>(loadUserProfile());
-  const [achievements, setAchievements] = useState<Achievement[]>(loadAchievements());
+  const [userProfile, setUserProfile] = useState<UserProfile>({
+    id: '', name: 'Guest', avatarId: 'boxer', isGoogleAuth: false,
+    stats: { matchesPlayed: 0, matchesWon: 0, wordsFound: 0, walkoverWins: 0 },
+    mutedPlayerIds: [],
+  });
+  const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
 
   // Rooms Collection & Current Active Room
-  const [rooms, setRooms] = useState<Room[]>(() => loadActiveRooms());
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
+  const [activeMatchState, setActiveMatchState] = useState<MatchState | null>(null);
+  const currentRoomRef = useRef<Room | null>(null);
+  const userIdRef = useRef('');
+  currentRoomRef.current = currentRoom;
+  userIdRef.current = userProfile.id;
 
   // Per-room isolated chat storage
-  const [roomChats, setRoomChats] = useState<Record<string, ChatMessage[]>>(INITIAL_ROOM_CHATS);
+  const [roomChats, setRoomChats] = useState<Record<string, ChatMessage[]>>({});
 
   // Modals Visibility
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isJoinCodeModalOpen, setIsJoinCodeModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
+  const [isRematching, setIsRematching] = useState(false);
 
   // Victory Result State
   const [boutWinner, setBoutWinner] = useState<Player | null>(null);
@@ -119,6 +131,15 @@ export const App: React.FC = () => {
 
   // Notification Toasts
   const [toasts, setToasts] = useState<ToastData[]>([]);
+  const hasAttemptedInvite = useRef(false);
+
+  const refreshAchievements = useCallback(async () => {
+    try {
+      setAchievements(mergeAchievementStatus(await api.getAchievements()));
+    } catch {
+      // Achievement status is refreshed again after the next server-backed event.
+    }
+  }, []);
 
   // Initialize theme on root
   useEffect(() => {
@@ -133,24 +154,49 @@ export const App: React.FC = () => {
     }
   }, []);
 
-  // Persist Profile & Achievements changes
+  // Bootstrap the authenticated session and recover any public active room from the backend.
   useEffect(() => {
-    saveUserProfile(userProfile);
-  }, [userProfile]);
+    let active = true;
+    const load = async () => {
+      try {
+        const profile = await api.ensureGuestSession();
+        const [availableRooms, activeRoom, unlockedAchievements] = await Promise.all([
+          api.listRooms(),
+          api.fetchActiveRoom(),
+          api.getAchievements(),
+        ]);
+        if (!active) return;
+        setUserProfile(profile);
+        setAchievements(mergeAchievementStatus(unlockedAchievements));
+        setRooms(availableRooms);
+        if (activeRoom) {
+          setCurrentRoom(activeRoom);
+          setCurrentView(activeRoom.status === 'in_progress' ? 'arena' : 'lobby');
+        }
+        networkManager.connect();
+      } catch (error) {
+        if (active) addToast('alert', 'CONNECTION ERROR', error instanceof Error ? error.message : 'Unable to load your session.');
+      }
+    };
+    void load();
+    return () => { active = false; };
+  }, [refreshAchievements]);
 
   useEffect(() => {
-    saveAchievements(achievements);
-  }, [achievements]);
+    if (currentView !== 'browser') return;
+    let active = true;
+    void api.listRooms().then((availableRooms) => {
+      if (active) setRooms(availableRooms);
+    }).catch(() => {
+      // The existing room collection remains visible until the next successful refresh.
+    });
+    return () => { active = false; };
+  }, [currentView]);
 
-  // Persist active rooms across tabs/sessions
-  useEffect(() => {
-    saveActiveRooms(rooms);
-  }, [rooms]);
-
-  // Real-time synchronization across devices (WebSocket) and tabs (BroadcastChannel)
+  // Accept room and chat state only from the backend socket.
   useEffect(() => {
     const unsubscribe = networkManager.subscribe((data) => {
-      if (data.type === 'SYNC_ROOM' && data.room) {
+      if (data.type === 'ROOM_UPDATED' || data.type === 'MATCH_STARTED') {
         const incomingRoom: Room = data.room;
         setRooms((prev) => {
           const exists = prev.some((r) => r.id === incomingRoom.id);
@@ -162,26 +208,55 @@ export const App: React.FC = () => {
 
         setCurrentRoom((prev) => {
           if (prev && prev.id === incomingRoom.id) {
-            if (data.kickedPlayerId === userProfile.id) {
-              addToast('alert', 'REMOVED', 'You were removed from the room.');
-              setCurrentView('browser');
-              return null;
-            }
-            if (incomingRoom.status === 'in_progress' && prev.status !== 'in_progress') {
+            if (incomingRoom.status === 'in_progress') {
               setCurrentView('arena');
             }
             return incomingRoom;
           }
           return prev;
         });
-      } else if (data.type === 'START_GAME' && data.roomId) {
-        setCurrentRoom((prev) => {
-          if (prev && prev.id === data.roomId) {
-            setCurrentView('arena');
-            return { ...prev, status: 'in_progress' };
-          }
-          return prev;
-        });
+      } else if (data.type === 'MATCH_STATE') {
+        if (currentRoomRef.current?.id === data.roomId) {
+          setActiveMatchState((previous) => (
+            data.state.gameId === 'bonegle' && previous?.gameId === 'bonegle' && previous.wordFeedback
+              ? { ...data.state, wordFeedback: previous.wordFeedback }
+              : data.state
+          ));
+        }
+      } else if (data.type === 'BONEGLE_WORD_RESULT') {
+        if (currentRoomRef.current?.id === data.roomId) {
+          setActiveMatchState((previous) => (
+            previous?.gameId === 'bonegle'
+              ? { ...previous, wordFeedback: { word: data.word, status: data.status, id: Date.now() } }
+              : previous
+          ));
+        }
+      } else if (data.type === 'MATCH_FINISHED') {
+        const previousRoom = currentRoomRef.current;
+        if (previousRoom?.id !== data.roomId) return;
+
+        const matchScores = data.state.gameId === 'bonegle'
+          ? Object.fromEntries(Object.entries(data.state.breakdowns || {}).map(([playerId, breakdown]) => [playerId, breakdown.score]))
+          : data.state.cumulativeScores;
+        const resolvedRoom: Room = data.room || {
+          ...previousRoom,
+          status: 'finished',
+          winnerId: data.state.winnerId || null,
+          winReason: data.state.winReason || null,
+          players: previousRoom.players.map((player) => ({
+            ...player,
+            score: matchScores[player.id] ?? player.score,
+          })),
+        };
+        const winner = resolvedRoom.players.find((player) => player.id === data.state.winnerId) || null;
+
+        setActiveMatchState(data.state);
+        setCurrentRoom(resolvedRoom);
+        setRooms((previous) => previous.map((room) => room.id === resolvedRoom.id ? resolvedRoom : room));
+        setBoutWinner(winner);
+        setWinReasonText(data.state.winReason || resolvedRoom.winReason || 'Match complete.');
+        setIsVictoryModalOpen(Boolean(winner));
+        void refreshAchievements();
       } else if (data.type === 'ROOM_CLOSED' && data.roomId) {
         setRooms((prev) => prev.filter((r) => r.id !== data.roomId));
         setCurrentRoom((prev) => {
@@ -197,13 +272,29 @@ export const App: React.FC = () => {
           ...prev,
           [data.roomId]: [...(prev[data.roomId] || []), data.chatMessage],
         }));
+        if (data.chatMessage.senderId === userIdRef.current) void refreshAchievements();
+      } else if (data.type === 'ERROR') {
+        addToast('alert', 'REALTIME ERROR', data.message);
       }
     });
 
     return () => {
       unsubscribe();
     };
-  }, [userProfile.id]);
+  }, [refreshAchievements]);
+
+  // Subscribe before reading history so the server is the single source for every chat message.
+  useEffect(() => {
+    if (!currentRoom) return;
+    let active = true;
+    networkManager.subscribeRoom(currentRoom.id);
+    void api.fetchChat(currentRoom.id).then((messages) => {
+      if (active) setRoomChats((previous) => ({ ...previous, [currentRoom.id]: messages }));
+    }).catch((error) => {
+      if (active) addToast('alert', 'CHAT ERROR', error instanceof Error ? error.message : 'Unable to load chat history.');
+    });
+    return () => { active = false; };
+  }, [currentRoom?.id]);
 
   // Helper: Show Toast (with deduplication guard)
 
@@ -223,310 +314,159 @@ export const App: React.FC = () => {
     });
   };
 
-  // Helper: Unlock Achievement
-  const unlockAchievement = (id: string) => {
-    setAchievements((prev) => {
-      const target = prev.find((a) => a.id === id);
-      if (target && !target.isUnlocked) {
-        soundstage.playScoreTrumpet();
-        addToast('achievement', target.title, target.description);
-        return prev.map((a) =>
-          a.id === id ? { ...a, isUnlocked: true, unlockedAt: Date.now() } : a
-        );
-      }
-      return prev;
-    });
-  };
-
-  // Add system message to specific room chat
-  const postSystemChatMessage = useCallback((roomId: string, text: string) => {
-    const sysMsg: ChatMessage = {
-      id: 'msg-sys-' + Date.now() + '-' + Math.random(),
-      senderId: 'system',
-      senderName: 'System',
-      senderAvatarId: 'ringmaster',
-      text,
-      timestamp: Date.now(),
-      isSystem: true,
-    };
-    setRoomChats((prev) => ({
-      ...prev,
-      [roomId]: [...(prev[roomId] || []), sysMsg],
-    }));
+  const handleDispatchSystemNotice = useCallback((_text: string) => {
+    // Game-engine notices remain local to the engine until game actions have server support.
   }, []);
 
-  const handleDispatchSystemNotice = useCallback((text: string) => {
-    if (currentRoom) {
-      postSystemChatMessage(currentRoom.id, text);
-    }
-  }, [currentRoom, postSystemChatMessage]);
+  const applyRoomUpdate = (room: Room) => {
+    setRooms((previous) => {
+      const exists = previous.some((item) => item.id === room.id);
+      return exists
+        ? previous.map((item) => item.id === room.id ? room : item)
+        : [room, ...previous];
+    });
+    setCurrentRoom((previous) => previous?.id === room.id ? room : previous);
+  };
+
+  const openJoinedRoom = (room: Room) => {
+    applyRoomUpdate(room);
+    setCurrentRoom(room);
+    setCurrentView(room.status === 'in_progress' ? 'arena' : 'lobby');
+    void refreshAchievements();
+  };
 
   // 1. CREATE ROOM
-  const handleCreateRoom = (roomData: Omit<Room, 'id' | 'createdAt'>) => {
-    const newRoomId = 'room-' + Date.now();
-    const newRoom: Room = {
-      ...roomData,
-      id: newRoomId,
-      createdAt: Date.now(),
-    };
-
-    setRooms((prev) => [newRoom, ...prev]);
-    setCurrentRoom(newRoom);
-    setCurrentView('lobby');
-
-    // Broadcast room creation to other tabs/players
-    networkManager.send({ type: 'SYNC_ROOM', room: newRoom });
-
-    // Initialize isolated chat for this new room
-    setRoomChats((prev) => ({
-      ...prev,
-      [newRoomId]: [
-        {
-          id: 'msg-init-' + Date.now(),
-          senderId: 'system',
-          senderName: 'System',
-          senderAvatarId: 'ringmaster',
-          text: `Room created for ${newRoom.title}. Code: ${newRoom.code}`,
-          timestamp: Date.now(),
-          isSystem: true,
-        },
-      ],
-    }));
-
-    // Achievements check
-    if (!newRoom.isPrivate) {
-      unlockAchievement('gracious-host');
-    } else {
-      unlockAchievement('secret-society');
+  const handleCreateRoom = async (roomData: Omit<Room, 'id' | 'createdAt'>) => {
+    try {
+      const room = await api.createRoom({
+        title: roomData.title,
+        gameId: roomData.gameId,
+        isPrivate: roomData.isPrivate,
+        settings: roomData.settings,
+      });
+      applyRoomUpdate(room);
+      setCurrentRoom(room);
+      setCurrentView('lobby');
+      await refreshAchievements();
+    } catch (error) {
+      addToast('alert', 'CREATE FAILED', error instanceof Error ? error.message : 'Unable to create room.');
     }
   };
 
   // 2. JOIN ROOM
-  const handleJoinRoom = (room: Room) => {
-    const alreadyIn = room.players.some((p) => p.id === userProfile.id);
-    let updatedRoom = room;
-
-    if (!alreadyIn) {
-      const newPlayer: Player = {
-        id: userProfile.id,
-        name: userProfile.name,
-        avatarId: userProfile.avatarId,
-        isHost: room.players.length === 0,
-        isReady: false,
-        score: 0,
-      };
-
-      updatedRoom = {
-        ...room,
-        players: [...room.players, newPlayer],
-      };
-
-      // Add join system message to THIS ROOM'S chat only
-      postSystemChatMessage(room.id, `${userProfile.name} joined the room.`);
-    }
-
-    setRooms((prev) => {
-      const exists = prev.some((r) => r.id === updatedRoom.id);
-      if (exists) {
-        return prev.map((r) => (r.id === updatedRoom.id ? updatedRoom : r));
-      }
-      return [updatedRoom, ...prev];
-    });
-
-    setCurrentRoom(updatedRoom);
-    setCurrentView('lobby');
-
-    // Broadcast update to other tabs/players
-    networkManager.send({ type: 'SYNC_ROOM', room: updatedRoom });
-
-    if (updatedRoom.isPrivate) {
-      unlockAchievement('secret-society');
+  const handleJoinRoom = async (roomId: string) => {
+    try {
+      const joinedRoom = await api.joinRoom(roomId);
+      openJoinedRoom(joinedRoom);
+    } catch (error) {
+      addToast('alert', 'JOIN FAILED', error instanceof Error ? error.message : 'Unable to join room.');
     }
   };
 
-  // Auto-join room if opened with invite URL parameter (?join=CODE&data=BASE64)
+  const handleJoinByCode = async (code: string): Promise<void> => {
+    try {
+      const room = await api.lookupRoomByCode(code);
+      const joinedRoom = await api.joinRoom(room.id);
+      openJoinedRoom(joinedRoom);
+    } catch (error) {
+      addToast('alert', 'JOIN FAILED', error instanceof Error ? error.message : 'Unable to join room.');
+      throw error;
+    }
+  };
+
+  // Auto-join room if opened with an invite URL containing a room code.
   useEffect(() => {
+    if (hasAttemptedInvite.current) return;
+    if (!userProfile.id) return;
+    hasAttemptedInvite.current = true;
     try {
       const searchParams = new URLSearchParams(window.location.search);
       const joinCode = searchParams.get('join') || searchParams.get('room');
-      const dataPayload = searchParams.get('data');
 
       if (joinCode) {
         const cleanCode = joinCode.trim().toUpperCase();
-        const activeRooms = loadActiveRooms();
-        let targetRoom = activeRooms.find((r) => r.code.toUpperCase() === cleanCode);
-
-        if (!targetRoom && dataPayload) {
-          const decoded = decodeRoomInvite(dataPayload);
-          if (decoded) {
-            targetRoom = {
-              id: decoded.id || `room-${Date.now()}`,
-              code: decoded.code || cleanCode,
-              title: decoded.title || 'Midnight Alley Table',
-              gameId: decoded.gameId || 'midnight-alley',
-              isPrivate: decoded.isPrivate ?? true,
-              minPlayers: decoded.minPlayers ?? 2,
-              maxPlayers: decoded.maxPlayers ?? 6,
-              hostId: decoded.hostId || 'host',
-              players: [],
-              settings: decoded.settings || DEFAULT_ROOM_SETTINGS,
-              status: 'waiting',
-              createdAt: Date.now(),
-            };
-          }
-        }
-
-        if (targetRoom) {
-          handleJoinRoom(targetRoom);
-          addToast('info', 'JOINED ROOM', `Joined room ${targetRoom.title}!`);
-        }
+        void handleJoinByCode(cleanCode)
+          .then(() => addToast('info', 'JOINING ROOM', `Joining room ${cleanCode}...`))
+          .catch(() => undefined);
       }
     } catch (e) {
       console.warn('Auto-join from invite URL failed', e);
     }
-  }, []);
+  }, [userProfile.id]);
 
   // 3. TOGGLE READY (Lobby)
-  const handleToggleReady = () => {
+  const handleToggleReady = async () => {
     if (!currentRoom) return;
-    const updatedPlayers = currentRoom.players.map((p) =>
-      p.id === userProfile.id ? { ...p, isReady: !p.isReady } : p
-    );
-    const updated = { ...currentRoom, players: updatedPlayers };
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-    networkManager.send({ type: 'SYNC_ROOM', room: updated });
+    const currentPlayer = currentRoom.players.find((player) => player.id === userProfile.id);
+    if (!currentPlayer) return;
+    try {
+      const room = await api.setReady(currentRoom.id, !currentPlayer.isReady);
+      setCurrentRoom(room);
+      setRooms((previous) => previous.map((item) => item.id === room.id ? room : item));
+    } catch (error) {
+      addToast('alert', 'READY FAILED', error instanceof Error ? error.message : 'Unable to update readiness.');
+    }
   };
 
-  // 4. ADD SIMULATED BOT (Lobby)
-  const handleAddBot = (botName: string, avatarId: string) => {
+  // 4. ADD BOT (Lobby)
+  const handleAddBot = async (botName: string, avatarId: string) => {
     if (!currentRoom) return;
-    const botPlayer: Player = {
-      id: 'bot-' + Date.now(),
-      name: botName,
-      avatarId,
-      isHost: false,
-      isReady: true,
-      score: 0,
-      isBot: true,
-    };
-    const updated = {
-      ...currentRoom,
-      players: [...currentRoom.players, botPlayer],
-    };
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-    postSystemChatMessage(currentRoom.id, `${botName} joined.`);
-    networkManager.send({ type: 'SYNC_ROOM', room: updated });
+    try {
+      applyRoomUpdate(await api.addBot(currentRoom.id, botName, avatarId));
+    } catch (error) {
+      addToast('alert', 'BOT FAILED', error instanceof Error ? error.message : 'Unable to add bot.');
+    }
   };
 
   // 5. HOST KICK PLAYER (Lobby)
-  const handleKickPlayer = (playerId: string) => {
+  const handleKickPlayer = async (playerId: string) => {
     if (!currentRoom) return;
-    const kicked = currentRoom.players.find((p) => p.id === playerId);
-    if (!kicked) return;
-
-    soundstage.playBulbHorn();
-    const updatedPlayers = currentRoom.players.filter((p) => p.id !== playerId);
-    const updated = { ...currentRoom, players: updatedPlayers };
-
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-
-    addToast('alert', 'PLAYER REMOVED', `${kicked.name} was removed from the room.`);
-    postSystemChatMessage(currentRoom.id, `Host removed ${kicked.name} from the room.`);
-    networkManager.send({ type: 'SYNC_ROOM', room: updated, kickedPlayerId: playerId });
+    try {
+      applyRoomUpdate(await api.kickPlayer(currentRoom.id, playerId));
+    } catch (error) {
+      addToast('alert', 'KICK FAILED', error instanceof Error ? error.message : 'Unable to remove player.');
+    }
   };
 
   // 6. TRANSFER HOST
-  const handleTransferHost = (newHostId: string) => {
+  const handleTransferHost = async (newHostId: string) => {
     if (!currentRoom) return;
-    const newHostPlayer = currentRoom.players.find((p) => p.id === newHostId);
-    if (!newHostPlayer) return;
-
-    const updatedPlayers = currentRoom.players.map((p) => ({
-      ...p,
-      isHost: p.id === newHostId,
-    }));
-
-    const updated = {
-      ...currentRoom,
-      hostId: newHostId,
-      players: updatedPlayers,
-    };
-
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-    postSystemChatMessage(currentRoom.id, `Host role transferred to ${newHostPlayer.name}.`);
-    addToast('info', 'HOST TRANSFERRED', `${newHostPlayer.name} is now the room host.`);
-    networkManager.send({ type: 'SYNC_ROOM', room: updated });
+    try {
+      applyRoomUpdate(await api.transferHost(currentRoom.id, newHostId));
+    } catch (error) {
+      addToast('alert', 'TRANSFER FAILED', error instanceof Error ? error.message : 'Unable to transfer host.');
+    }
   };
 
   // Update room settings (from gear configuration modal inside lobby or arena)
-  const handleUpdateRoomSettings = (newSettings: RoomSettings, newTitle?: string, isPrivate?: boolean) => {
+  const handleUpdateRoomSettings = async (newSettings: RoomSettings, newTitle?: string, isPrivate?: boolean) => {
     if (!currentRoom) return;
-    const updated: Room = {
-      ...currentRoom,
-      title: newTitle || currentRoom.title,
-      isPrivate: isPrivate !== undefined ? isPrivate : currentRoom.isPrivate,
-      settings: newSettings,
-    };
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-    postSystemChatMessage(currentRoom.id, `Room settings updated by host.`);
-    addToast('info', 'SETTINGS UPDATED', 'Room configuration saved.');
-    networkManager.send({ type: 'SYNC_ROOM', room: updated });
+    try {
+      applyRoomUpdate(await api.updateRoomSettings(currentRoom.id, {
+        settings: newSettings,
+        title: newTitle,
+        isPrivate,
+      }));
+    } catch (error) {
+      addToast('alert', 'SETTINGS FAILED', error instanceof Error ? error.message : 'Unable to update room settings.');
+    }
   };
 
   // 7. START MATCH (Lobby -> Arena)
-  const handleStartGame = () => {
+  const handleStartGame = async () => {
     if (!currentRoom) return;
-    const matchSeed = currentRoom.settings.bonegleSeed || `${currentRoom.code}-${Date.now().toString(36)}`;
-    const updated: Room = {
-      ...currentRoom,
-      status: 'in_progress',
-      settings: {
-        ...currentRoom.settings,
-        bonegleSeed: matchSeed,
-      },
-    };
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-    setCurrentView('arena');
-
-    unlockAchievement('first-bout');
-    postSystemChatMessage(currentRoom.id, 'The game has started!');
-    networkManager.send({ type: 'SYNC_ROOM', room: updated });
-    networkManager.send({ type: 'START_GAME', roomId: updated.id });
-  };
-
-  // 8. SCORE IN GAME
-  const handlePlayerScore = (playerId: string, addedScore: number) => {
-    if (!currentRoom) return;
-    const updatedPlayers = currentRoom.players.map((p) =>
-      p.id === playerId ? { ...p, score: p.score + addedScore } : p
-    );
-    const updated = { ...currentRoom, players: updatedPlayers };
-    setCurrentRoom(updated);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updated : r)));
-
-    if (playerId === userProfile.id) {
-      const myPlayer = updatedPlayers.find((p) => p.id === playerId);
-      if (myPlayer && myPlayer.score >= 30) {
-        unlockAchievement('high-roller');
-      }
-      setUserProfile((prev) => ({
-        ...prev,
-        stats: {
-          ...prev.stats,
-          wordsFound: prev.stats.wordsFound + 1,
-        },
-      }));
+    try {
+      const room = await api.startRoom(currentRoom.id);
+      setCurrentRoom(room);
+      setRooms((previous) => previous.map((item) => item.id === room.id ? room : item));
+      setCurrentView('arena');
+    } catch (error) {
+      addToast('alert', 'START FAILED', error instanceof Error ? error.message : 'Unable to start match.');
     }
   };
 
   // 9. LEAVE MATCH / FORFEIT (Critical Quorum & Host Migration Rule)
-  const handleLeaveMatch = () => {
+  const handleLeaveMatch = async () => {
     if (!currentRoom) {
       if (window.location.search) {
         window.history.replaceState({}, document.title, window.location.pathname);
@@ -535,166 +475,59 @@ export const App: React.FC = () => {
       return;
     }
 
-    soundstage.playSlideDown();
-
-    const remainingPlayers = currentRoom.players.filter((p) => p.id !== userProfile.id);
-
-    // If no players remain, dissolve room
-    if (remainingPlayers.length === 0) {
-      setRooms((prev) => prev.filter((r) => r.id !== currentRoom.id));
+    try {
+      await api.leaveRoom(currentRoom.id);
+      networkManager.clearRoom(currentRoom.id);
+      setActiveMatchState(null);
       setCurrentRoom(null);
       setCurrentView('browser');
-      if (window.location.search) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-      networkManager.send({ type: 'ROOM_CLOSED', roomId: currentRoom.id });
-      addToast('info', 'ROOM CLOSED', 'All players left the room.');
-      return;
+      setRooms(await api.listRooms());
+      if (window.location.search) window.history.replaceState({}, document.title, window.location.pathname);
+      soundstage.playSlideDown();
+      addToast('info', 'LEFT GAME', 'You left the game.');
+    } catch (error) {
+      addToast('alert', 'LEAVE FAILED', error instanceof Error ? error.message : 'Unable to leave room.');
     }
-
-    // If host left, pass host role to next player
-    let newHostId = currentRoom.hostId;
-    if (currentRoom.hostId === userProfile.id) {
-      newHostId = remainingPlayers[0].id;
-      remainingPlayers[0].isHost = true;
-      postSystemChatMessage(currentRoom.id, `Host left the game. Leadership transferred to ${remainingPlayers[0].name}.`);
-    }
-
-    // Quorum check: If remaining players < minPlayers, remaining player wins!
-    if (remainingPlayers.length < currentRoom.minPlayers) {
-      const winner = remainingPlayers[0];
-      const winReason = `Players dropped below the minimum required (${currentRoom.minPlayers}). Last remaining player wins by default!`;
-
-      const finishedRoom: Room = {
-        ...currentRoom,
-        hostId: newHostId,
-        players: remainingPlayers,
-        status: 'finished',
-        winnerId: winner.id,
-        winReason,
-      };
-
-      setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? finishedRoom : r)));
-      setCurrentRoom(null);
-      setCurrentView('browser');
-      if (window.location.search) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-      networkManager.send({ type: 'SYNC_ROOM', room: finishedRoom });
-      addToast('alert', 'MATCH ENDED', winReason);
-      return;
-    }
-
-    // Otherwise, game continues
-    const updatedRoom: Room = {
-      ...currentRoom,
-      hostId: newHostId,
-      players: remainingPlayers,
-    };
-
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? updatedRoom : r)));
-    setCurrentRoom(null);
-    setCurrentView('browser');
-    if (window.location.search) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    networkManager.send({ type: 'SYNC_ROOM', room: updatedRoom, leftPlayerId: userProfile.id });
-    addToast('info', 'LEFT GAME', 'You left the game.');
   };
 
-  // 11. MATCH FINISHED (Timer concluded)
-  const handleMatchComplete = (winner: Player, winReason?: string, finalPlayers?: Player[]) => {
-    if (!currentRoom) return;
-
-    const resolvedPlayers = finalPlayers || currentRoom.players;
-    const resolvedWinner = resolvedPlayers.find((p) => p.id === winner.id) || winner;
-
-    setBoutWinner(resolvedWinner);
-    setWinReasonText(winReason || 'Timer concluded. Final scores tallied.');
-    setIsVictoryModalOpen(true);
-
-    const isMeWinner = resolvedWinner.id === userProfile.id;
-    if (isMeWinner) {
-      unlockAchievement('ring-champion');
+  const handleRematch = async () => {
+    if (!currentRoom || isRematching) return;
+    setIsRematching(true);
+    try {
+      const { room, match } = await api.rematchRoom(currentRoom.id);
+      applyRoomUpdate(room);
+      setActiveMatchState(match);
+      setBoutWinner(null);
+      setWinReasonText(null);
+      setIsVictoryModalOpen(false);
+      setCurrentView('arena');
+    } catch (error) {
+      addToast('alert', 'REMATCH FAILED', error instanceof Error ? error.message : 'Unable to start a rematch.');
+    } finally {
+      setIsRematching(false);
     }
-
-    setUserProfile((prev) => ({
-      ...prev,
-      stats: {
-        ...prev.stats,
-        matchesPlayed: prev.stats.matchesPlayed + 1,
-        matchesWon: isMeWinner ? prev.stats.matchesWon + 1 : prev.stats.matchesWon,
-      },
-    }));
-
-    const finishedRoom: Room = {
-      ...currentRoom,
-      players: resolvedPlayers,
-      status: 'finished',
-      winnerId: resolvedWinner.id,
-      winReason: winReason || null,
-    };
-    setCurrentRoom(finishedRoom);
-    setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? finishedRoom : r)));
-    networkManager.send({ type: 'SYNC_ROOM', room: finishedRoom });
   };
 
   // 12. SEND CHAT MESSAGE (Scoped to current room)
   const handleSendMessage = (text: string) => {
     if (!currentRoom) return;
-
-    const newMsg: ChatMessage = {
-      id: 'msg-' + Date.now() + '-' + Math.random(),
-      senderId: userProfile.id,
-      senderName: userProfile.name,
-      senderAvatarId: userProfile.avatarId,
-      text,
-      timestamp: Date.now(),
-    };
-
-    setRoomChats((prev) => {
-      const currentList = prev[currentRoom.id] || [];
-      const updatedList = [...currentList, newMsg];
-      const myMsgs = updatedList.filter((m) => m.senderId === userProfile.id);
-      if (myMsgs.length >= 5) {
-        unlockAchievement('silver-tongue');
-      }
-      return {
-        ...prev,
-        [currentRoom.id]: updatedList,
-      };
-    });
-
-    networkManager.send({
-      type: 'CHAT_MESSAGE',
-      roomId: currentRoom.id,
-      chatMessage: newMsg,
-    });
+    networkManager.sendChat(currentRoom.id, text);
   };
 
   // 13. MUTE / UNMUTE PLAYER
-  const handleToggleMutePlayer = (playerId: string, playerName: string) => {
+  const handleToggleMutePlayer = async (playerId: string, playerName: string) => {
     const isCurrentlyMuted = userProfile.mutedPlayerIds.includes(playerId);
-
-    if (isCurrentlyMuted) {
+    try {
+      await api.mutePlayer(currentRoom?.id || '', playerId, !isCurrentlyMuted);
+      setUserProfile(await api.getProfile());
+      await refreshAchievements();
       soundstage.playTap();
-      setUserProfile((prev) => ({
-        ...prev,
-        mutedPlayerIds: prev.mutedPlayerIds.filter((id) => id !== playerId),
-      }));
-      addToast('info', 'PLAYER UNMUTED', `Messages from ${playerName} are now visible.`);
-    } else {
-      soundstage.playTap();
-      setUserProfile((prev) => ({
-        ...prev,
-        mutedPlayerIds: [...prev.mutedPlayerIds, playerId],
-      }));
-      unlockAchievement('peacekeeper');
-      addToast(
-        'alert',
-        'PLAYER MUTED',
-        `${playerName} has been muted. Their messages are hidden.`
-      );
+      if (isCurrentlyMuted) addToast('info', 'PLAYER UNMUTED', `Messages from ${playerName} are now visible.`);
+      else {
+        addToast('alert', 'PLAYER MUTED', `${playerName} has been muted. Their messages are hidden.`);
+      }
+    } catch (error) {
+      addToast('alert', 'MUTE FAILED', error instanceof Error ? error.message : 'Unable to update muted player.');
     }
   };
 
@@ -727,7 +560,7 @@ export const App: React.FC = () => {
         {currentView === 'browser' && (
           <RoomBrowser
             rooms={rooms}
-            onJoinRoom={handleJoinRoom}
+            onJoinRoom={(room) => { void handleJoinRoom(room.id); }}
             onCreateRoomClick={() => setIsCreateModalOpen(true)}
             onJoinByCodeClick={() => setIsJoinCodeModalOpen(true)}
           />
@@ -755,12 +588,12 @@ export const App: React.FC = () => {
             room={currentRoom}
             currentUser={userProfile}
             chatMessages={activeChatMessages}
-            onPlayerScore={handlePlayerScore}
             onLeaveMatch={handleLeaveMatch}
-            onMatchComplete={handleMatchComplete}
             onSendMessage={handleSendMessage}
             onToggleMutePlayer={handleToggleMutePlayer}
             onDispatchSystemNotice={handleDispatchSystemNotice}
+            matchState={activeMatchState}
+            onGameAction={(action: GameAction) => networkManager.sendGameAction(currentRoom.id, action)}
           />
         )}
       </main>
@@ -776,8 +609,7 @@ export const App: React.FC = () => {
       <JoinByCodeModal
         isOpen={isJoinCodeModalOpen}
         onClose={() => setIsJoinCodeModalOpen(false)}
-        rooms={rooms}
-        onJoinSuccess={handleJoinRoom}
+        onJoinByCode={handleJoinByCode}
       />
 
       <ProfileModal
@@ -786,7 +618,21 @@ export const App: React.FC = () => {
         userProfile={userProfile}
         achievements={achievements}
         onUpdateProfile={(updated) => {
-          setUserProfile((prev) => ({ ...prev, ...updated }));
+          void api.updateProfile({
+            name: updated.name || userProfile.name,
+            avatarId: updated.avatarId || userProfile.avatarId,
+          }).then(setUserProfile).catch((error) => {
+            addToast('alert', 'PROFILE FAILED', error instanceof Error ? error.message : 'Unable to update profile.');
+          });
+        }}
+        onGoogleCredential={async (credential) => {
+          try {
+            setUserProfile(await api.linkGoogle(credential));
+            addToast('info', 'GOOGLE LINKED', 'Your Google account is linked to this profile.');
+          } catch (error) {
+            addToast('alert', 'GOOGLE LINK FAILED', error instanceof Error ? error.message : 'Unable to link Google account.');
+            throw error;
+          }
         }}
       />
 
@@ -795,24 +641,8 @@ export const App: React.FC = () => {
         winnerPlayer={boutWinner}
         allPlayers={currentRoom ? currentRoom.players : []}
         winReason={winReasonText}
-        onRematch={() => {
-          setIsVictoryModalOpen(false);
-          if (currentRoom) {
-            const resetRoom = {
-              ...currentRoom,
-              status: 'waiting' as const,
-              settings: {
-                ...currentRoom.settings,
-                bonegleSeed: undefined,
-                bonegleBoard: undefined,
-              },
-              players: currentRoom.players.map((p) => ({ ...p, score: 0, isReady: p.isHost || !!p.isBot })),
-            };
-            setCurrentRoom(resetRoom);
-            setRooms((prev) => prev.map((r) => (r.id === currentRoom.id ? resetRoom : r)));
-            setCurrentView('lobby');
-          }
-        }}
+        onRematch={() => { void handleRematch(); }}
+        isRematching={isRematching}
         onReturnToLobby={() => {
           setIsVictoryModalOpen(false);
           setCurrentView('browser');
