@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Crown, RotateCcw, ArrowLeft, Award, Clock } from 'lucide-react';
+import { Trophy, Crown, RotateCcw, ArrowLeft, Award, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { Player, AFK_CONFIG } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { soundstage } from '../utils/audio';
@@ -21,6 +21,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   onRematch,
   onReturnToLobby,
 }) => {
+  const [expandedPlayerIds, setExpandedPlayerIds] = useState<Record<string, boolean>>({});
   const [rematchCountdown, setRematchCountdown] = useState<number>(AFK_CONFIG.REMATCH_TIMEOUT_SEC);
 
   useEffect(() => {
@@ -46,10 +47,19 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
     return () => clearInterval(timer);
   }, [isOpen, winnerPlayer, onReturnToLobby]);
 
+
   if (!isOpen || !winnerPlayer) return null;
 
   // Sort players by score descending
   const sortedPlayers = [...allPlayers].sort((a, b) => b.score - a.score);
+
+  const togglePlayerExpanded = (playerId: string) => {
+    soundstage.playTap();
+    setExpandedPlayerIds((prev) => ({
+      ...prev,
+      [playerId]: !prev[playerId],
+    }));
+  };
 
   return (
     <div className="modal-overlay victory-overlay-wrap">
@@ -64,7 +74,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         {/* Walkover / Outcome Banner */}
         {winReason && (
           <div className="win-reason-strip">
-            <Award size={18} strokeWidth={2.8} className="win-award-icon" />
+            <Award size={26} strokeWidth={2.8} className="win-award-icon" />
             <div className="win-reason-text">
               <strong>NOTICE:</strong>
               <span>{winReason}</span>
@@ -76,44 +86,110 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
         <div className="podium-section">
           <div className="champion-podium-card cel-card-gold">
             <div className="podium-crown-ring">
-              <Crown size={22} strokeWidth={3} className="crown-svg" />
+              <Crown size={28} strokeWidth={3} className="crown-svg" />
             </div>
 
             <div className="champion-avatar-box">
-              <AvatarIcon id={winnerPlayer.avatarId} size={70} />
+              <AvatarIcon id={winnerPlayer.avatarId} size={88} />
             </div>
 
             <div className="champion-details">
               <span className="champion-title-tag">MATCH WINNER</span>
               <h3 className="woodcut-title champion-name">{winnerPlayer.name}</h3>
               <div className="champion-score-pill">
-                <Trophy size={14} strokeWidth={2.8} />
+                <Trophy size={18} strokeWidth={2.8} />
                 <span>{winnerPlayer.score} TOTAL POINTS</span>
               </div>
             </div>
           </div>
 
-          {/* Other Players Standings */}
-          {sortedPlayers.length > 1 && (
-            <div className="runnerups-standings">
-              <h4 className="standings-heading">FINAL STANDINGS</h4>
-              <div className="standings-list">
-                {sortedPlayers.map((player, idx) => (
-                  <div
-                    key={player.id}
-                    className={`standings-row ${player.id === winnerPlayer.id ? 'standing-champ-row' : ''}`}
-                  >
-                    <span className="standing-rank">#{idx + 1}</span>
-                    <div className="standing-avatar">
-                      <AvatarIcon id={player.avatarId} size={22} />
+          {/* All Players Standings with Expanders */}
+          <div className="runnerups-standings">
+            <h4 className="standings-heading">FINAL STANDINGS & FOUND WORDS</h4>
+            <div className="standings-list">
+              {sortedPlayers.map((player, idx) => {
+                const isExpanded = !!expandedPlayerIds[player.id];
+                const breakdown = player.wordsBreakdown;
+                const hasWords =
+                  breakdown &&
+                  (breakdown.uniqueWords.length > 0 || breakdown.sharedWords.length > 0);
+
+                return (
+                  <div key={player.id} className="player-standings-item">
+                    <div
+                      className={`standings-row ${
+                        player.id === winnerPlayer.id ? 'standing-champ-row' : ''
+                      } ${hasWords ? 'standings-row-clickable' : ''}`}
+                      onClick={() => hasWords && togglePlayerExpanded(player.id)}
+                      title={hasWords ? 'Click to view found words' : undefined}
+                    >
+                      <span className="standing-rank">#{idx + 1}</span>
+                      <div className="standing-avatar">
+                        <AvatarIcon id={player.avatarId} size={30} />
+                      </div>
+                      <span className="standing-name">{player.name}</span>
+                      <div className="standing-score-wrap">
+                        <strong className="standing-score">{player.score} PTS</strong>
+                        {hasWords && (
+                          <button
+                            type="button"
+                            className="standing-chevron-btn"
+                            aria-label="Toggle words details"
+                          >
+                            {isExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+                          </button>
+                        )}
+                      </div>
                     </div>
-                    <span className="standing-name">{player.name}</span>
-                    <strong className="standing-score">{player.score} PTS</strong>
+
+                    {/* Word Details Expander */}
+                    {isExpanded && breakdown && (
+                      <div className="player-words-expander cel-card">
+                        {/* Unique Words */}
+                        <div className="expander-section">
+                          <span className="expander-subtitle">
+                            ★ Unique Words ({breakdown.uniqueWords.length}) <small className="mult-label">x2 PTS</small>
+                          </span>
+                          <div className="expander-chips-box">
+                            {breakdown.uniqueWords.length === 0 ? (
+                              <span className="expander-empty">None found</span>
+                            ) : (
+                              breakdown.uniqueWords.map((uw) => (
+                                <span key={uw.word} className="word-chip unique-chip">
+                                  {uw.word} <strong>+{uw.pts}</strong>
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Shared Words */}
+                        <div className="expander-section">
+                          <span className="expander-subtitle">
+                            ≈ Shared Words ({breakdown.sharedWords.length}) <small className="mult-label neutral">x1 PT</small>
+                          </span>
+                          <div className="expander-chips-box">
+                            {breakdown.sharedWords.length === 0 ? (
+                              <span className="expander-empty">None found</span>
+                            ) : (
+                              breakdown.sharedWords.map((sw) => (
+                                <span key={sw.word} className="word-chip shared-chip">
+                                  {sw.word} <strong>+{sw.pts}</strong>
+                                  {sw.sharedWith && sw.sharedWith.length > 0 && (
+                                    <small className="chip-with">({sw.sharedWith.join(', ')})</small>
+                                  )}
+                                </span>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
+                );
+              })}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Anti-AFK Rematch Notice */}
@@ -152,146 +228,161 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             z-index: 1300;
           }
           .victory-modal-card {
-            max-width: 520px;
+            max-width: 720px;
+            width: 95vw;
+            max-height: 92vh;
             text-align: center;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border-width: 3.5px;
+          }
+          .podium-section {
+            padding: 22px 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+            align-items: center;
+            overflow-y: auto;
+            max-height: calc(92vh - 200px);
           }
           .victory-banner-top {
             background-color: var(--color-cuphead-red);
             color: var(--color-glove-ivory);
-            padding: 16px 20px 12px;
+            padding: 22px 26px 18px;
             border-bottom: var(--border-ink-thick);
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 2px;
+            gap: 6px;
           }
           .victory-banner-top .ribbon-banner {
             color: var(--color-golden-buttercup);
+            font-size: 15px;
+            letter-spacing: 0.12em;
           }
           .victory-main-title {
-            font-size: 32px;
+            font-size: 50px;
             color: #ffffff;
             margin: 2px 0;
-            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.4);
+            text-shadow: 3px 3px 0px rgba(0, 0, 0, 0.55);
+            letter-spacing: 0.04em;
           }
           .victory-subtitle {
             font-family: var(--font-theatre-rye);
-            font-size: 10px;
-            letter-spacing: 0.12em;
+            font-size: 13px;
+            letter-spacing: 0.14em;
             color: var(--color-golden-buttercup);
           }
           .win-reason-strip {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
+            gap: 14px;
             background-color: var(--color-golden-buttercup);
-            border-bottom: var(--border-ink-thin);
-            padding: 8px 14px;
+            border-bottom: var(--border-ink-thick);
+            padding: 12px 20px;
             text-align: left;
             color: #1c1511;
           }
           .win-award-icon {
-            color: #1c1511;
+            color: var(--color-cuphead-red);
             flex-shrink: 0;
           }
           .win-reason-text {
             display: flex;
             flex-direction: column;
-            font-size: 12.5px;
-            line-height: 1.2;
+            gap: 2px;
+            font-size: 17px;
+            font-family: var(--font-comic-fredoka);
+            font-weight: 700;
+            line-height: 1.3;
           }
           .win-reason-text strong {
             font-family: var(--font-theatre-rye);
-            font-size: 9.5px;
-            letter-spacing: 0.08em;
+            font-size: 13px;
+            letter-spacing: 0.12em;
             color: var(--color-cuphead-red);
-          }
-          .podium-section {
-            padding: 20px 18px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-            align-items: center;
           }
           .champion-podium-card {
             width: 100%;
-            max-width: 360px;
-            padding: 20px 16px 16px;
+            max-width: 580px;
+            padding: 28px 26px 24px;
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
             background-color: var(--color-golden-buttercup);
             color: #1c1511;
+            border-width: 3px;
+            border-radius: 16px;
           }
           .podium-crown-ring {
             position: absolute;
-            top: -16px;
+            top: -22px;
             background-color: var(--color-cuphead-red);
             color: var(--color-golden-buttercup);
-            border: 2px solid var(--color-ink-stroke);
+            border: 2.5px solid var(--color-ink-stroke);
             border-radius: 999px;
-            width: 34px;
-            height: 34px;
+            width: 48px;
+            height: 48px;
             display: flex;
             align-items: center;
             justify-content: center;
             box-shadow: var(--shadow-cel-sm);
           }
           .champion-avatar-box {
-            border: 2.5px solid var(--color-ink-stroke);
-            border-radius: 12px;
+            border: 3px solid var(--color-ink-stroke);
+            border-radius: 16px;
             overflow: hidden;
             background-color: var(--color-glove-ivory);
-            margin-top: 6px;
+            margin-top: 10px;
             box-shadow: var(--shadow-cel-sm);
             display: flex;
             align-items: center;
             justify-content: center;
           }
           .champion-details {
-            margin-top: 8px;
+            margin-top: 12px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 3px;
+            gap: 6px;
           }
           .champion-title-tag {
             font-family: var(--font-theatre-rye);
-            font-size: 9.5px;
-            letter-spacing: 0.1em;
+            font-size: 13px;
+            letter-spacing: 0.12em;
             color: var(--color-cuphead-red);
             font-weight: 700;
           }
           .champion-name {
-            font-size: 22px;
+            font-size: 34px;
             color: #1c1511;
           }
           .champion-score-pill {
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 8px;
             background-color: var(--color-glove-ivory);
-            border: 1.5px solid var(--color-ink-stroke);
+            border: 2.5px solid var(--color-ink-stroke);
             border-radius: 999px;
-            padding: 3px 12px;
+            padding: 6px 20px;
             font-family: var(--font-luckiest-guy);
-            font-size: 13px;
+            font-size: 18px;
             color: #1c1511;
             box-shadow: var(--shadow-cel-sm);
           }
           .runnerups-standings {
             width: 100%;
-            max-width: 360px;
+            max-width: 700px;
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 10px;
           }
           .standings-heading {
             font-family: var(--font-theatre-rye);
-            font-size: 9.5px;
+            font-size: 14px;
             letter-spacing: 0.08em;
             color: var(--color-text-muted);
             text-align: left;
@@ -299,16 +390,16 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           .standings-list {
             display: flex;
             flex-direction: column;
-            gap: 5px;
+            gap: 8px;
           }
           .standings-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             background-color: var(--color-glove-ivory);
-            border: var(--border-ink-thin);
-            border-radius: 7px;
-            padding: 6px 10px;
+            border: 2px solid var(--color-ink-stroke);
+            border-radius: 12px;
+            padding: 12px 18px;
             box-shadow: var(--shadow-cel-sm);
           }
           .standing-champ-row {
@@ -318,15 +409,15 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           }
           .standing-rank {
             font-family: var(--font-luckiest-guy);
-            font-size: 13px;
-            width: 20px;
+            font-size: 18px;
+            width: 30px;
             color: var(--color-text-main);
           }
           .standing-avatar {
-            border: 1px solid var(--color-ink-stroke);
-            border-radius: 4px;
+            border: 2px solid var(--color-ink-stroke);
+            border-radius: 8px;
             overflow: hidden;
-            margin-right: 6px;
+            margin-right: 12px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -336,13 +427,41 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             text-align: left;
             font-family: var(--font-comic-fredoka);
             font-weight: 700;
-            font-size: 13px;
+            font-size: 18px;
             color: var(--color-text-main);
           }
           .standing-score {
             font-family: var(--font-typewriter-elite);
-            font-size: 13px;
+            font-size: 20px;
             color: var(--color-cuphead-red);
+          }
+          .player-standings-item {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .standings-row-clickable {
+            cursor: pointer;
+            transition: transform 0.1s ease, filter 0.1s ease;
+          }
+          .standings-row-clickable:hover {
+            transform: translateY(-1.5px);
+            filter: brightness(1.02);
+          }
+          .standing-score-wrap {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .standing-chevron-btn {
+            background: none;
+            border: none;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--color-ink-stroke);
+            cursor: pointer;
           }
           .afk-rematch-notice {
             display: flex;
@@ -357,18 +476,92 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             padding: 6px 14px;
             letter-spacing: 0.03em;
           }
-          .victory-actions-footer {
-            padding: 12px 18px 16px;
+          .player-words-expander {
             background-color: var(--color-parchment-deep);
-            border-top: var(--border-ink-standard);
+            border: 2.5px solid var(--color-ink-stroke);
+            border-radius: 10px;
+            padding: 12px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-align: left;
+            margin-top: 2px;
+            animation: fadeIn 0.15s ease-out;
+          }
+          .expander-section {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .expander-subtitle {
+            font-family: var(--font-theatre-rye);
+            font-size: 13.5px;
+            letter-spacing: 0.06em;
+            color: var(--color-text-main);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .mult-label {
+            font-size: 11.5px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            background-color: var(--color-cuphead-red);
+            color: var(--color-glove-ivory);
+            font-weight: 700;
+          }
+          .mult-label.neutral {
+            background-color: var(--color-ink-stroke);
+          }
+          .expander-chips-box {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+          }
+          .expander-empty {
+            font-size: 13.5px;
+            color: var(--color-text-muted);
+            font-style: italic;
+          }
+          .word-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 2px solid var(--color-ink-stroke);
+            font-family: var(--font-comic-fredoka);
+            font-size: 15px;
+            font-weight: 700;
+          }
+          .unique-chip {
+            background-color: var(--color-golden-buttercup);
+            color: #1c1511;
+          }
+          .unique-chip strong {
+            color: var(--color-cuphead-red);
+          }
+          .shared-chip {
+            background-color: var(--color-glove-ivory);
+            color: #1c1511;
+          }
+          .chip-with {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            font-weight: 400;
+          }
+          .victory-actions-footer {
+            padding: 16px 24px 20px;
+            background-color: var(--color-parchment-deep);
+            border-top: var(--border-ink-thick);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 12px;
+            gap: 16px;
           }
           .rematch-btn {
-            font-size: 15px;
-            padding: 9px 18px;
+            font-size: 17px;
+            padding: 12px 24px;
           }
         `}</style>
       </div>

@@ -16,11 +16,17 @@ interface ToastNotificationProps {
 export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, onDismiss }) => {
   useEffect(() => {
     if (toasts.length === 0) return;
-    const latest = toasts[toasts.length - 1];
-    const timer = setTimeout(() => {
-      onDismiss(latest.id);
-    }, 4500);
-    return () => clearTimeout(timer);
+
+    // Track timeouts for each toast item individually
+    const timeouts = toasts.map((t) =>
+      setTimeout(() => {
+        onDismiss(t.id);
+      }, 4000)
+    );
+
+    return () => {
+      timeouts.forEach(clearTimeout);
+    };
   }, [toasts, onDismiss]);
 
   if (toasts.length === 0) return null;

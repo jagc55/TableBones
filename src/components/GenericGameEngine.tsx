@@ -1,661 +1,128 @@
-import React, { useState, useEffect } from 'react';
-import { GameId, Player } from '../types';
+import React from 'react';
+import { GameId, BaseGameEngineProps } from '../types';
+import { getGameManifest } from '../games';
 import { soundstage } from '../utils/audio';
-import { Dices, Swords, Sparkles, Check, RotateCcw, AlertCircle } from 'lucide-react';
-import { MidnightAlleyEngine } from '../midnight-alley';
+import { Sparkles } from 'lucide-react';
 
-interface GenericGameEngineProps {
+export interface GenericGameEngineProps extends BaseGameEngineProps {
   gameId: GameId;
-  currentUserPlayer: Player;
-  players?: Player[];
-  onPlayerScore: (playerId: string, addedScore: number) => void;
-  onActionNotification: (text: string) => void;
-  onLeaveMatch?: () => void;
 }
 
-export const GenericGameEngine: React.FC<GenericGameEngineProps> = ({
-  gameId,
-  currentUserPlayer,
-  players = [],
-  onPlayerScore,
-  onActionNotification,
-  onLeaveMatch,
-}) => {
-  // 1. Vortilex Word Dice State
-  const initialLetterGrid = [
-    ['B', 'O', 'N', 'E'],
-    ['P', 'A', 'R', 'L'],
-    ['D', 'I', 'C', 'E'],
-    ['W', 'A', 'L', 'L'],
-  ];
+export const GenericGameEngine: React.FC<GenericGameEngineProps> = (props) => {
+  const { gameId, currentUserPlayer, onPlayerScore, onActionNotification } = props;
 
-  const [grid] = useState<string[][]>(initialLetterGrid);
-  const [selectedCoords, setSelectedCoords] = useState<{ r: number; c: number }[]>([]);
-  const [foundWords, setFoundWords] = useState<string[]>([]);
-  const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; isError?: boolean } | null>(null);
-
-  // 2. Skull & Bones Dice Duel State
-  const [myDice, setMyDice] = useState<number[]>([4, 2, 6, 5, 3]);
-  const [currentBid, setCurrentBid] = useState<{ count: number; face: number }>({ count: 2, face: 4 });
-  const [bluffResult, setBluffResult] = useState<string | null>(null);
-
-  // Clear feedback after delay
-  useEffect(() => {
-    if (!feedbackMsg) return;
-    const t = setTimeout(() => setFeedbackMsg(null), 2500);
-    return () => clearTimeout(t);
-  }, [feedbackMsg]);
-
-  // Handle Tile Click in Vortilex
-  const handleTileClick = (r: number, c: number) => {
-    soundstage.playTap();
-
-    // Check if clicked is the last selected -> remove it (backtrack)
-    if (
-      selectedCoords.length > 0 &&
-      selectedCoords[selectedCoords.length - 1].r === r &&
-      selectedCoords[selectedCoords.length - 1].c === c
-    ) {
-      setSelectedCoords(selectedCoords.slice(0, -1));
-      return;
-    }
-
-    // Check if already in path (cannot reuse same tile in one word)
-    const alreadySelected = selectedCoords.some((coord) => coord.r === r && coord.c === c);
-    if (alreadySelected) {
-      soundstage.playSlideDown();
-      setFeedbackMsg({ text: 'Tile already connected in current word!', isError: true });
-      return;
-    }
-
-    // Check adjacency if not first tile
-    if (selectedCoords.length > 0) {
-      const last = selectedCoords[selectedCoords.length - 1];
-      const rowDiff = Math.abs(last.r - r);
-      const colDiff = Math.abs(last.c - c);
-      if (rowDiff > 1 || colDiff > 1) {
-        soundstage.playSlideDown();
-        setFeedbackMsg({ text: 'Must connect to an adjacent die!', isError: true });
-        return;
-      }
-    }
-
-    setSelectedCoords([...selectedCoords, { r, c }]);
-  };
-
-  const currentConstructedWord = selectedCoords
-    .map((coord) => grid[coord.r][coord.c])
-    .join('');
-
-  // Submit Vortilex Word
-  const handleWallopWord = () => {
-    const word = currentConstructedWord;
-    if (word.length < 3) {
-      soundstage.playSlideDown();
-      setFeedbackMsg({ text: 'Words require at least 3 letters!', isError: true });
-      return;
-    }
-
-    if (foundWords.includes(word)) {
-      soundstage.playBulbHorn();
-      setFeedbackMsg({ text: `Already claimed "${word}" this round!`, isError: true });
-      setSelectedCoords([]);
-      return;
-    }
-
-    // Calculate score
-    const score = word.length * 2 + (word.length >= 5 ? 4 : 0);
-    soundstage.playScoreTrumpet();
-    setFoundWords([word, ...foundWords]);
-    setSelectedCoords([]);
-    onPlayerScore(currentUserPlayer.id, score);
-    onActionNotification(`${currentUserPlayer.name} walloped "${word}" for +${score} pts!`);
-    setFeedbackMsg({ text: `WALLOP! "${word}" scored +${score} PTS!` });
-  };
-
-  const handleClearPath = () => {
-    soundstage.playTap();
-    setSelectedCoords([]);
-  };
-
-  // Skull & Bones Roll Dice
-  const handleRollDice = () => {
-    soundstage.playRoundBell();
-    const newDice = Array.from({ length: 5 }, () => Math.floor(Math.random() * 6) + 1);
-    setMyDice(newDice);
-    setBluffResult(null);
-    onActionNotification(`${currentUserPlayer.name} rattled their leather dice cup!`);
-  };
-
-  const handleCallBluff = () => {
-    soundstage.playScoreTrumpet();
-    const matchCount = myDice.filter((d) => d === currentBid.face).length + 2; // simulated total
-    const wasBluff = matchCount < currentBid.count;
-    if (wasBluff) {
-      onPlayerScore(currentUserPlayer.id, 8);
-      setBluffResult(`BLUFF CAUGHT! Only ${matchCount} of Face ${currentBid.face} existed. +8 PTS!`);
-      onActionNotification(`${currentUserPlayer.name} exposed a treacherous liar!`);
-    } else {
-      setBluffResult(`BID WAS HONEST! ${matchCount} dice matched. Match continues!`);
-      onActionNotification(`${currentUserPlayer.name} called an honest bid.`);
-    }
-  };
-
-  if (gameId === 'midnight-alley') {
-    return (
-      <MidnightAlleyEngine
-        currentUserPlayer={currentUserPlayer}
-        players={players && players.length > 0 ? players : [currentUserPlayer]}
-        onPlayerScore={onPlayerScore}
-        onActionNotification={onActionNotification}
-        onLeaveMatch={onLeaveMatch}
-      />
-    );
+  const manifest = getGameManifest(gameId);
+  if (manifest && manifest.engine && manifest.id !== 'royal-checkers' && manifest.id !== 'mystery-manor') {
+    const EngineComponent = manifest.engine;
+    return <EngineComponent {...props} />;
   }
 
   return (
-    <div className="game-engine-container">
-      {/* VORTILEX WORD BRAWL BOARD */}
-      {gameId === 'vortilex' && (
-        <div className="vortilex-stage">
-          {/* Top Word Capsule */}
-          <div className="word-capsule-strip">
-            <div className="capsule-left">
-              <span className="capsule-label">CONNECTED TILES:</span>
-              <div className="capsule-word-display">
-                {currentConstructedWord ? (
-                  <span className="constructed-word-text">{currentConstructedWord}</span>
-                ) : (
-                  <span className="capsule-placeholder">Tap adjacent letter dice to build words...</span>
-                )}
-              </div>
-            </div>
+    <div className="generic-table-stage cel-card">
+      <div className="generic-table-header">
+        <h3 className="woodcut-title">TACTICAL GAME TABLE</h3>
+        <span className="generic-turn-info">Active match in progress</span>
+      </div>
 
-            <div className="capsule-actions">
-              <button
-                onClick={handleClearPath}
-                disabled={selectedCoords.length === 0}
-                className="btn-cel btn-brawl-neutral btn-sm"
-                title="Clear current tile path"
-              >
-                <RotateCcw size={14} strokeWidth={2.8} />
-                <span>CLEAR</span>
-              </button>
-              <button
-                onClick={handleWallopWord}
-                disabled={selectedCoords.length < 3}
-                className="btn-cel btn-brawl-primary btn-sm wallop-btn"
-                title="Submit word"
-              >
-                <Check size={16} strokeWidth={2.8} />
-                <span>SUBMIT ({currentConstructedWord.length >= 3 ? `+${currentConstructedWord.length * 2 + (currentConstructedWord.length >= 5 ? 4 : 0)} PTS` : '3+ LTRS'})</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Toast feedback banner */}
-          {feedbackMsg && (
-            <div className={`engine-feedback ${feedbackMsg.isError ? 'fb-error' : 'fb-success'}`}>
-              {feedbackMsg.isError ? <AlertCircle size={15} strokeWidth={3} /> : <Check size={15} strokeWidth={3} />}
-              <span>{feedbackMsg.text}</span>
-            </div>
-          )}
-
-          {/* Letter Dice Grid */}
-          <div className="dice-grid-wrap">
-            <div className="dice-board-frame">
-              {grid.map((row, rIdx) => (
-                <div key={rIdx} className="grid-row">
-                  {row.map((letter, cIdx) => {
-                    const selectedIdx = selectedCoords.findIndex((coord) => coord.r === rIdx && coord.c === cIdx);
-                    const isSelected = selectedIdx !== -1;
-                    const isHead = selectedIdx === selectedCoords.length - 1;
-
-                    return (
-                      <button
-                        key={`${rIdx}-${cIdx}`}
-                        onClick={() => handleTileClick(rIdx, cIdx)}
-                        className={`die-tile ${isSelected ? 'tile-in-path' : ''} ${isHead ? 'tile-path-head' : ''}`}
-                        aria-label={`Letter ${letter}`}
-                      >
-                        <span className="die-letter">{letter}</span>
-                        {isSelected && <span className="tile-step-indicator">{selectedIdx + 1}</span>}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Word Hit List */}
-          <div className="hits-strip">
-            <span className="hits-title">ROUND WORDS ({foundWords.length}):</span>
-            <div className="hits-chips-row">
-              {foundWords.length === 0 ? (
-                <span className="hits-none">No words registered yet this round.</span>
-              ) : (
-                foundWords.map((w, idx) => (
-                  <span key={idx} className="hit-chip">
-                    <strong>{w}</strong>
-                    <small>+{w.length * 2 + (w.length >= 5 ? 4 : 0)}pt</small>
-                  </span>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* SKULL & BONES DICE DUEL BOARD */}
-      {gameId === 'skull-bones' && (
-        <div className="dice-stage">
-          <div className="dice-cup-card cel-card">
-            <span className="stage-subhead">YOUR LEATHER DICE CUP</span>
-            <div className="cup-dice-tray">
-              {myDice.map((val, idx) => (
-                <div key={idx} className="bone-die-face">
-                  <span className="bone-die-num">{val}</span>
-                </div>
-              ))}
-            </div>
-            <button onClick={handleRollDice} className="btn-cel btn-brawl-secondary roll-cup-btn">
-              <Dices size={18} strokeWidth={2.8} />
-              <span>RATTLE & ROLL CUP</span>
-            </button>
-          </div>
-
-          <div className="saloon-bid-card cel-card">
-            <span className="stage-subhead">TABLE BIDDING STATUS</span>
-            <div className="current-bid-box">
-              <span className="bid-label">HIGHEST BID CALL:</span>
-              <strong className="bid-quote">
-                {currentBid.count} Dice of Face {currentBid.face}
-              </strong>
-            </div>
-
-            {bluffResult && <div className="bluff-feedback-banner">{bluffResult}</div>}
-
-            <div className="bid-actions-row">
-              <button
-                onClick={() => {
-                  soundstage.playTap();
-                  setCurrentBid({ count: currentBid.count + 1, face: currentBid.face });
-                  onPlayerScore(currentUserPlayer.id, 3);
-                  onActionNotification(`${currentUserPlayer.name} raised the bid to ${currentBid.count + 1}!`);
-                }}
-                className="btn-cel btn-brawl-neutral btn-sm"
-              >
-                <span>RAISE BID (+1)</span>
-              </button>
-
-              <button onClick={handleCallBluff} className="btn-cel btn-brawl-primary btn-sm">
-                <Swords size={16} strokeWidth={2.8} />
-                <span>CALL LIAR / BLUFF!</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* GENERIC TABLETOP BOARD */}
-      {gameId !== 'vortilex' && gameId !== 'skull-bones' && (
-        <div className="generic-table-stage cel-card">
-          <div className="generic-table-header">
-            <h3 className="woodcut-title">TACTICAL GAME TABLE</h3>
-            <span className="generic-turn-info">Active match in progress</span>
-          </div>
-
-          <div className="generic-board-visual">
-            <div className="board-mat">
-              {Array.from({ length: 16 }).map((_, i) => (
-                <div
-                  key={i}
-                  onClick={() => {
-                    soundstage.playTap();
-                    onPlayerScore(currentUserPlayer.id, 4);
-                    onActionNotification(`${currentUserPlayer.name} placed a tactical piece on cell #${i + 1}`);
-                  }}
-                  className={`board-cell ${i % 2 === 0 ? 'cell-light' : 'cell-dark'}`}
-                  title="Click to execute move"
-                >
-                  <span className="cell-num">{i + 1}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="generic-actions-strip">
-            <button
+      <div className="generic-board-visual">
+        <div className="board-mat">
+          {Array.from({ length: 16 }).map((_, i) => (
+            <div
+              key={i}
               onClick={() => {
-                soundstage.playScoreTrumpet();
-                onPlayerScore(currentUserPlayer.id, 6);
-                onActionNotification(`${currentUserPlayer.name} captured an opponent piece!`);
+                soundstage.playTap();
+                onPlayerScore(currentUserPlayer.id, 4);
+                onActionNotification(`${currentUserPlayer.name} placed a tactical piece on cell #${i + 1}`);
               }}
-              className="btn-cel btn-brawl-primary"
+              className={`board-cell ${i % 2 === 0 ? 'cell-light' : 'cell-dark'}`}
+              title="Click to execute move"
             >
-              <Sparkles size={16} strokeWidth={2.8} />
-              <span>EXECUTE MOVE (+6 PTS)</span>
-            </button>
-          </div>
+              <span className="cell-num">{i + 1}</span>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
+
+      <div className="generic-actions-strip">
+        <button
+          onClick={() => {
+            soundstage.playScoreTrumpet();
+            onPlayerScore(currentUserPlayer.id, 6);
+            onActionNotification(`${currentUserPlayer.name} captured an opponent piece!`);
+          }}
+          className="btn-cel btn-brawl-primary"
+        >
+          <Sparkles size={16} strokeWidth={2.8} />
+          <span>EXECUTE MOVE (+6 PTS)</span>
+        </button>
+      </div>
 
       <style>{`
-        .game-engine-container {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-        }
-        .vortilex-stage {
-          display: flex;
-          flex-direction: column;
-          gap: 12px;
-          align-items: center;
-          width: 100%;
-        }
-        .word-capsule-strip {
-          width: 100%;
-          background-color: var(--color-glove-ivory);
-          border: var(--border-ink-standard);
-          border-radius: 12px;
-          padding: 10px 16px;
-          box-shadow: var(--shadow-cel-sm);
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        .capsule-left {
-          display: flex;
-          flex-direction: column;
-          gap: 2px;
-          flex: 1;
-        }
-        .capsule-label {
-          font-family: var(--font-theatre-rye);
-          font-size: 9.5px;
-          letter-spacing: 0.08em;
-          color: var(--color-cuphead-red);
-        }
-        .capsule-word-display {
-          display: flex;
-          align-items: center;
-          min-height: 30px;
-        }
-        .constructed-word-text {
-          font-family: var(--font-luckiest-guy);
-          font-size: 24px;
-          letter-spacing: 0.12em;
-          color: var(--color-text-main);
-          line-height: 1;
-        }
-        .capsule-placeholder {
-          font-family: var(--font-typewriter-elite);
-          font-size: 13px;
-          color: var(--color-text-muted);
-        }
-        .capsule-actions {
-          display: flex;
-          gap: 8px;
-        }
-        .wallop-btn {
-          font-size: 14.5px;
-          padding: 6px 14px;
-        }
-        .engine-feedback {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-          padding: 7px 14px;
-          border-radius: 8px;
-          font-family: var(--font-comic-fredoka);
-          font-size: 13px;
-          font-weight: 700;
-          box-shadow: var(--shadow-cel-sm);
-        }
-        .fb-success {
-          background-color: var(--color-status-success-bg);
-          color: var(--color-status-success-text);
-          border: 1.5px solid var(--color-status-success-text);
-        }
-        .fb-error {
-          background-color: var(--color-status-error-bg);
-          color: var(--color-status-error-text);
-          border: 1.5px solid var(--color-status-error-text);
-        }
-        .dice-grid-wrap {
-          display: flex;
-          justify-content: center;
-          width: 100%;
-        }
-        .dice-board-frame {
-          background-color: var(--color-parchment-deep);
-          border: var(--border-frame);
-          border-radius: 16px;
-          padding: 12px;
-          box-shadow: var(--shadow-cel-lg);
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .grid-row {
-          display: flex;
-          gap: 8px;
-        }
-        .die-tile {
-          width: 62px;
-          height: 62px;
-          background-color: var(--color-glove-ivory);
-          border: var(--border-ink-standard);
-          border-radius: var(--radius-tile);
-          box-shadow: var(--shadow-cel-sm);
-          cursor: pointer;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          position: relative;
-          user-select: none;
-          transition: transform 0.08s ease, background-color 0.1s ease;
-        }
-        .die-tile:hover {
-          transform: translateY(-2px);
-          box-shadow: var(--shadow-cel-md);
-        }
-        .tile-in-path {
-          background-color: var(--color-golden-buttercup);
-          transform: scale(1.06) rotate(1deg);
-        }
-        .tile-path-head {
-          background-color: var(--color-cuphead-red) !important;
-          color: var(--color-glove-ivory) !important;
-          transform: scale(1.1) rotate(-1deg);
-        }
-        .tile-path-head .die-letter {
-          color: var(--color-glove-ivory);
-        }
-        .die-letter {
-          font-family: var(--font-luckiest-guy);
-          font-size: 28px;
-          color: var(--color-text-main);
-          line-height: 1;
-        }
-        .tile-step-indicator {
-          position: absolute;
-          top: 3px;
-          right: 3px;
-          font-family: var(--font-theatre-rye);
-          font-size: 8.5px;
-          background-color: var(--color-ink-stroke);
-          color: var(--color-glove-ivory);
-          width: 14px;
-          height: 14px;
-          border-radius: 999px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .hits-strip {
-          width: 100%;
-          background-color: var(--color-glove-ivory);
-          border: var(--border-ink-thin);
-          border-radius: 10px;
-          padding: 8px 14px;
-          display: flex;
-          align-items: center;
-          gap: 12px;
-          overflow-x: auto;
-        }
-        .hits-title {
-          font-family: var(--font-theatre-rye);
-          font-size: 9.5px;
-          letter-spacing: 0.08em;
-          color: var(--color-cuphead-red);
-          flex-shrink: 0;
-        }
-        .hits-chips-row {
-          display: flex;
-          gap: 6px;
-          align-items: center;
-        }
-        .hits-none {
-          font-size: 12px;
-          color: var(--color-text-muted);
-          font-style: italic;
-        }
-        .hit-chip {
-          background-color: var(--color-golden-buttercup);
-          border: 1.5px solid var(--color-ink-stroke);
-          border-radius: 6px;
-          padding: 2px 8px;
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          font-family: var(--font-luckiest-guy);
-          font-size: 13px;
-          color: var(--color-ink-black);
-        }
-        .hit-chip small {
-          font-family: var(--font-theatre-rye);
-          font-size: 9px;
-          color: var(--color-cuphead-red);
-        }
-        .dice-stage {
-          display: flex;
-          flex-direction: column;
-          gap: 14px;
-          width: 100%;
-        }
-        .dice-cup-card, .saloon-bid-card {
-          padding: 16px 20px;
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-          align-items: center;
-        }
-        .stage-subhead {
-          font-family: var(--font-theatre-rye);
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          color: var(--color-cuphead-red);
-        }
-        .cup-dice-tray {
-          display: flex;
-          gap: 10px;
-        }
-        .bone-die-face {
-          width: 50px;
-          height: 50px;
-          background-color: var(--color-glove-ivory);
-          border: var(--border-ink-standard);
-          border-radius: 12px;
-          box-shadow: var(--shadow-cel-sm);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .bone-die-num {
-          font-family: var(--font-luckiest-guy);
-          font-size: 26px;
-          color: var(--color-text-main);
-        }
-        .current-bid-box {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 4px;
-          background-color: var(--color-canvas-parchment);
-          border: 1.5px solid var(--color-ink-stroke);
-          border-radius: 9px;
-          padding: 10px 24px;
-        }
-        .bid-label {
-          font-family: var(--font-theatre-rye);
-          font-size: 9.5px;
-          letter-spacing: 0.08em;
-          color: var(--color-text-muted);
-        }
-        .bid-quote {
-          font-family: var(--font-luckiest-guy);
-          font-size: 19px;
-          color: var(--color-cuphead-red);
-        }
-        .bluff-feedback-banner {
-          background-color: var(--color-status-warn-bg);
-          border: 1.5px solid var(--color-status-warn-text);
-          color: var(--color-status-warn-text);
-          padding: 6px 14px;
-          border-radius: 8px;
-          font-size: 13px;
-          font-weight: 700;
-        }
-        .bid-actions-row {
-          display: flex;
-          gap: 10px;
-        }
         .generic-table-stage {
           padding: 20px;
           display: flex;
           flex-direction: column;
-          align-items: center;
           gap: 16px;
+          background-color: var(--color-canvas-parchment);
+          align-items: center;
+          width: 100%;
+        }
+        .generic-table-header {
+          text-align: center;
+        }
+        .generic-turn-info {
+          font-family: var(--font-theatre-rye);
+          font-size: 11px;
+          color: var(--color-cuphead-red);
+          letter-spacing: 0.08em;
         }
         .generic-board-visual {
           display: flex;
           justify-content: center;
+          padding: 10px;
+          background-color: var(--color-parchment-deep);
+          border: var(--border-frame);
+          border-radius: 14px;
+          box-shadow: var(--shadow-cel-md);
         }
         .board-mat {
           display: grid;
-          grid-template-columns: repeat(4, 58px);
-          grid-template-rows: repeat(4, 58px);
-          border: var(--border-frame);
-          border-radius: 12px;
-          overflow: hidden;
-          box-shadow: var(--shadow-cel-md);
+          grid-template-columns: repeat(4, 56px);
+          grid-template-rows: repeat(4, 56px);
+          gap: 4px;
         }
         .board-cell {
+          border: 2px solid var(--color-ink-black);
+          border-radius: 6px;
           display: flex;
           align-items: center;
           justify-content: center;
           cursor: pointer;
-          transition: filter 0.1s ease;
+          transition: transform 0.08s ease;
         }
         .board-cell:hover {
-          filter: brightness(0.92);
+          transform: scale(1.05);
         }
         .cell-light {
           background-color: var(--color-glove-ivory);
         }
         .cell-dark {
-          background-color: var(--color-parchment-deep);
+          background-color: #2b1e17;
+        }
+        .cell-light .cell-num {
+          color: var(--color-ink-black);
+        }
+        .cell-dark .cell-num {
+          color: var(--color-glove-ivory);
         }
         .cell-num {
-          font-family: var(--font-typewriter-elite);
-          font-size: 12px;
-          font-weight: bold;
-          color: var(--color-text-muted);
-          opacity: 0.7;
+          font-family: var(--font-luckiest-guy);
+          font-size: 16px;
+        }
+        .generic-actions-strip {
+          display: flex;
+          justify-content: center;
+          width: 100%;
         }
       `}</style>
     </div>

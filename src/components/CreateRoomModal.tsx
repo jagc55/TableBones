@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { X, Lock, Globe, Plus, Check, Clock } from 'lucide-react';
-import { GameId, Room, UserProfile } from '../types';
-import { GAMES_CATALOG } from '../utils/mockData';
+import { GameId, Room, UserProfile, RoomSettings } from '../types';
 import { soundstage } from '../utils/audio';
+import { getGameManifest, getAllGameDefinitions } from '../games';
 
 interface CreateRoomModalProps {
   isOpen: boolean;
@@ -17,14 +17,25 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   currentUser,
   onCreateRoom,
 }) => {
-  const [selectedGameId, setSelectedGameId] = useState<GameId>('vortilex');
+  const [selectedGameId, setSelectedGameId] = useState<GameId>('bonegle');
   const [roomTitle, setRoomTitle] = useState(`${currentUser.name}’s Room`);
   const [isPrivate, setIsPrivate] = useState(false);
-  const [roundDurationSec, setRoundDurationSec] = useState(120);
+  const [roomSettings, setRoomSettings] = useState<RoomSettings>({
+    roundDurationSec: 120,
+    turnTimeLimitSec: 30,
+    dictionaryLang: 'es',
+    bonegleGridSize: 5,
+  });
+
+  const handleUpdateSetting = <K extends keyof RoomSettings>(key: K, value: RoomSettings[K]) => {
+    setRoomSettings((prev) => ({ ...prev, [key]: value }));
+  };
 
   if (!isOpen) return null;
 
-  const selectedGame = GAMES_CATALOG.find((g) => g.id === selectedGameId) || GAMES_CATALOG[0];
+  const catalog = getAllGameDefinitions();
+  const selectedManifest = getGameManifest(selectedGameId);
+  const selectedGame = selectedManifest?.definition || catalog.find((g) => g.id === selectedGameId) || catalog[0];
 
   const generateRoomCode = (): string => {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -59,9 +70,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
         },
       ],
       settings: {
-        roundDurationSec,
-        turnTimeLimitSec: 30,
-        dictionaryLang: 'en',
+        ...roomSettings,
       },
     };
 
@@ -88,7 +97,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
           <div className="form-group">
             <label className="group-label">1. CHOOSE GAME</label>
             <div className="game-selection-grid">
-              {GAMES_CATALOG.map((game) => {
+              {catalog.map((game) => {
                 const isSelected = game.id === selectedGameId;
                 return (
                   <div
@@ -172,10 +181,22 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
             </div>
           </div>
 
-          {/* Step 4: Round Duration (Hidden for round-based games like Midnight Alley) */}
-          {selectedGameId !== 'midnight-alley' && (
+          {/* Game-specific custom options */}
+          {selectedManifest?.settingsComponent && (
+            <selectedManifest.settingsComponent
+              settings={roomSettings}
+              onUpdateSetting={handleUpdateSetting}
+              isHost={true}
+              stepOffset={4}
+            />
+          )}
+
+          {/* Round Duration (Hidden for games with hasRoundTimer === false) */}
+          {selectedManifest?.hasRoundTimer !== false && (
             <div className="form-group">
-              <label className="group-label">4. ROUND DURATION</label>
+              <label className="group-label">
+                {selectedManifest?.settingsComponent ? '6.' : '4.'} ROUND DURATION
+              </label>
               <div className="clock-options-row">
                 {[60, 120, 180, 240].map((dur) => (
                   <button
@@ -183,9 +204,9 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
                     type="button"
                     onClick={() => {
                       soundstage.playTap();
-                      setRoundDurationSec(dur);
+                      handleUpdateSetting('roundDurationSec', dur);
                     }}
-                    className={`duration-chip ${roundDurationSec === dur ? 'duration-selected' : ''}`}
+                    className={`duration-chip ${roomSettings.roundDurationSec === dur ? 'duration-selected' : ''}`}
                   >
                     <Clock size={16} strokeWidth={2.5} />
                     <span>{dur / 60} MIN</span>

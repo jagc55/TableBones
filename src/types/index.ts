@@ -1,4 +1,5 @@
-export type GameId = 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor' | 'midnight-alley';
+export type GameId = 'bonegle' | 'midnight-alley' | 'vortilex' | 'skull-bones' | 'royal-checkers' | 'mystery-manor';
+
 
 export interface GameDefinition {
   id: GameId;
@@ -23,6 +24,10 @@ export interface Player {
   score: number;
   isBot?: boolean;
   hasLeft?: boolean;
+  wordsBreakdown?: {
+    uniqueWords: { word: string; pts: number }[];
+    sharedWords: { word: string; pts: number; sharedWith?: string[] }[];
+  };
 }
 
 export interface ChatMessage {
@@ -39,6 +44,7 @@ export interface RoomSettings {
   roundDurationSec: number;
   turnTimeLimitSec: number;
   dictionaryLang: 'en' | 'es';
+  bonegleGridSize?: 4 | 5 | 6;
 }
 
 export interface Room {
@@ -89,3 +95,5 @@ export const AFK_CONFIG = {
   BID_TIMEOUT_SEC: 45,
   REMATCH_TIMEOUT_SEC: 45,
 } as const;
+
+export * from './game';
