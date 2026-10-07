@@ -645,6 +645,8 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           border: var(--border-ink-standard);
           border-radius: var(--radius-cel-box);
           box-shadow: var(--shadow-cel-sm);
+          width: 100%;
+          max-width: 600px;
           height: 64px;
           min-height: 64px;
           max-height: 64px;
@@ -787,18 +789,18 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         }
         .bonegle-board-container {
           background-color: #241712;
-          padding: 18px;
+          padding: 20px;
           border: var(--border-ink-thick);
-          border-radius: var(--radius-cel-box);
+          border-radius: 20px;
           box-shadow: var(--shadow-cel-lg);
           display: flex;
           align-items: center;
           justify-content: center;
           position: relative;
-          width: 480px;
-          height: 480px;
-          max-width: 92vw;
-          max-height: 92vw;
+          width: 580px;
+          height: 580px;
+          max-width: min(580px, 94vw);
+          max-height: min(580px, 94vw);
           box-sizing: border-box;
           user-select: none;
           touch-action: none;
@@ -813,17 +815,17 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         .grid-size-4 {
           grid-template-columns: repeat(4, 1fr);
           grid-template-rows: repeat(4, 1fr);
-          gap: 12px;
+          gap: 14px;
         }
         .grid-size-5 {
           grid-template-columns: repeat(5, 1fr);
           grid-template-rows: repeat(5, 1fr);
-          gap: 9px;
+          gap: 11px;
         }
         .grid-size-6 {
           grid-template-columns: repeat(6, 1fr);
           grid-template-rows: repeat(6, 1fr);
-          gap: 7px;
+          gap: 8px;
         }
         .bonegle-svg-overlay {
           position: absolute;
@@ -857,7 +859,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         .bonegle-die {
           background-color: var(--color-cuphead-red);
           border: 3.5px solid var(--color-ink-black);
-          border-radius: 12px;
+          border-radius: 14px;
           box-shadow: 0px 4px 0px var(--color-ink-black);
           display: flex;
           align-items: center;
@@ -893,7 +895,7 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
         }
         .die-letter-char {
           font-family: var(--font-luckiest-guy);
-          font-size: 38px;
+          font-size: 42px;
           color: var(--color-glove-ivory);
           text-shadow: 1.5px 1.5px 0px rgba(0, 0, 0, 0.45);
           pointer-events: none;
@@ -906,24 +908,24 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
           text-shadow: none !important;
         }
         .grid-size-4 .die-letter-char {
-          font-size: 46px;
+          font-size: 52px;
         }
         .grid-size-5 .die-letter-char {
-          font-size: 34px;
+          font-size: 42px;
         }
         .grid-size-6 .die-letter-char {
-          font-size: 26px;
+          font-size: 32px;
         }
         .die-step-badge {
           position: absolute;
-          top: 3px;
-          right: 3px;
+          top: 4px;
+          right: 4px;
           background-color: var(--color-ink-black);
           color: var(--color-golden-buttercup);
           font-family: var(--font-luckiest-guy);
-          font-size: 11px;
-          width: 18px;
-          height: 18px;
+          font-size: 12px;
+          width: 22px;
+          height: 22px;
           border-radius: 50%;
           display: flex;
           align-items: center;
