@@ -45,6 +45,17 @@ export const GAMES_CATALOG: GameDefinition[] = [
     iconName: 'Shield',
     badge: 'MYSTERY',
   },
+  {
+    id: 'midnight-alley',
+    title: 'Midnight Alley: The Mob Trick',
+    subtitle: 'Underworld Trick-Taking Duel',
+    description: 'A cutthroat trick-taking card game of skeleton mobsters. Predict your tricks, unleash The Boss and Gangsters, and beware the Femme Fatale!',
+    minPlayers: 2,
+    maxPlayers: 8,
+    estimatedTimeMin: 7,
+    iconName: 'Skull',
+    badge: 'NEW',
+  },
 ];
 
 export const INITIAL_ACHIEVEMENTS: Achievement[] = [
@@ -190,5 +201,22 @@ export const INITIAL_PUBLIC_ROOMS: Room[] = [
     ],
     settings: { roundDurationSec: 240, turnTimeLimitSec: 45, dictionaryLang: 'en' },
     createdAt: Date.now() - 1000 * 60 * 15,
+  },
+  {
+    id: 'room-pub-105',
+    code: 'ALLEY-888',
+    title: 'Midnight Syndicate Parlor',
+    gameId: 'midnight-alley',
+    isPrivate: false,
+    minPlayers: 2,
+    maxPlayers: 8,
+    status: 'waiting',
+    hostId: 'host-don-bones',
+    players: [
+      { id: 'host-don-bones', name: 'Don Skelletone', avatarId: 'ringmaster', isHost: true, isReady: true, score: 0 },
+      { id: 'player-sal', name: 'Silencer Sal', avatarId: 'diceshark', isHost: false, isReady: true, score: 0 },
+    ],
+    settings: { roundDurationSec: 360, turnTimeLimitSec: 45, dictionaryLang: 'en' },
+    createdAt: Date.now() - 1000 * 60 * 2,
   },
 ];
