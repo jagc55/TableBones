@@ -1,4 +1,17 @@
-export type GameId = 'bonegle' | 'midnight-alley';
+export type GameId = 'bonegle' | 'midnight-alley' | (string & {});
+
+export interface BreakdownSectionItem {
+  label: string;
+  value?: string | number;
+  detail?: string;
+  variant?: 'primary' | 'secondary' | 'neutral';
+}
+
+export interface BreakdownSection {
+  title: string;
+  badge?: string;
+  items: BreakdownSectionItem[];
+}
 
 
 export interface GameDefinition {
@@ -28,6 +41,7 @@ export interface Player {
   customData?: Record<string, unknown>;
   /** Optional game breakdown items for victory podium display */
   breakdownItems?: Array<{ label: string; value: string | number }>;
+  breakdownSections?: BreakdownSection[];
   /** @deprecated Word-search specific breakdown. Prefer customData or breakdownItems in new games */
   wordsBreakdown?: {
     uniqueWords: { word: string; pts: number }[];

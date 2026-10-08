@@ -251,18 +251,76 @@ export const App: React.FC = () => {
         const previousRoom = currentRoomRef.current;
         if (previousRoom?.id !== data.roomId) return;
 
-        const matchScores = data.state.gameId === 'bonegle'
-          ? Object.fromEntries(Object.entries(data.state.breakdowns || {}).map(([playerId, breakdown]) => [playerId, breakdown.score]))
-          : data.state.cumulativeScores;
-        const resolvedRoom: Room = data.room || {
+        const scoresMap: Record<string, number> = data.scores || (
+          (data.state as any).scores || (
+            data.state.gameId === 'bonegle'
+              ? Object.fromEntries(Object.entries((data.state as any).breakdowns || {}).map(([playerId, breakdown]: any) => [playerId, breakdown.score]))
+              : (data.state as any).cumulativeScores || {}
+          )
+        );
+
+        const breakdownsMap: Record<string, any> = data.breakdowns || (data.state as any).breakdowns || {};
+
+        const baseRoom: Room = data.room || {
           ...previousRoom,
           status: 'finished',
           winnerId: data.state.winnerId || null,
           winReason: data.state.winReason || null,
           players: previousRoom.players.map((player) => ({
             ...player,
-            score: matchScores[player.id] ?? player.score,
+            score: scoresMap[player.id] ?? player.score,
           })),
+        };
+
+        const enrichedPlayers = baseRoom.players.map((player) => {
+          const breakdown = breakdownsMap[player.id];
+          if (!breakdown) return player;
+
+          let breakdownSections = player.breakdownSections || breakdown.sections;
+          let wordsBreakdown = player.wordsBreakdown;
+
+          if (!wordsBreakdown && breakdown.words && Array.isArray(breakdown.words)) {
+            const unique = breakdown.words
+              .filter((w: any) => !w.shared)
+              .map((w: any) => ({ word: w.word, pts: w.awarded }));
+            const shared = breakdown.words
+              .filter((w: any) => w.shared)
+              .map((w: any) => ({ word: w.word, pts: w.awarded, sharedWith: w.sharedWith }));
+            wordsBreakdown = { uniqueWords: unique, sharedWords: shared };
+          }
+
+          if (!breakdownSections && wordsBreakdown) {
+            breakdownSections = [
+              {
+                title: 'Unique Words',
+                badge: 'x2 PTS',
+                items: wordsBreakdown.uniqueWords.map((uw) => ({ label: uw.word, value: `+${uw.pts}`, variant: 'primary' as const })),
+              },
+              {
+                title: 'Shared Words',
+                badge: 'x1 PT',
+                items: wordsBreakdown.sharedWords.map((sw) => ({
+                  label: sw.word,
+                  value: `+${sw.pts}`,
+                  detail: sw.sharedWith?.length ? sw.sharedWith.join(', ') : undefined,
+                  variant: 'secondary' as const,
+                })),
+              },
+            ];
+          }
+
+          return {
+            ...player,
+            score: scoresMap[player.id] ?? player.score,
+            wordsBreakdown,
+            breakdownSections,
+            breakdownItems: player.breakdownItems || breakdown.items,
+          };
+        });
+
+        const resolvedRoom: Room = {
+          ...baseRoom,
+          players: enrichedPlayers,
         };
         const winner = resolvedRoom.players.find((player) => player.id === data.state.winnerId) || null;
 

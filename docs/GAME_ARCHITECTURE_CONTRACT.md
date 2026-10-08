@@ -140,16 +140,14 @@ Bonegle renders local selection feedback inside the iframe:
 
 ## 8. Adding a Game
 
-See [Anadir un Juego](ANADIR_JUEGO.md) for file placement, transport flow, existing database migrations, and the integration checklist.
+See [Adding a New Game](ANADIR_JUEGO.md) for the complete integration guide and adapter templates.
 
-Adding a game requires both client and server work:
+Thanks to the decoupled adapter architecture:
+1. Add the game ID to `src/shared/types/index.ts` and declare state/action types in `src/shared/types/network.ts`.
+2. Implement the authoritative server engine adapter in `src/server/games/<game-id>/engine.js` (`createState`, `applyAction`, `onDeadline`, `getAutomaticAction`, `removePlayer`, `getScores`, `getPlayerBreakdowns`, `projectState`).
+3. Register the adapter in `src/server/games/index.js` under `GAME_ENGINES`.
+4. Create the client UI in `src/frontend/games/<game-id>/` (`manifest.tsx`, engine, rules).
+5. Register the manifest in `src/frontend/games/registry.ts` under `GAME_REGISTRY`.
+6. Verify via `npm run test:server` and `npm run build`.
 
-1. Add the game ID to `src/shared/types/index.ts`.
-2. Create `src/frontend/games/<game-id>/` with manifest, UI engine, player-facing rules, and settings.
-3. Register the manifest in `src/frontend/games/registry.ts`.
-4. Implement authoritative state creation, action validation, state projection, scoring, deadlines, and bot behavior in `src/server/games/<game-id>/`, and wire it through `src/server/games/index.js` and `src/server/services/matches.js`.
-5. Extend `GameAction` and `MatchState` in `src/shared/types/network.ts`, plus the service and WebSocket handling where necessary.
-6. Update room database validation if the game ID is persisted.
-7. Verify the engine inside `GameStageFrame`, including iframe pointer/document boundaries and room-scoped multiplayer behavior.
-
-Do not add a client-only game engine to the registry. A game is complete only when its authoritative server path and state projection exist.
+No modifications are needed to core match services, room lifecycle, WebSocket handlers, HTTP routes, or database tables.

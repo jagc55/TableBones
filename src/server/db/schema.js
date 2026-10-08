@@ -21,7 +21,7 @@ export const initializeDatabase = async () => {
       id UUID PRIMARY KEY,
       code VARCHAR(16) UNIQUE NOT NULL,
       title VARCHAR(36) NOT NULL,
-      game_id VARCHAR(32) NOT NULL CHECK (game_id IN ('bonegle', 'midnight-alley')),
+      game_id VARCHAR(32) NOT NULL,
       is_private BOOLEAN NOT NULL DEFAULT FALSE,
       min_players SMALLINT NOT NULL,
       max_players SMALLINT NOT NULL,
@@ -45,7 +45,7 @@ export const initializeDatabase = async () => {
     CREATE TABLE IF NOT EXISTS matches (
       id UUID PRIMARY KEY,
       room_id UUID NOT NULL REFERENCES rooms(id),
-      game_id VARCHAR(32) NOT NULL CHECK (game_id IN ('bonegle', 'midnight-alley')),
+      game_id VARCHAR(32) NOT NULL,
       status VARCHAR(16) NOT NULL CHECK (status IN ('active', 'finished', 'abandoned')),
       state JSONB NOT NULL DEFAULT '{}'::jsonb,
       winner_id UUID REFERENCES users(id),
@@ -73,6 +73,8 @@ export const initializeDatabase = async () => {
       unlocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (user_id, achievement_id)
     );
+    ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_game_id_check;
+    ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_game_id_check;
   `);
   await pool.query(`
     UPDATE rooms SET status = 'closed', closed_at = NOW()

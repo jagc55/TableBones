@@ -60,14 +60,16 @@ export type GameAction =
   | { type: 'PLACE_BID'; bid: number }
   | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' }
   | { type: 'ADVANCE_TRICK' }
-  | { type: 'NEXT_ROUND' };
+  | { type: 'NEXT_ROUND' }
+  | { type: string; [key: string]: any };
 
 export type NetworkEvent =
   | { type: 'CONNECTED'; userId: string }
   | { type: 'ROOM_UPDATED'; room: Room }
   | { type: 'MATCH_STARTED'; room: Room }
   | { type: 'MATCH_STATE'; roomId: string; state: MatchState }
-  | { type: 'MATCH_FINISHED'; roomId: string; state: MatchState; room?: Room }
+  | { type: 'MATCH_FINISHED'; roomId: string; state: MatchState; room?: Room; scores?: Record<string, number>; breakdowns?: Record<string, any> }
+  | { type: 'GAME_ACTION_RESULT'; roomId: string; [key: string]: any }
   | { type: 'BONEGLE_WORD_RESULT'; roomId: string; word: string; status: BonegleWordFeedback['status'] }
   | { type: 'ROOM_CLOSED'; roomId: string }
   | { type: 'CHAT_MESSAGE'; roomId: string; chatMessage: ChatMessage }

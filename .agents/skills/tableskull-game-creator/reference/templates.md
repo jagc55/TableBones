@@ -64,9 +64,54 @@ export const submitMyGameAction = (state, userId, action) => {
   if (!isLegalMove(state, userId, action.moveId)) throw new Error('Illegal move.');
   return applyMove(state, userId, action.moveId);
 };
+
+export const getMyGamePlayerBreakdowns = (state) => {
+  const result = {};
+  for (const player of state.players) {
+    result[player.id] = {
+      score: state.scores[player.id] || 0,
+      sections: [
+        {
+          title: 'Round Performance',
+          items: [
+            { label: 'Moves Made', value: 12 },
+            { label: 'Accuracy', value: '85%' },
+          ],
+        },
+      ],
+    };
+  }
+  return result;
+};
+
+export const myGameEngine = {
+  id: 'my-game',
+  minPlayers: 2,
+  maxPlayers: 4,
+  createState: createMyGameState,
+  applyAction: (state, userId, action) => {
+    const res = submitMyGameAction(state, userId, action);
+    return { finished: res.finished, clientResult: null };
+  },
+  onDeadline: (state) => ({ finished: false }),
+  getAutomaticAction: (state) => null,
+  getBotDelay: (state) => null,
+  onWalkover: (state, winnerId) => {
+    state.phase = 'resolved';
+    state.winnerId = winnerId;
+  },
+  onPlayerLeaveReschedule: (state) => {},
+  removePlayer: (state, userId) => {
+    delete state.scores[userId];
+    return true;
+  },
+  getScores: (state) => ({ ...state.scores }),
+  getPlayerBreakdowns: getMyGamePlayerBreakdowns,
+  projectState: (state, userId) => projectMyGameState(state, userId),
+};
 ```
 
-Validate before mutating. Define deadlines with the server deadline helper and connect them in the match service; `deadline: null` means this skeleton has no scheduled expiry yet. Add removal, scoring and bot helpers as the game's rules require. Never accept `userId` from the action payload.
+Register `myGameEngine` in `src/server/games/index.js` under `GAME_ENGINES`. That is the only backend registration step required.
 
 ## 3. Projection
 

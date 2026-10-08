@@ -1,6 +1,6 @@
 import { pool } from '../db/pool.js';
 import { loadRoom, isRoomMember } from './rooms.js';
-import { removePlayerFromMatch, resolveBonegle, setDeadline } from '../games/index.js';
+import { removePlayerFromMatch, getGameEngine } from '../games/index.js';
 export const createRoomLifecycle = (connections, broadcast, matches) => {
   const { send, broadcastRoom, broadcastPublicRooms } = broadcast;
   const { activeMatches, clearMatchTimer, getLiveMatch, finishMatch, commitMatchAction } = matches;
@@ -76,13 +76,11 @@ export const createRoomLifecycle = (connections, broadcast, matches) => {
         if (remaining.players.length < remaining.minPlayers) {
           const winner = remaining.players[0];
           if (winner && match.state.players.some((p) => p.id === winner.id)) {
-            if (match.state.gameId === 'bonegle') {
-              resolveBonegle(match.state);
+            const engine = getGameEngine(match.state.gameId);
+            if (engine?.onWalkover) {
+              engine.onWalkover(match.state, winner.id);
             } else {
-              match.state.phase = 'game_over';
-              match.state.currentTrick = [];
-              match.state.turnPlayerId = null;
-              match.state.leadPlayerId = null;
+              match.state.phase = 'resolved';
             }
             match.state.winnerId = winner.id;
             match.state.winReason = 'Walkover victory: last player standing.';
@@ -94,8 +92,9 @@ export const createRoomLifecycle = (connections, broadcast, matches) => {
             return true;
           }
         } else {
-          if (match.state.gameId === 'midnight-alley') {
-            setDeadline(match.state, match.state.turnTimeLimitSec || remaining.settings.turnTimeLimitSec);
+          const engine = getGameEngine(match.state.gameId);
+          if (engine?.onPlayerLeaveReschedule) {
+            engine.onPlayerLeaveReschedule(match.state);
           }
           await commitMatchAction(match, false);
           await broadcastRoom(roomId);

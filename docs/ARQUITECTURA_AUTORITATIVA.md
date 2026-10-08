@@ -144,4 +144,4 @@ Al reconectar, el cliente vuelve a suscribirse a la sala recordada y recibe su e
 | [src/frontend/games/registry.ts](../src/frontend/games/registry.ts) | Catalogo de juegos y manifiestos |
 | [src/frontend/components/GameStageFrame.tsx](../src/frontend/components/GameStageFrame.tsx) | Escenario en iframe; sus interacciones deben usar `ownerDocument` |
 
-Para cambiar reglas, modifica primero el motor del backend y despues la UI o los helpers correspondientes. Para crear un juego, sigue [Anadir un Juego](ANADIR_JUEGO.md): incluye ubicaciones, conexiones, registro, migraciones SQL y verificacion; registrarlo en el catalogo no es suficiente.
+Para cambiar reglas, modifica primero el motor del backend y despues la UI o los helpers correspondientes. Para crear un juego, sigue [Adding a New Game (Anadir un Juego)](ANADIR_JUEGO.md): explica el patrón de adaptador desacoplado, ubicaciones, registro y verificación.

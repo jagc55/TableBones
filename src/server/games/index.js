@@ -1,41 +1,63 @@
-import { createBonegleState } from './bonegle/engine.js';
-import { createMidnightState } from './midnight-alley/engine.js';
+import { bonegleEngine, createBonegleState, submitBonegleWord, resolveBonegle } from './bonegle/engine.js';
+import { midnightAlleyEngine, createMidnightState, submitMidnightAction, projectMatchState } from './midnight-alley/engine.js';
 import { dealMidnightRound } from './midnight-alley/deck.js';
-export { submitBonegleWord, resolveBonegle } from './bonegle/engine.js';
-export { submitMidnightAction, projectMatchState } from './midnight-alley/engine.js';
-export { automaticMidnightAction } from './midnight-alley/bot.js';
+import { automaticMidnightAction } from './midnight-alley/bot.js';
+
+export {
+  bonegleEngine,
+  createBonegleState,
+  submitBonegleWord,
+  resolveBonegle,
+  midnightAlleyEngine,
+  createMidnightState,
+  submitMidnightAction,
+  projectMatchState,
+  automaticMidnightAction,
+  dealMidnightRound,
+};
 export { setDeadline } from './deadline.js';
-export const createMatchState = (room, matchId) => room.gameId === 'bonegle'
-  ? createBonegleState(room, matchId)
-  : createMidnightState(room, matchId);
+
+export const GAME_ENGINES = {
+  bonegle: bonegleEngine,
+  'midnight-alley': midnightAlleyEngine,
+};
+
+export const getGameEngine = (gameId) => GAME_ENGINES[gameId] || null;
+
+export const registerGameEngine = (engine) => {
+  GAME_ENGINES[engine.id] = engine;
+};
+
+export const createMatchState = (room, matchId) => {
+  const engine = getGameEngine(room.gameId);
+  if (!engine) throw new Error(`Unsupported game: ${room.gameId}`);
+  return engine.createState(room, matchId);
+};
+
 export const removePlayerFromMatch = (state, userId) => {
   if (!state.players.some((player) => player.id === userId)) return false;
-
   state.players = state.players.filter((player) => player.id !== userId);
-  if (state.gameId === 'bonegle') {
-    delete state.submittedWords[userId];
-    if (state.breakdowns) delete state.breakdowns[userId];
-    return true;
-  }
-
-  state.playerOrder = state.playerOrder.filter((playerId) => playerId !== userId);
-  delete state.hands[userId];
-  delete state.bids[userId];
-  delete state.tricksWon[userId];
-  delete state.roundBonuses[userId];
-  delete state.cumulativeScores[userId];
-  state.currentTrick = [];
-
-  if (state.playerOrder.length > 0 && state.phase !== 'game_over') {
-    dealMidnightRound(state);
-  } else {
-    state.turnPlayerId = null;
-    state.leadPlayerId = null;
+  const engine = getGameEngine(state.gameId);
+  if (engine?.removePlayer) {
+    return engine.removePlayer(state, userId);
   }
   return true;
 };
 
 export const matchScores = (state) => {
-  if (state.gameId === 'bonegle') return Object.fromEntries(state.players.map((player) => [player.id, state.breakdowns?.[player.id]?.score || 0]));
-  return { ...state.cumulativeScores };
+  const engine = getGameEngine(state.gameId);
+  if (engine?.getScores) return engine.getScores(state);
+  return {};
+};
+
+export const getPlayerBreakdowns = (state) => {
+  const engine = getGameEngine(state.gameId);
+  if (engine?.getPlayerBreakdowns) return engine.getPlayerBreakdowns(state);
+  return {};
+};
+
+export const projectStateForUser = (state, userId) => {
+  const engine = getGameEngine(state.gameId);
+  if (engine?.projectState) return engine.projectState(state, userId);
+  return state;
 };

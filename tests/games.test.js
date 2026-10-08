@@ -62,10 +62,17 @@ test('Bonegle resolution awards unique and shared points and is idempotent', () 
   assert.deepEqual(games.matchScores(unique), { human: 2, bot: 0 });
   assert.equal(unique.winnerId, 'human');
   assert.equal(games.resolveBonegle(unique), false);
+  const uniqueBreakdowns = games.getPlayerBreakdowns(unique);
+  assert.equal(uniqueBreakdowns.human.uniqueWords[0].word, 'CAT');
+  assert.equal(uniqueBreakdowns.human.sections[0].title, 'Unique Words');
+
   const shared = wordState();
   for (const playerId of ['human', 'bot']) games.submitBonegleWord(shared, playerId, wordAction, ROOT_DIR);
   games.resolveBonegle(shared);
   assert.deepEqual(games.matchScores(shared), { human: 1, bot: 1 });
+  const sharedBreakdowns = games.getPlayerBreakdowns(shared);
+  assert.equal(sharedBreakdowns.human.sharedWords[0].word, 'CAT');
+  assert.deepEqual(sharedBreakdowns.human.sharedWords[0].sharedWith, ['Bot']);
 });
 
 test('Midnight state projection hides other hands without mutating the server state', () => {

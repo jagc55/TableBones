@@ -34,7 +34,7 @@ export const attachMessageHandlers = (ws, user, connection, connections, broadca
           throw new Error('A game action is required.');
         }
         const result = await applyMatchAction(roomId, user.id, message.action);
-        if (result?.type === 'BONEGLE_WORD_RESULT') send(ws, result);
+        if (result) send(ws, result);
         return;
       }
       if (message.type === 'CHAT_SEND') {

@@ -3,10 +3,18 @@ import { pool, withTransaction } from '../db/pool.js';
 import { ROOT_DIR, DEFAULT_SETTINGS } from '../config.js';
 import { loadRoom } from './rooms.js';
 import { awardAchievement } from './auth.js';
-import { automaticMidnightAction, createMatchState, matchScores, projectMatchState, removePlayerFromMatch, resolveBonegle, setDeadline, submitBonegleWord, submitMidnightAction } from '../games/index.js';
+import {
+  createMatchState,
+  getGameEngine,
+  getPlayerBreakdowns,
+  matchScores,
+  setDeadline,
+} from '../games/index.js';
+
 export const createMatchService = (broadcast) => {
   const activeMatches = new Map();
   const { broadcastRoom, broadcastPublicRooms, broadcastMatchState, broadcastMatchFinished } = broadcast;
+
   const getLiveMatch = async (roomId) => {
     for (const match of activeMatches.values()) {
       if (match.state.roomId === roomId) return match;
@@ -35,7 +43,14 @@ export const createMatchService = (broadcast) => {
     const matchId = randomUUID();
     const state = createMatchState(room, matchId);
     state.turnTimeLimitSec = Math.max(1, Number(room.settings.turnTimeLimitSec) || DEFAULT_SETTINGS.turnTimeLimitSec);
-    if (state.gameId === 'midnight-alley') setDeadline(state, state.turnTimeLimitSec);
+
+    const engine = getGameEngine(room.gameId);
+    if (engine?.initDeadline) {
+      engine.initDeadline(state);
+    } else if (state.gameId === 'midnight-alley') {
+      setDeadline(state, state.turnTimeLimitSec);
+    }
+
     const match = { id: matchId, state, timer: null, finalized: false };
     activeMatches.set(matchId, match);
     try {
@@ -68,6 +83,8 @@ export const createMatchService = (broadcast) => {
     clearMatchTimer(match);
     const { state } = match;
     const scores = matchScores(state);
+    const breakdowns = getPlayerBreakdowns(state);
+
     try {
       await withTransaction(async (client) => {
         await client.query(
@@ -108,9 +125,26 @@ export const createMatchService = (broadcast) => {
       match.finalized = false;
       throw error;
     }
+
     const completedRoom = await loadRoom(state.roomId);
+    if (completedRoom?.players && breakdowns) {
+      completedRoom.players = completedRoom.players.map((p) => {
+        const b = breakdowns[p.id];
+        if (!b) return p;
+        return {
+          ...p,
+          breakdownSections: b.sections,
+          breakdownItems: b.items,
+          wordsBreakdown: b.words ? {
+            uniqueWords: b.uniqueWords || [],
+            sharedWords: b.sharedWords || [],
+          } : undefined,
+        };
+      });
+    }
+
     broadcastMatchState(state.roomId, state);
-    broadcastMatchFinished(state.roomId, state, completedRoom);
+    broadcastMatchFinished(state.roomId, state, completedRoom, { scores, breakdowns });
     await broadcastRoom(state.roomId);
     await broadcastPublicRooms();
     activeMatches.delete(match.id);
@@ -126,49 +160,44 @@ export const createMatchService = (broadcast) => {
     scheduleMatch(match);
   };
 
-  const applyAutomaticMidnightAction = async (matchId) => {
+  const applyAutomaticAction = async (matchId) => {
     const match = activeMatches.get(matchId);
-    if (!match || match.finalized || match.state.gameId !== 'midnight-alley') return;
-    const next = automaticMidnightAction(match.state);
+    if (!match || match.finalized) return;
+    const engine = getGameEngine(match.state.gameId);
+    const next = engine?.getAutomaticAction?.(match.state);
     if (!next) return;
-    const result = submitMidnightAction(match.state, next.userId, next.action);
+    const result = engine.applyAction(match.state, next.userId, next.action, ROOT_DIR);
     await commitMatchAction(match, result.finished);
   };
 
   const handleMatchDeadline = async (matchId, deadline) => {
     const match = activeMatches.get(matchId);
     if (!match || match.finalized || match.state.deadline !== deadline) return;
-    if (match.state.gameId === 'bonegle') {
-      if (resolveBonegle(match.state)) await finishMatch(match);
-      return;
+    const engine = getGameEngine(match.state.gameId);
+    if (engine?.onDeadline) {
+      const result = engine.onDeadline(match.state, ROOT_DIR);
+      if (result?.finished) {
+        await finishMatch(match);
+        return;
+      }
     }
-    await applyAutomaticMidnightAction(matchId);
+    await applyAutomaticAction(matchId);
   };
 
   const scheduleMatch = (match) => {
     clearMatchTimer(match);
     if (match.finalized || !match.state.deadline) return;
     const state = match.state;
+    const engine = getGameEngine(state.gameId);
     let delay = Math.max(0, state.deadline - Date.now());
 
-    if (state.gameId === 'midnight-alley') {
-      if (state.phase === 'bidding') {
-        const hasUnbidBot = state.players.some((p) => p.isBot && state.bids[p.id] === undefined);
-        if (hasUnbidBot) delay = 300;
-      } else if (state.phase === 'playing') {
-        const activePlayer = state.players.find((p) => p.id === state.turnPlayerId);
-        if (activePlayer?.isBot) delay = 450;
-      }
-    }
+    const botDelay = engine?.getBotDelay?.(state);
+    if (botDelay != null) delay = botDelay;
 
     const deadline = state.deadline;
     match.timer = setTimeout(() => {
       const current = activeMatches.get(match.id);
       if (!current || current.state.deadline !== deadline) return;
-      if (state.gameId === 'midnight-alley') {
-        applyAutomaticMidnightAction(match.id).catch((error) => console.error('Automatic match action failed', error));
-        return;
-      }
       handleMatchDeadline(match.id, deadline).catch((error) => console.error('Match deadline failed', error));
     }, delay);
   };
@@ -177,32 +206,13 @@ export const createMatchService = (broadcast) => {
     const match = await getLiveMatch(roomId);
     if (!match) throw new Error('There is no live match in this room.');
     if (!match.state.players.some((player) => player.id === userId)) throw new Error('Only match players may act.');
-    if (match.state.gameId === 'bonegle') {
-      const word = String(action.word || '').trim().toUpperCase();
-      if (Date.now() >= match.state.deadline) {
-        if (resolveBonegle(match.state)) await finishMatch(match);
-        return { type: 'BONEGLE_WORD_RESULT', roomId, word, status: 'invalid' };
-      }
-      if (action.type !== 'SUBMIT_WORD') throw new Error('Unsupported Bonegle action.');
-      try {
-        submitBonegleWord(match.state, userId, action, ROOT_DIR);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : '';
-        return {
-          type: 'BONEGLE_WORD_RESULT',
-          roomId,
-          word,
-          status: message.includes('already submitted') ? 'duplicate' : 'invalid',
-        };
-      }
-      await commitMatchAction(match, false);
-      return { type: 'BONEGLE_WORD_RESULT', roomId, word, status: 'valid' };
-    }
-    if (!['PLACE_BID', 'PLAY_CARD', 'ADVANCE_TRICK', 'NEXT_ROUND'].includes(action.type)) {
-      throw new Error('Unsupported Midnight Alley action.');
-    }
-    const result = submitMidnightAction(match.state, userId, action);
+    const engine = getGameEngine(match.state.gameId);
+    if (!engine) throw new Error(`Unsupported game: ${match.state.gameId}`);
+
+    const result = engine.applyAction(match.state, userId, action, ROOT_DIR);
     await commitMatchAction(match, result.finished);
+    return result.clientResult || null;
   };
+
   return { activeMatches, getLiveMatch, clearMatchTimer, createActiveMatch, finishMatch, commitMatchAction, scheduleMatch, applyMatchAction };
 };

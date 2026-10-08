@@ -3,7 +3,7 @@ import { pool, withTransaction } from '../db/pool.js';
 import { DEFAULT_SETTINGS } from '../config.js';
 import { requireUser, awardAchievement } from '../services/auth.js';
 import { getActiveRoomForUser, createRoomCode, loadRoom, isRoomMember, assertHost } from '../services/rooms.js';
-import { projectMatchState } from '../games/index.js';
+import { projectMatchState, getGameEngine } from '../games/index.js';
 import { readJson, writeJson } from './http.js';
 export const createRoomRoutes = (connections, broadcast, matches, lifecycle) => {
   const { send, broadcastRoom, broadcastPublicRooms } = broadcast;
@@ -25,9 +25,10 @@ export const createRoomRoutes = (connections, broadcast, matches, lifecycle) => 
       if (await getActiveRoomForUser(user.id)) throw new Error('Leave your active room before creating another one.');
       const body = await readJson(req);
       const gameId = body.gameId;
-      if (gameId !== 'bonegle' && gameId !== 'midnight-alley') throw new Error('Unsupported game.');
-      const minPlayers = gameId === 'bonegle' ? 2 : 2;
-      const maxPlayers = gameId === 'bonegle' ? 6 : 8;
+      const engine = getGameEngine(gameId);
+      if (!engine) throw new Error('Unsupported game.');
+      const minPlayers = Number(body.minPlayers) || engine.minPlayers || 2;
+      const maxPlayers = Number(body.maxPlayers) || engine.maxPlayers || 8;
       const roomId = randomUUID();
       const settings = { ...DEFAULT_SETTINGS, ...(body.settings || {}) };
       await withTransaction(async (client) => {

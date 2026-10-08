@@ -43,10 +43,16 @@ export const createBroadcaster = (connections) => {
     }
   };
 
-  const broadcastMatchFinished = (roomId, state, room) => {
+  const broadcastMatchFinished = (roomId, state, room, meta = {}) => {
     for (const [ws, connection] of connections) {
       if (connection.roomIds.has(roomId)) {
-        send(ws, { type: 'MATCH_FINISHED', roomId, room, state: projectMatchState(state, connection.userId) });
+        send(ws, {
+          type: 'MATCH_FINISHED',
+          roomId,
+          room,
+          state: projectMatchState(state, connection.userId),
+          ...meta,
+        });
       }
     }
   };

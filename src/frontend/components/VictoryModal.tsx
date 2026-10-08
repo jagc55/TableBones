@@ -63,6 +63,9 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
     }));
   };
 
+  const hasAnySectionsBreakdown = allPlayers.some(
+    (p) => p.breakdownSections && p.breakdownSections.length > 0
+  );
   const hasAnyWordsBreakdown = allPlayers.some(
     (p) => p.wordsBreakdown && (p.wordsBreakdown.uniqueWords.length > 0 || p.wordsBreakdown.sharedWords.length > 0)
   );
@@ -115,8 +118,8 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
           {/* All Players Standings with Expanders */}
           <div className="runnerups-standings">
             <h4 className="standings-heading">
-              {hasAnyWordsBreakdown
-                ? 'FINAL STANDINGS & FOUND WORDS'
+              {hasAnyWordsBreakdown || hasAnySectionsBreakdown
+                ? 'FINAL STANDINGS & MATCH DETAILS'
                 : hasAnyCustomBreakdown
                 ? 'FINAL STANDINGS & ROUND DETAILS'
                 : 'FINAL STANDINGS'}
@@ -124,13 +127,15 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             <div className="standings-list">
               {sortedPlayers.map((player, idx) => {
                 const isExpanded = !!expandedPlayerIds[player.id];
+                const sections = player.breakdownSections;
                 const breakdown = player.wordsBreakdown;
                 const customItems = player.breakdownItems;
+                const hasSections = !!(sections && sections.length > 0);
                 const hasWords =
                   breakdown &&
                   (breakdown.uniqueWords.length > 0 || breakdown.sharedWords.length > 0);
                 const hasCustom = !!(customItems && customItems.length > 0);
-                const hasDetails = hasWords || hasCustom;
+                const hasDetails = hasSections || hasWords || hasCustom;
 
                 return (
                   <div key={player.id} className="player-standings-item">
@@ -160,8 +165,36 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                       </div>
                     </div>
 
-                    {/* Word Details Expander */}
-                    {isExpanded && breakdown && hasWords && (
+                    {/* Structured Sections Expander (Generic for any game!) */}
+                    {isExpanded && hasSections && sections && (
+                      <div className="player-words-expander cel-card">
+                        {sections.map((section, sIdx) => (
+                          <div key={sIdx} className="expander-section">
+                            <span className="expander-subtitle">
+                              ★ {section.title} {section.badge && <small className="mult-label">{section.badge}</small>}
+                            </span>
+                            <div className="expander-chips-box">
+                              {section.items.length === 0 ? (
+                                <span className="expander-empty">None</span>
+                              ) : (
+                                section.items.map((item, iIdx) => (
+                                  <span
+                                    key={iIdx}
+                                    className={`word-chip ${item.variant === 'secondary' ? 'shared-chip' : 'unique-chip'}`}
+                                  >
+                                    {item.label} {item.value && <strong>{item.value}</strong>}
+                                    {item.detail && <small className="chip-with">({item.detail})</small>}
+                                  </span>
+                                ))
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Word Details Expander fallback */}
+                    {isExpanded && !hasSections && breakdown && hasWords && (
                       <div className="player-words-expander cel-card">
                         {/* Unique Words */}
                         <div className="expander-section">
@@ -205,7 +238,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                     )}
 
                     {/* Generic Game Stat Details Expander */}
-                    {isExpanded && !hasWords && hasCustom && customItems && (
+                    {isExpanded && !hasSections && !hasWords && hasCustom && customItems && (
                       <div className="player-words-expander cel-card">
                         <div className="expander-section">
                           <span className="expander-subtitle">★ Match Details</span>

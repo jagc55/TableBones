@@ -1,139 +1,273 @@
-# Anadir un Juego
+# Adding a New Game to TableSkull
 
-Un juego necesita tres piezas: **contratos compartidos**, **motor autoritativo de backend** e **interfaz React**. El manifiesto registra la interfaz; no registra automaticamente las reglas en el backend.
+TableSkull uses a **decoupled Adapter Pattern** for multiplayer games. The platform handles authentication, lobby rooms, WebSocket transport, database persistence, and the end-of-match victory podium completely agnostically. 
 
-Esta guia describe la estructura actual. Consulta tambien [la arquitectura](ARQUITECTURA_AUTORITATIVA.md) y [el contrato de juego](GAME_ARCHITECTURE_CONTRACT.md).
+When introducing a new game, **you only touch your game's folders and two central registries**:
+1. Backend: Register your engine adapter in `src/server/games/index.js` (`GAME_ENGINES`).
+2. Frontend: Register your manifest in `src/frontend/games/registry.ts` (`GAME_REGISTRY`).
 
-## Donde Va Cada Cosa
+---
+
+## Directory Structure
 
 ```text
 src/
   shared/types/
-    index.ts                         GameId y modelos de plataforma
-    network.ts                       GameAction, MatchState y NetworkEvent
-    mi-juego.ts                      Datos de piezas y estado visible (si hace falta)
-  server/games/mi-juego/
-    engine.js                        Estado inicial, acciones y transiciones
-    rules.js                         Reglas puras y puntuacion (si hace falta)
-    bot.js                           Seleccion de acciones de bots (si hace falta)
-    projection.js                    Estado visible por usuario (si hace falta)
-  frontend/games/mi-juego/
-    MiJuegoEngine.tsx                Renderiza matchState y envia acciones
-    MiJuegoComponents.tsx            Componentes propios (si hace falta)
-    MiJuegoRules.tsx                 Reglas para el jugador
-    MiJuegoSettings.tsx              Ajustes del lobby (si hace falta)
-    manifest.tsx                    GameManifest
-    index.ts                         Exporta el manifiesto y componentes
+    index.ts                         GameId and shared platform models
+    network.ts                       MatchState, GameAction, and NetworkEvent
+    <my-game>.ts                     (Optional) Domain models and piece definitions
+  server/games/<my-game>/
+    engine.js                        Engine adapter, initial state, action validation & resolution
+    rules.js                         (Optional) Pure game rules and scoring calculations
+    bot.js                           (Optional) Automated bot move decisions
+    projection.js                    (Optional) State sanitization / per-player projection
+  frontend/games/<my-game>/
+    <MyGame>Engine.tsx               React component rendering board and dispatching actions
+    <MyGame>Rules.tsx                Player-facing rules modal
+    <MyGame>Settings.tsx             (Optional) Custom room options in create room modal
+    manifest.tsx                     GameManifest definition and metadata
+    index.ts                         Barrel exports for manifest and components
 tests/
-  games.test.js                      Pruebas del motor
-  backend.test.js                    Integracion HTTP, WebSocket y persistencia
+  games.test.js                      Engine logic, transitions, and scoring unit tests
+  backend.test.js                    End-to-end HTTP, WebSocket, and lifecycle tests
 ```
 
-No crees archivos vacios para completar el arbol. El backend usa JavaScript ESM; frontend y contratos usan TypeScript. Los modulos de `shared` no deben importar React, `window`, APIs de Node ni modulos de `frontend` o `server`.
+---
 
-Los avatares de perfil se guardan solo en `src/frontend/assets/avatars` y se registran en [avatars.tsx](../src/frontend/utils/avatars.tsx). Importa las imagenes propias del juego desde el frontend; utiliza `public` solo cuando necesites una URL estatica. Los diccionarios de Bonegle estan en `public/dict` y el backend los lee usando `ROOT_DIR`, no desde el navegador.
+## Step-by-Step Implementation Guide
 
-## Como Se Conecta
+### Step 1: Define Contracts in `src/shared/types`
 
-```mermaid
-flowchart TD
-    UI["MiJuegoEngine.tsx"] -->|"onGameAction(action)"| APP["frontend/App.tsx"]
-    APP --> CLIENT["frontend/websocket/client.ts"]
-    CLIENT -->|"WS: GAME_ACTION + roomId"| HANDLER["server/websocket/handlers.js"]
-    HANDLER -->|"Usuario autenticado y pertenencia"| SERVICE["server/services/matches.js"]
-    TIMER["Timer o bot del backend"] --> SERVICE
-    SERVICE -->|"Accion y estado actual"| ENGINE["server/games/mi-juego/engine.js"]
-    ENGINE -->|"Nuevo estado / fin"| COMMIT["commitMatchAction / finishMatch"]
-    COMMIT --> DB["PostgreSQL: snapshot y resultado"]
-    COMMIT --> BROADCAST["server/websocket/broadcast.js"]
-    BROADCAST --> PROJECT["games/index.js: projectMatchState por usuario"]
-    PROJECT -->|"WS: MATCH_STATE / MATCH_FINISHED"| CLIENT
-    CLIENT --> APP
-    APP -->|"matchState"| UI
+1. **Game ID**: `src/shared/types/index.ts` allows any registered string ID (`GameId`).
+2. **Match State & Actions**: In `src/shared/types/network.ts`:
+   - Define `<MyGame>MatchState` (projected state visible to the client).
+   - Add `<MyGame>MatchState` to `MatchState`.
+   - Add game action variants to `GameAction`.
+
+```typescript
+// Example: src/shared/types/network.ts
+export interface TicTacToeMatchState {
+  gameId: 'tictactoe';
+  roomId: string;
+  board: Array<string | null>;
+  turnPlayerId: string | null;
+  phase: 'active' | 'resolved';
+  winnerId?: string | null;
+  winReason?: string;
+  deadline?: number | null;
+}
+
+export type TicTacToeAction = {
+  type: 'PLACE_MARK';
+  cellIndex: number;
+};
 ```
 
-La sesion y el socket ya existen antes de entrar al juego. Crear o unirse a una sala e iniciar la partida son llamadas HTTP; al entrar en la sala, el cliente envia `SUBSCRIBE_ROOM` por el mismo socket. No crees otro socket, servidor o tabla de usuarios por juego.
+---
 
-## 1. Definir Contratos
+### Step 2: Implement the Server Engine Adapter in `src/server/games/<my-game>/`
 
-En [src/shared/types/index.ts](../src/shared/types/index.ts), anade el ID a `GameId`. En [src/shared/types/network.ts](../src/shared/types/network.ts):
+Create `src/server/games/<my-game>/engine.js`. The engine must export an adapter object matching the engine contract:
 
-- Anade el estado visible a la union `MatchState`, discriminado por `gameId: 'mi-juego'`.
-- Anade las acciones a `GameAction`, con nombres y payloads propios del juego.
-- Extiende `NetworkEvent` solo si necesitas feedback que no cabe en el estado general.
+```javascript
+// src/server/games/<my-game>/engine.js
+export const myGameEngine = {
+  id: 'my-game',
+  minPlayers: 2,
+  maxPlayers: 4,
 
-El cliente envia intenciones, no resultados: por ejemplo, `{ type: 'MI_JUEGO_PLAY', pieceId }`, nunca puntos o un ganador. La identidad del actor procede de la sesion del servidor, no de un `playerId` enviado por el cliente. Los tipos TS no sustituyen la validacion runtime de mensajes JSON.
+  // 1. Create initial server state
+  createState: (room, matchId) => {
+    const players = room.players.map((p) => ({ id: p.id, name: p.name, avatarId: p.avatarId, isBot: p.isBot }));
+    return {
+      id: matchId,
+      roomId: room.id,
+      gameId: room.gameId,
+      players,
+      phase: 'active',
+      turnPlayerId: players[0]?.id || null,
+      scores: Object.fromEntries(players.map((p) => [p.id, 0])),
+      startedAt: Date.now(),
+    };
+  },
 
-Separa el estado interno del estado enviado: mazos, manos ajenas, semillas privadas o decisiones pendientes no deben estar en la proyeccion publica.
+  // 2. Validate and apply a player action
+  applyAction: (state, userId, action, rootDir) => {
+    if (state.phase !== 'active') throw new Error('Match is no longer active.');
+    if (state.turnPlayerId !== userId) throw new Error('It is not your turn.');
 
-## 2. Implementar el Motor
+    // Mutate state according to game rules...
+    const finished = checkWinCondition(state);
+    return {
+      finished,
+      clientResult: null, // (Optional) Private feedback object sent back to the acting user
+    };
+  },
 
-En `src/server/games/mi-juego/engine.js`, implementa:
+  // 3. Handle timer deadline expiration
+  onDeadline: (state, rootDir) => {
+    // If deadline causes match completion or turn timeout:
+    return { finished: false };
+  },
 
-| Operacion | Responsabilidad |
-| --- | --- |
-| Estado inicial | Recibe sala y matchId; crea participantes, fases, tablero o reparto y deadlines |
-| Aplicar accion | Valida fase, actor, turno, propiedad de piezas y datos; modifica solo acciones aceptadas |
-| Resolver | Calcula puntos y ganador; define la fase terminal y finishedAt |
-| Proyectar | Devuelve solo lo que puede ver el usuario, incluidas las partes permitidas del historial |
-| Retirar jugador | Limpia sus datos y define que ocurre con el turno o ronda |
-| Accion automatica | Elige acciones legales para bots o expiracion de plazo |
+  // 4. Automated bot action generator
+  getAutomaticAction: (state) => {
+    if (state.phase !== 'active') return null;
+    const current = state.players.find((p) => p.id === state.turnPlayerId);
+    if (!current?.isBot) return null;
+    return {
+      userId: current.id,
+      action: { type: 'PLACE_MARK', cellIndex: pickBestMove(state) },
+    };
+  },
 
-Las reglas no abren sockets ni escriben SQL. El servicio de partidas coordina timers, persistencia y difusion. Una accion rechazada no debe dejar un estado parcialmente modificado. El cliente puede hacer validaciones visuales, pero el servidor siempre vuelve a comprobarlas.
+  // 5. Bot pacing delay (ms)
+  getBotDelay: (state) => {
+    const current = state.players.find((p) => p.id === state.turnPlayerId);
+    return current?.isBot ? 500 : null;
+  },
 
-## 3. Conectar el Backend
+  // 6. Handle match abandonment / walkover
+  onWalkover: (state, winnerId) => {
+    state.phase = 'resolved';
+    state.winnerId = winnerId;
+    state.winReason = 'Walkover victory: opponents left the match.';
+    state.finishedAt = Date.now();
+  },
 
-Actualmente hay ramas explicitas para Bonegle y Midnight Alley. Amplia cada una para el juego nuevo; no dejes que el ID caiga en un `else` de Midnight Alley.
+  // 7. Adjust state when a player leaves active game
+  removePlayer: (state, userId) => {
+    delete state.scores[userId];
+    return true;
+  },
 
-| Archivo existente | Cambio necesario |
-| --- | --- |
-| [games/index.js](../src/server/games/index.js) | Dispatch de `createMatchState`, `removePlayerFromMatch`, `matchScores` y `projectMatchState` |
-| [services/matches.js](../src/server/services/matches.js) | Dispatch de `applyMatchAction`, creacion de deadline, `handleMatchDeadline` y `scheduleMatch`; conectar bots y finalizacion |
-| [services/roomLifecycle.js](../src/server/services/roomLifecycle.js) | Retirada, quorum, walkover, fase terminal y deadlines al salir un jugador |
-| [routes/rooms.js](../src/server/routes/rooms.js) | Admitir gameId al crear sala, min/max jugadores y validar ajustes en creacion/actualizacion |
-| [config.js](../src/server/config.js) | Valores por defecto si hay nuevos ajustes comunes |
-| [db/schema.js](../src/server/db/schema.js) | Admitir gameId en las restricciones de rooms y matches para instalaciones nuevas |
+  // 8. Final match scores
+  getScores: (state) => ({ ...state.scores }),
 
-Reutiliza `commitMatchAction` para acciones aceptadas y `finishMatch` para resultados. No implementes otro ciclo de guardado o timers en el componente React.
+  // 9. Structured breakdowns for the Victory Podium expanders
+  getPlayerBreakdowns: (state) => {
+    const result = {};
+    for (const player of state.players) {
+      result[player.id] = {
+        score: state.scores[player.id] || 0,
+        sections: [
+          {
+            title: 'Round Highlights',
+            badge: 'STATS',
+            items: [
+              { label: 'Moves Made', value: 8, variant: 'primary' },
+              { label: 'Accuracy', value: '100%', variant: 'neutral' },
+            ],
+          },
+        ],
+      };
+    }
+    return result;
+  },
 
-[websocket/handlers.js](../src/server/websocket/handlers.js) ya entrega `GAME_ACTION` al servicio: normalmente no necesita una rama por juego. [websocket/broadcast.js](../src/server/websocket/broadcast.js) proyecta y distribuye el estado. Si anades feedback privado, actualiza emision, `NetworkEvent` y consumo en el cliente; no lo difundas a toda la sala.
-
-### Bases de Datos Existentes
-
-Cambiar `CREATE TABLE IF NOT EXISTS` **no actualiza las restricciones de tablas existentes**. Antes del despliegue, consulta los nombres reales:
-
-```sql
-SELECT conrelid::regclass AS table_name, conname, pg_get_constraintdef(oid)
-FROM pg_constraint
-WHERE contype = 'c'
-  AND conrelid IN ('rooms'::regclass, 'matches'::regclass);
+  // 10. Sanitize state per player (hide opponent hands/cards/secrets)
+  projectState: (state, userId) => {
+    // Return sanitized view visible to userId
+    return state;
+  },
+};
 ```
 
-Prepara una migracion transaccional que sustituya los dos CHECK de `game_id`, conserve los IDs anteriores y anada `'mi-juego'`. Aplica la migracion tanto a la instalacion existente como al esquema de nuevas instalaciones. No borres tablas ni datos para registrar un juego.
+#### Register the Server Adapter
+In `src/server/games/index.js`, add your engine to `GAME_ENGINES`:
 
-## 4. Implementar y Registrar la UI
+```javascript
+import { myGameEngine } from './my-game/engine.js';
 
-`MiJuegoEngine.tsx` recibe [BaseGameEngineProps](../src/frontend/types/game.ts). Debe leer `matchState`, comprobar su `gameId` y enviar `onGameAction(action)`. Solo mantiene estado local de presentacion: seleccion, animacion, orden visual o modales.
+export const GAME_ENGINES = {
+  bonegle: bonegleEngine,
+  'midnight-alley': midnightAlleyEngine,
+  'my-game': myGameEngine, // <-- Register here!
+};
+```
 
-No inicialices partidas, repartas cartas, ejecutes bots ni decidas puntuaciones con `onPlayerScore` o victorias con `onMatchResolved`: esos callbacks son compatibilidad historica, no el flujo autoritativo. `AbstractGameEngine` sigue declarado, pero no es un requisito de los motores actuales.
+---
 
-Configura `manifest.tsx` con ID, definicion, `engine`, reglas y ajustes opcionales. Usa `hasRoundTimer`, `hideContinuousScoreboard`, `formatBadge` y `lobbyMetaChips` segun el juego. **Min/max jugadores deben coincidir con la validacion del backend.**
+### Step 3: Implement the Frontend in `src/frontend/games/<my-game>/`
 
-Registra el manifiesto en [frontend/games/registry.ts](../src/frontend/games/registry.ts) y exportalo desde [frontend/games/index.ts](../src/frontend/games/index.ts).
+1. **Engine Component (`<MyGame>Engine.tsx`)**:
+   Receives `BaseGameEngineProps`. Reads `matchState` and dispatches moves with `onGameAction(action)`.
+   *Note*: The engine runs inside `GameStageFrame`'s iframe; use `event.currentTarget` or element `ownerDocument` if doing manual hit-testing or pointer capture.
 
-El catalogo, los ajustes y las reglas se montan mediante el manifiesto. Reutiliza el shell, pero revisa [frontend/App.tsx](../src/frontend/App.tsx): la extraccion de puntuaciones en `MATCH_FINISHED` distingue actualmente Bonegle de `cumulativeScores`. Si el nuevo estado no usa ese formato, anade su conversion a jugadores/podio. Revisa tambien cualquier feedback privado nuevo. No es una integracion de solo dos lineas.
+2. **Rules Modal (`<MyGame>Rules.tsx`)**:
+   Provides clear illustrated rules for players clicking the "RULES" button in the HUD.
 
-El escenario es un iframe con portal React. Usa `ownerDocument` y su ventana para eventos y geometria del puntero. Conserva el estilo existente y reutiliza `soundstage` y `AvatarIcon`; no reinicies el estado del servidor desde efectos de React.
+3. **Manifest (`manifest.tsx`)**:
+   Defines the game catalog entry:
 
-## 5. Verificar
+```typescript
+import { GameManifest } from '../../types';
+import { MyGameEngine } from './MyGameEngine';
+import { MyGameRules } from './MyGameRules';
+
+export const myGameManifest: GameManifest = {
+  id: 'my-game',
+  definition: {
+    id: 'my-game',
+    title: 'My Game',
+    subtitle: 'Tactical Showdown',
+    description: 'A thrilling 2-player strategic board game.',
+    minPlayers: 2,
+    maxPlayers: 4,
+    estimatedTimeMin: 5,
+    iconName: 'Gamepad2',
+    badge: 'NEW',
+  },
+  engine: MyGameEngine,
+  rulesComponent: MyGameRules,
+  hasRoundTimer: true,
+  hideContinuousScoreboard: false,
+};
+```
+
+4. **Register in `src/frontend/games/registry.ts`**:
+
+```typescript
+import { myGameManifest } from './my-game';
+
+export const GAME_REGISTRY: Record<string, GameManifest> = {
+  bonegle: bonegleManifest,
+  'midnight-alley': midnightAlleyManifest,
+  'my-game': myGameManifest, // <-- Register here!
+};
+```
+
+---
+
+### Step 4: Verification
+
+Run tests and ensure clean compilation:
 
 ```bash
-npm run build
+# 1. Run server tests
 npm run test:server
+
+# 2. Run TypeScript check and client build
+npm run build
 ```
 
-Anade pruebas del juego en [tests/games.test.js](../tests/games.test.js): acciones legales e ilegales, turno, puntuacion, fin, bots, deadlines y retirada de jugadores. Verifica la proyeccion sin manos o datos privados de terceros.
+Add tests to `tests/games.test.js` validating:
+- Initial state generation.
+- Legal move transitions.
+- Illegal move rejection.
+- Bot action generation.
+- Scoring and breakdown generation.
+- Private state projection.
 
-Extiende [tests/backend.test.js](../tests/backend.test.js) para crear una sala del nuevo ID, suscribirse, iniciar, enviar acciones y terminar. Incluye quorum, rematch y cierre sin humanos. La prueba con PostgreSQL requiere `TABLEBONES_TEST_DATABASE_URL`, permisos para crear esquemas y la migracion de CHECK aplicada; el test usa un esquema aislado y lo elimina.
+---
 
-Prueba tambien sockets no autorizados, mensajes malformados y aislamiento entre salas. Sin una base disponible, informa que la persistencia no se verifico: una compilacion correcta no demuestra que el servidor acepte el gameId. Respeta las restricciones de pruebas manuales del usuario.
+## What You Do NOT Need to Touch
+
+Thanks to the decoupled architecture, adding a new game requires **zero modifications** to:
+- `src/server/services/matches.js`: Handles match creation, scheduling, timers, checkpoints, and victory broadcasts automatically.
+- `src/server/services/roomLifecycle.js`: Handles quorum, walkovers, and departures through the engine adapter automatically.
+- `src/server/websocket/handlers.js`: Dispatches actions and relays private action feedback generically.
+- `src/server/routes/rooms.js`: Validates game support and limits against `GAME_ENGINES` dynamically.
+- `src/server/db/schema.js`: `game_id` is an open `VARCHAR(32)` column. No SQL migrations needed.
+- `src/frontend/App.tsx`: Scores and breakdowns are mapped and passed down automatically.
+- `src/frontend/components/VictoryModal.tsx`: Expander cards render whatever `sections` or `items` your game returns in `getPlayerBreakdowns`.

@@ -42,19 +42,22 @@ Read [frontend/types/game.ts](../../../../src/frontend/types/game.ts) for `BaseG
 - `onPlayerScore`, `onMatchResolved`, `AbstractGameEngine`, and manifest `logic` remain legacy compatibility surfaces. They do not register or execute a new authoritative backend engine.
 - `GameStageFrame` hosts a portal in an iframe; use `ownerDocument` for DOM interactions.
 
-## Existing Integration Points
+## Decoupled Integration Points
 
-The backend is explicitly dispatched, not automatically registered by a React manifest:
+Games integrate with the platform via plug-and-play registries rather than ad-hoc conditional branches:
 
-1. `games/index.js`: `createMatchState`, `removePlayerFromMatch`, `matchScores`, and `projectMatchState`.
-2. `services/matches.js`: `createActiveMatch`, `applyMatchAction`, `scheduleMatch`, `handleMatchDeadline`, automatic actions, `commitMatchAction`, and `finishMatch`.
-3. `services/roomLifecycle.js`: departure, quorum/walkover, terminal phase, and deadline reset.
-4. `routes/rooms.js`: allowed IDs, min/max players, and validated settings.
-5. `db/schema.js` plus an existing-database migration: CHECK constraints in rooms and matches.
-6. `frontend/games/registry.ts` and its barrel: manifest integration.
-7. `frontend/App.tsx`: final score mapping and any new private event consumption.
-
-Add explicit branches for the new ID; do not allow it to fall through to Midnight Alley behavior. Preserve existing games and platform features. New settings may use `customSettings`, but that does not bypass runtime validation.
+1. **Backend Engine Adapter**:
+   - Create `src/server/games/<id>/engine.js` implementing the engine adapter (`createState`, `applyAction`, `onDeadline`, `getAutomaticAction`, `getBotDelay`, `onWalkover`, `onPlayerLeaveReschedule`, `removePlayer`, `getScores`, `getPlayerBreakdowns`, `projectState`).
+   - Register it in `src/server/games/index.js` in `GAME_ENGINES`.
+   - Core services (`matches.js`, `roomLifecycle.js`, `handlers.js`, `routes/rooms.js`) automatically delegate to the registered adapter.
+2. **Frontend Manifest**:
+   - Create `src/frontend/games/<id>/` with engine, rules, settings, and `manifest.tsx`.
+   - Register the manifest in `src/frontend/games/registry.ts` in `GAME_REGISTRY`.
+3. **Database Schema**:
+   - `rooms` and `matches` use unconstrained `VARCHAR(32)` for `game_id`. No migrations are required when adding new games.
+4. **Scoring & Victory Podium**:
+   - The engine returns final points via `getScores(state)` and expandable details via `getPlayerBreakdowns(state)`.
+   - `VictoryModal` and `App.tsx` consume structured sections (`title`, `badge`, `items`) generically.
 
 ## Privacy and Persistence
 
