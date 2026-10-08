@@ -11,7 +11,8 @@
     "build": "tsc && vite build",
     "test:server": "node --test tests/*.test.js",
     "preview": "node src/server/index.js",
-    "tunnel": "npx --yes localtunnel --port 3000"
+    "tunnel": "npx --yes localtunnel --port 3000",
+    "deploy": "npm run build && pm2 restart tablebones"
   },
   "dependencies": {
     "clsx": "^2.1.1",

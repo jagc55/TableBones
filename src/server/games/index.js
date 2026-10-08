@@ -2,6 +2,7 @@ import { bonegleEngine, createBonegleState, submitBonegleWord, resolveBonegle } 
 import { midnightAlleyEngine, createMidnightState, submitMidnightAction, projectMatchState } from './midnight-alley/engine.js';
 import { dealMidnightRound } from './midnight-alley/deck.js';
 import { automaticMidnightAction } from './midnight-alley/bot.js';
+import { doomedMineEngine } from './doomed-mine/engine.js';
 
 export {
   bonegleEngine,
@@ -14,12 +15,14 @@ export {
   projectMatchState,
   automaticMidnightAction,
   dealMidnightRound,
+  doomedMineEngine,
 };
 export { setDeadline } from './deadline.js';
 
 export const GAME_ENGINES = {
   bonegle: bonegleEngine,
   'midnight-alley': midnightAlleyEngine,
+  'doomed-mine': doomedMineEngine,
 };
 
 export const getGameEngine = (gameId) => GAME_ENGINES[gameId] || null;

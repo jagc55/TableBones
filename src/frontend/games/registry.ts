@@ -1,6 +1,7 @@
 import { GameId, GameDefinition, GameManifest } from '../types';
 import { bonegleManifest } from './bonegle';
 import { midnightAlleyManifest } from './midnight-alley';
+import { doomedMineManifest } from './doomed-mine';
 
 /**
  * Central registry mapping all TableSkull games.
@@ -12,6 +13,7 @@ import { midnightAlleyManifest } from './midnight-alley';
 export const GAME_REGISTRY: Record<GameId, GameManifest> = {
   bonegle: bonegleManifest,
   'midnight-alley': midnightAlleyManifest,
+  'doomed-mine': doomedMineManifest,
 };
 
 /**

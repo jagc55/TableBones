@@ -1,5 +1,6 @@
 import type { ChatMessage, Room } from './index';
 import type { MidnightCard, PlayedTrickCard } from './midnight-alley';
+import type { DoomedMineMatchState, DoomedMineAction } from './doomed-mine';
 export interface BonegleWordFeedback {
   word: string;
   status: 'valid' | 'duplicate' | 'invalid';
@@ -53,7 +54,7 @@ export interface MidnightMatchState {
   winReason?: string;
 }
 
-export type MatchState = BonegleMatchState | MidnightMatchState;
+export type MatchState = BonegleMatchState | MidnightMatchState | DoomedMineMatchState;
 
 export type GameAction =
   | { type: 'SUBMIT_WORD'; word: string; path: Array<{ row: number; col: number }> }
@@ -61,6 +62,7 @@ export type GameAction =
   | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' }
   | { type: 'ADVANCE_TRICK' }
   | { type: 'NEXT_ROUND' }
+  | DoomedMineAction
   | { type: string; [key: string]: any };
 
 export type NetworkEvent =
