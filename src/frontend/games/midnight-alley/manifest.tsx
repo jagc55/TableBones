@@ -1,6 +1,7 @@
 import { GameManifest } from '../../types';
 import { MidnightAlleyEngine } from './MidnightAlleyEngine';
 import { MidnightRules } from './MidnightRules';
+import { MidnightAlleySettings } from './MidnightAlleySettings';
 
 export const midnightAlleyManifest: GameManifest = {
   id: 'midnight-alley',
@@ -22,4 +23,5 @@ export const midnightAlleyManifest: GameManifest = {
   arenaLayoutClass: 'arena-midnight-layout',
   engine: (props) => <MidnightAlleyEngine {...props} />,
   rulesComponent: MidnightRules,
+  settingsComponent: MidnightAlleySettings,
 };

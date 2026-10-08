@@ -5,11 +5,13 @@ import {
   PlayedTrickCard,
   RoundScoreBreakdown,
   PlayerRoundRecord,
+  TrickResult,
 } from './types';
 import {
   getEstablishedLeadSuit,
   isCardPlayable,
   evaluateTrickWinner,
+  getRoundCardCount,
 } from './midnightAlleyLogic';
 import {
   MidnightCardView,
@@ -34,6 +36,7 @@ import {
   Clock,
   Swords,
   ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react';
 
 const TOTAL_ROUNDS = 10;
@@ -73,6 +76,46 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
   const prevRoundRef = useRef<number | null>(null);
   const prevPhaseRef = useRef<string | null>(null);
 
+  // Trick Winner Banner (disappears after 5 seconds with smooth fade-out)
+  const [displayedBannerResult, setDisplayedBannerResult] = useState<TrickResult | null>(null);
+  const [isBannerFading, setIsBannerFading] = useState(false);
+  const bannerTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const bannerFadeTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const prevLastResultRef = useRef<TrickResult | null>(null);
+
+  useEffect(() => {
+    if (match?.lastResult && match.lastResult !== prevLastResultRef.current) {
+      prevLastResultRef.current = match.lastResult;
+      setDisplayedBannerResult(match.lastResult);
+      setIsBannerFading(false);
+
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+      if (bannerFadeTimerRef.current) clearTimeout(bannerFadeTimerRef.current);
+
+      // Begin graceful fade-out at 2.5s
+      bannerFadeTimerRef.current = setTimeout(() => {
+        setIsBannerFading(true);
+      }, 2500);
+
+      // Completely remove banner at 3.0s (3 seconds total)
+      bannerTimerRef.current = setTimeout(() => {
+        setDisplayedBannerResult(null);
+        setIsBannerFading(false);
+      }, 3000);
+    } else if (!match?.lastResult) {
+      prevLastResultRef.current = null;
+      setDisplayedBannerResult(null);
+      setIsBannerFading(false);
+    }
+  }, [match?.lastResult]);
+
+  useEffect(() => {
+    return () => {
+      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+      if (bannerFadeTimerRef.current) clearTimeout(bannerFadeTimerRef.current);
+    };
+  }, []);
+
   useEffect(() => {
     if (!match) return;
 
@@ -86,13 +129,18 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
 
     if (prevPhaseRef.current !== match.phase) {
       if ((match.phase as string) === 'trick_resolved' && match.lastResult) {
-        soundstage.playScoreTrumpet();
-        const winner = activePlayers.find((p: Player) => p.id === match.lastResult?.winnerPlayerId);
-        const name = winner?.name || match.lastResult.winnerPlayerName || 'Opponent';
-        const notice = match.lastResult.bonusReason
-          ? match.lastResult.bonusReason
-          : `${name} captured trick with ${match.lastResult.winningCard.name}!`;
-        onActionNotification?.(notice);
+        if (match.lastResult.destroyed) {
+          soundstage.playSlideDown();
+          onActionNotification?.(match.lastResult.bonusReason || 'The Police raided the speakeasy! All trick cards destroyed.');
+        } else {
+          soundstage.playScoreTrumpet();
+          const winner = activePlayers.find((p: Player) => p.id === match.lastResult?.winnerPlayerId);
+          const name = winner?.name || match.lastResult.winnerPlayerName || 'Opponent';
+          const notice = match.lastResult.bonusReason
+            ? match.lastResult.bonusReason
+            : `${name} captured trick with ${match.lastResult.winningCard.name}!`;
+          onActionNotification?.(notice);
+        }
       } else if ((match.phase as string) === 'round_summary') {
         soundstage.playVictoryFanfare();
         onActionNotification?.(`Round ${match.round} Summary: Check your Underground Scores!`);
@@ -127,15 +175,22 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
   const isMyTurn = match.turnPlayerId === currentUserPlayer.id;
   const hasMyBid = match.bids?.[currentUserPlayer.id] !== undefined;
 
-  // Calculate current trick number
+  // Calculate round card count adhering to 7-8 player freezing rules
+  const roundMaxTricks = getRoundCardCount(round, activePlayers.length);
   const tricksPlayed = Object.values(match.tricksWon || {}).reduce((acc: number, val) => acc + (Number(val) || 0), 0);
-  const currentTrickNumber = Math.min(round, tricksPlayed + 1);
+  const currentTrickNumber = Math.min(roundMaxTricks, tricksPlayed + 1);
 
   // Established lead suit
   const establishedLead = getEstablishedLeadSuit(currentTrick);
 
+  // Detect Police and Fat Vinnie status in active trick
+  const policeIndex = currentTrick.findIndex((t) => t.card.role === 'police');
+  const vinnieIndex = currentTrick.findIndex((t) => t.card.role === 'fat-vinnie');
+  const isFatVinnieActive = vinnieIndex !== -1 && (policeIndex === -1 || policeIndex < vinnieIndex);
+  const isPoliceActive = policeIndex !== -1 && (vinnieIndex === -1 || vinnieIndex < policeIndex);
+
   // Evaluate currently winning card in trick
-  const currentWinningPlay = currentTrick.length > 0 ? evaluateTrickWinner(currentTrick) : null;
+  const currentWinningPlay = currentTrick.length > 0 ? evaluateTrickWinner(currentTrick, match.playerOrder) : null;
 
   // Sort player's hand by Suit or Value
   const sortCards = (cards: MidnightCard[], mode: 'suit' | 'value'): MidnightCard[] => {
@@ -221,7 +276,9 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
               <Users size={16} strokeWidth={2.8} />
               <span className="woodcut-title roster-title">CONTENDERS</span>
             </div>
-            <span className="roster-round-pill">ROUND {round}/{TOTAL_ROUNDS}</span>
+            <span className="roster-round-pill">
+              ROUND {round}/{TOTAL_ROUNDS} ({roundMaxTricks} CARDS)
+            </span>
           </div>
 
           <div className="roster-cards-list">
@@ -296,7 +353,7 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
           <div className="alley-info-strip">
             <div className="alley-trick-counter">
               <span className="trick-label">TRICK:</span>
-              <strong className="trick-val">{currentTrickNumber} / {round}</strong>
+              <strong className="trick-val">{currentTrickNumber} / {roundMaxTricks}</strong>
             </div>
 
             <div className="alley-lead-suit-badge">
@@ -334,74 +391,110 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
               <span className="watermark-title">MIDNIGHT ALLEY</span>
             </div>
 
-            {/* Center Active Trick Display */}
-            <div className="felt-trick-center">
-              {currentTrick.length === 0 ? (
-                <div className="empty-trick-slot">
-                  <span className="empty-trick-hint">
-                    {phase === 'bidding'
-                      ? 'Waiting for trick bids...'
-                      : `${activePlayers.find((p) => p.id === match.leadPlayerId)?.name || 'Lead'} leads the trick`}
-                  </span>
-                </div>
-              ) : (
-                <div className="active-trick-cards-row">
-                  {currentTrick.map((played, idx) => {
-                    const isCurrentlyWinning =
-                      currentWinningPlay?.winnerPlayerId === played.playerId &&
-                      currentWinningPlay?.winningCard.id === played.card.id;
-
-                    return (
-                      <div
-                        key={`${played.playerId}-${played.card.id}-${idx}`}
-                        className={`played-trick-item animate-card-drop ${
-                          isCurrentlyWinning ? 'trick-item-winning-aura' : ''
-                        }`}
-                      >
-                        <div className="played-card-meta">
-                          <AvatarIcon id={played.playerAvatarId} size={16} />
-                          <span className="played-player-name" title={played.playerName}>
-                            {played.playerName}
-                          </span>
-                        </div>
-
-                        <MidnightCardView
-                          card={played.card}
-                          compact={true}
-                          chameleonChoice={played.chameleonChoice}
-                          isPlayable={false}
-                        />
-
-                        {isCurrentlyWinning && (
-                          <div className="winning-lead-tag">
-                            <Crown size={10} strokeWidth={3} />
-                            <span>LEADING TRICK</span>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              {/* Trick Resolution Winner Overlay */}
-              {(match.lastResult || (phase as string) === 'trick_resolved') && match.lastResult && (
-                <div className="trick-winner-banner animate-pop">
-                  <Trophy size={18} strokeWidth={2.8} className="winner-trophy-icon" />
-                  <div className="winner-banner-text">
-                    <strong>
-                      {(
-                        activePlayers.find((p: Player) => p.id === match.lastResult?.winnerPlayerId)?.name ||
-                        (match.lastResult as any).winnerPlayerName ||
-                        'CONTENDER'
-                      ).toUpperCase()}{' '}
-                      TAKES THE TRICK!
-                    </strong>
-                    {match.lastResult.bonusReason && <small>{match.lastResult.bonusReason}</small>}
+              {/* Center Active Trick Display */}
+              <div className="felt-trick-center">
+                {/* Active Trick Modifier Badges */}
+                {isPoliceActive && (
+                  <div className="trick-status-badge police-badge animate-pop">
+                    <ShieldAlert size={14} strokeWidth={2.8} />
+                    <span>POLICE RAID ACTIVE: ALL CARDS WILL BE DESTROYED</span>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+                {!isPoliceActive && isFatVinnieActive && (
+                  <div className="trick-status-badge vinnie-badge animate-pop">
+                    <Sparkles size={14} strokeWidth={2.8} />
+                    <span>FAT VINNIE ACTIVE: SPECIALS MUTED & CARDS TURNED WHITE</span>
+                  </div>
+                )}
+
+                {currentTrick.length === 0 ? (
+                  <div className="empty-trick-slot">
+                    <span className="empty-trick-hint">
+                      {phase === 'bidding'
+                        ? 'Waiting for trick bids...'
+                        : `${activePlayers.find((p) => p.id === match.leadPlayerId)?.name || 'Lead'} leads the trick`}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="active-trick-cards-row">
+                    {currentTrick.map((played, idx) => {
+                      const isCurrentlyWinning =
+                        !isPoliceActive &&
+                        currentWinningPlay?.winnerPlayerId === played.playerId &&
+                        currentWinningPlay?.winningCard.id === played.card.id;
+
+                      const isWhite = isFatVinnieActive && played.card.type === 'suit';
+
+                      return (
+                        <div
+                          key={`${played.playerId}-${played.card.id}-${idx}`}
+                          className={`played-trick-item animate-card-drop ${
+                            isCurrentlyWinning ? 'trick-item-winning-aura' : ''
+                          }`}
+                        >
+                          <div className="played-card-meta">
+                            <AvatarIcon id={played.playerAvatarId} size={16} />
+                            <span className="played-player-name" title={played.playerName}>
+                              {played.playerName}
+                            </span>
+                          </div>
+
+                          <MidnightCardView
+                            card={played.card}
+                            compact={true}
+                            chameleonChoice={played.chameleonChoice}
+                            isPlayable={false}
+                            isWhiteCard={isWhite}
+                          />
+
+                          {isCurrentlyWinning && (
+                            <div className="winning-lead-tag">
+                              <Crown size={10} strokeWidth={3} />
+                              <span>LEADING TRICK</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Trick Resolution Winner Overlay (disappears after 5 seconds) */}
+                {displayedBannerResult && (
+                  <div
+                    className={`trick-winner-banner animate-pop ${
+                      isBannerFading ? 'banner-fading' : ''
+                    } ${displayedBannerResult.destroyed ? 'banner-police-raid' : ''}`}
+                  >
+                    {displayedBannerResult.destroyed ? (
+                      <>
+                        <ShieldAlert size={20} strokeWidth={2.8} className="winner-trophy-icon" style={{ color: '#ffd043' }} />
+                        <div className="winner-banner-text">
+                          <strong style={{ color: '#ffffff' }}>POLICE RAID! TRICK DESTROYED</strong>
+                          <small style={{ color: '#ffdddd' }}>
+                            {displayedBannerResult.bonusReason || 'All cards discarded. Nobody wins this trick.'}
+                          </small>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Trophy size={18} strokeWidth={2.8} className="winner-trophy-icon" />
+                        <div className="winner-banner-text">
+                          <strong>
+                            {(
+                              activePlayers.find((p: Player) => p.id === displayedBannerResult.winnerPlayerId)?.name ||
+                              displayedBannerResult.winnerPlayerName ||
+                              'CONTENDER'
+                            ).toUpperCase()}{' '}
+                            TAKES THE TRICK!
+                          </strong>
+                          {displayedBannerResult.bonusReason && <small>{displayedBannerResult.bonusReason}</small>}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
           </div>
 
           {/* Player Hand Dock */}
@@ -552,9 +645,9 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
             </div>
 
             <div className="bid-selector-group">
-              <span className="bid-select-label">SELECT YOUR PREDICTED TRICKS:</span>
+              <span className="bid-select-label">SELECT YOUR PREDICTED TRICKS (MAX {roundMaxTricks}):</span>
               <div className="bid-buttons-grid">
-                {Array.from({ length: round + 1 }).map((_, idx) => (
+                {Array.from({ length: roundMaxTricks + 1 }).map((_, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -736,7 +829,17 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
                         <td className={isSuccess ? 'pts-positive' : 'pts-negative'}>
                           {row.bidScore > 0 ? `+${row.bidScore}` : row.bidScore}
                         </td>
-                        <td className="pts-bonus">+{row.bonusScore}</td>
+                        <td className="pts-bonus">
+                          +{row.bonusScore}
+                          {row.briefcaseBonus ? (
+                            <small
+                              style={{ display: 'block', color: '#2d8a4e', fontSize: '10.5px', fontWeight: 'bold' }}
+                              title={row.briefcaseDetails?.join(', ') || 'Briefcase Alliance'}
+                            >
+                              +{row.briefcaseBonus} LOOT
+                            </small>
+                          ) : null}
+                        </td>
                         <td className="pts-round-total">
                           <strong>{row.totalRoundScore > 0 ? `+${row.totalRoundScore}` : row.totalRoundScore}</strong>
                         </td>
@@ -1285,6 +1388,30 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
           white-space: nowrap;
         }
 
+        .trick-status-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 14px;
+          border-radius: var(--radius-cel-pill);
+          font-family: var(--font-heading);
+          font-size: 11px;
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+          z-index: 5;
+        }
+        .trick-status-badge.police-badge {
+          background: rgba(180, 40, 30, 0.95);
+          color: #fdfbf5;
+          border: 1.5px solid #ffd043;
+        }
+        .trick-status-badge.vinnie-badge {
+          background: rgba(245, 240, 230, 0.95);
+          color: #1c1511;
+          border: 1.5px solid #bfa15f;
+        }
+
         .trick-winner-banner {
           position: absolute;
           top: -54px;
@@ -1298,6 +1425,17 @@ export const MidnightAlleyEngine: React.FC<BaseGameEngineProps> = ({
           gap: 8px;
           color: #1c1511;
           z-index: 10;
+          transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1), transform 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .trick-winner-banner.banner-fading {
+          opacity: 0;
+          transform: translateY(-8px) scale(0.96);
+          pointer-events: none;
+        }
+        .trick-winner-banner.banner-police-raid {
+          background-color: #d33833;
+          color: #fdfbf5;
+          border-color: #ffd043;
         }
         .winner-trophy-icon {
           color: #d33833;
