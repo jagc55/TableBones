@@ -48,6 +48,7 @@ export interface MidnightMatchState {
   roundSummaryScores?: Record<string, any> | null;
   roundHistory?: Record<number, Record<string, any>>;
   lastRoundWinnerId?: string | null;
+  lastTrickWinnerId?: string | null;
   history: unknown[];
   deadline: number | null;
   winnerId?: string | null;

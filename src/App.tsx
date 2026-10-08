@@ -511,15 +511,17 @@ export const App: React.FC = () => {
     if (!currentRoom || isRematching) return;
     setIsRematching(true);
     try {
-      const { room, match } = await api.rematchRoom(currentRoom.id);
+      const { room } = await api.rematchRoom(currentRoom.id);
       applyRoomUpdate(room);
-      setActiveMatchState(match);
+      setActiveMatchState(null);
       setBoutWinner(null);
       setWinReasonText(null);
       setIsVictoryModalOpen(false);
-      setCurrentView('arena');
+      setCurrentView('lobby');
+      soundstage.playRoundBell();
+      addToast('info', 'BACK IN ROOM', 'You returned to the room. Click READY when prepared!');
     } catch (error) {
-      addToast('alert', 'REMATCH FAILED', error instanceof Error ? error.message : 'Unable to start a rematch.');
+      addToast('alert', 'REMATCH FAILED', error instanceof Error ? error.message : 'Unable to return to room.');
     } finally {
       setIsRematching(false);
     }

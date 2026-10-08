@@ -242,7 +242,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="btn-cel btn-brawl-neutral btn-sm"
           >
             <ArrowLeft size={15} strokeWidth={2.8} />
-            <span>RETURN TO LOBBY</span>
+            <span>LEAVE MATCH</span>
           </button>
 
           <button
@@ -255,7 +255,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
             className="btn-cel btn-brawl-primary rematch-btn"
           >
             <RotateCcw size={16} strokeWidth={3} />
-            <span>{isRematching ? 'STARTING REMATCH...' : `PLAY AGAIN (${rematchCountdown}s)`}</span>
+            <span>{isRematching ? 'RETURNING TO ROOM...' : `PLAY AGAIN (${rematchCountdown}s)`}</span>
           </button>
         </div>
 

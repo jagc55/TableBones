@@ -133,10 +133,13 @@ const dealMidnightRound = (state) => {
   state.roundSummaryScores = null;
   state.phase = 'bidding';
 
-  // "El jugador que empieza una ronda es el que ganó la ultima."
-  const starter = state.lastRoundWinnerId && state.playerOrder.includes(state.lastRoundWinnerId)
-    ? state.lastRoundWinnerId
-    : state.playerOrder[0];
+  // "El jugador que empieza una ronda es el que ganó la ultima mano/trick."
+  // Si Pepe gana la mano 1 empieza la mano 2. Si Manolo gana la mano 3 de ronda 3, Manolo empieza mano 1 de ronda 4.
+  const starter = state.lastTrickWinnerId && state.playerOrder.includes(state.lastTrickWinnerId)
+    ? state.lastTrickWinnerId
+    : (state.lastRoundWinnerId && state.playerOrder.includes(state.lastRoundWinnerId)
+      ? state.lastRoundWinnerId
+      : state.playerOrder[0]);
   state.leadPlayerId = starter;
   state.turnPlayerId = starter;
 };
@@ -238,6 +241,7 @@ export const createMatchState = (room, matchId) => {
     lastResult: null,
     roundSummaryScores: null,
     lastRoundWinnerId: null,
+    lastTrickWinnerId: null,
     history: [],
     deadline: null,
     startedAt: Date.now(),
@@ -352,6 +356,7 @@ export const submitMidnightAction = (state, userId, action) => {
       bonusPoints: result.bonusPoints,
       bonusReason: result.bonusReason,
     };
+    state.lastTrickWinnerId = result.playerId;
     state.history.push({ round: state.round, trick: [...state.currentTrick], result: state.lastResult });
 
     // Transition to trick_resolved for 3 seconds so cards and winner banner remain visible!
@@ -378,17 +383,9 @@ export const submitMidnightAction = (state, userId, action) => {
       }
       state.roundHistory[state.round] = historyEntry;
 
-      // Find round winner: player with highest totalRoundScore this round
-      let bestPlayerId = state.playerOrder[0];
-      let bestScore = -Infinity;
-      for (const pId of state.playerOrder) {
-        const s = breakdown[pId]?.totalRoundScore || 0;
-        if (s > bestScore) {
-          bestScore = s;
-          bestPlayerId = pId;
-        }
-      }
-      state.lastRoundWinnerId = bestPlayerId;
+      // "Si estamos en ronda 3 hay 3 manos, pues lo que me referia es que si el jugador Pepe gana la mano 1 entonces pepe empieza la mano 2. Si manolo gana la mano 3 de la ronda 3 entonces manolo empieza la mano 1 de la ronda 4."
+      state.lastRoundWinnerId = state.lastTrickWinnerId || state.lastResult?.winnerPlayerId || state.playerOrder[0];
+      state.lastTrickWinnerId = state.lastRoundWinnerId;
 
       if (state.round >= state.maxRounds) {
         const ranked = [...state.playerOrder].sort((left, right) => state.cumulativeScores[right] - state.cumulativeScores[left] || left.localeCompare(right));
@@ -408,7 +405,7 @@ export const submitMidnightAction = (state, userId, action) => {
     }
 
     state.currentTrick = [];
-    const nextLead = state.lastResult?.winnerPlayerId || state.leadPlayerId;
+    const nextLead = state.lastTrickWinnerId || state.lastResult?.winnerPlayerId || state.leadPlayerId;
     state.leadPlayerId = nextLead;
     state.turnPlayerId = nextLead;
     state.phase = 'playing';

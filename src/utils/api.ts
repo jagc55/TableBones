@@ -163,8 +163,12 @@ export const api = {
     return request<{ room: Room; match: MatchState }>(`/rooms/${encodeURIComponent(roomId)}/start`, { method: 'POST' });
   },
 
-  async rematchRoom(roomId: string): Promise<{ room: Room; match: MatchState }> {
-    return request<{ room: Room; match: MatchState }>(`/rooms/${encodeURIComponent(roomId)}/rematch`, { method: 'POST' });
+  async rematchRoom(roomId: string): Promise<{ room: Room; match?: MatchState }> {
+    return request<{ room: Room; match?: MatchState }>(`/rooms/${encodeURIComponent(roomId)}/rematch`, { method: 'POST' });
+  },
+
+  async playAgainRoom(roomId: string): Promise<{ room: Room; match?: MatchState }> {
+    return request<{ room: Room; match?: MatchState }>(`/rooms/${encodeURIComponent(roomId)}/play-again`, { method: 'POST' });
   },
 
   async fetchChat(roomId: string): Promise<ChatMessage[]> {

@@ -824,7 +824,7 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    const roomMatch = apiPath.match(/^\/api\/rooms\/([\w-]+)(?:\/(join|leave|ready|start|rematch|chat|mute|kick|transfer|transfer-host|bot|add-bot|settings))?$/);
+    const roomMatch = apiPath.match(/^\/api\/rooms\/([\w-]+)(?:\/(join|leave|ready|start|rematch|play-again|chat|mute|kick|transfer|transfer-host|bot|add-bot|settings))?$/);
     if (roomMatch) {
       const [, roomId, action] = roomMatch;
       const user = await requireUser(req, res);
@@ -974,18 +974,50 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
-      if (action === 'rematch' && req.method === 'POST') {
-        await assertHost(roomId, user.id);
+      if ((action === 'rematch' || action === 'play-again') && req.method === 'POST') {
         if (!(await isRoomMember(roomId, user.id))) throw new Error('Room membership required.');
-        if (room.status !== 'finished') throw new Error('Rematches are only available after a finished match.');
-        if (room.players.length < room.minPlayers) throw new Error('Not enough remaining players for a rematch.');
-        const match = await createActiveMatch(room, true);
+        if (room.status !== 'finished' && room.status !== 'waiting') {
+          throw new Error('Play again is only available after a finished match.');
+        }
+
+        // Reset room back to waiting (lobby) for the players returning
+        if (room.status === 'finished') {
+          await pool.query(
+            "UPDATE rooms SET status = 'waiting', winner_id = NULL, win_reason = NULL WHERE id = $1",
+            [roomId]
+          );
+          // Reset score and ready state for human players
+          await pool.query(
+            "UPDATE room_players SET is_ready = FALSE, score = 0 WHERE room_id = $1 AND is_bot = FALSE",
+            [roomId]
+          );
+          // Reset score for bots, and set them to ready after a short delay
+          await pool.query(
+            "UPDATE room_players SET is_ready = FALSE, score = 0 WHERE room_id = $1 AND is_bot = TRUE",
+            [roomId]
+          );
+
+          // "En el caso de que haya bots para debuggear, estos deben pulsar automaticamente jugar de nuevo y listo en su debido momento."
+          setTimeout(async () => {
+            try {
+              const currentRoom = await loadRoom(roomId);
+              if (currentRoom && currentRoom.status === 'waiting') {
+                await pool.query(
+                  "UPDATE room_players SET is_ready = TRUE WHERE room_id = $1 AND is_bot = TRUE",
+                  [roomId]
+                );
+                await broadcastRoom(roomId);
+              }
+            } catch (err) {
+              console.error('Error auto-readying bots:', err);
+            }
+          }, 1200);
+        }
+
         const updatedRoom = await loadRoom(roomId);
-        await broadcastRoom(roomId, 'MATCH_STARTED');
-        broadcastMatchState(roomId, match.state);
-        scheduleMatch(match);
+        await broadcastRoom(roomId, 'ROOM_UPDATED');
         await broadcastPublicRooms();
-        writeJson(res, 200, { room: updatedRoom, match: projectMatchState(match.state, user.id) });
+        writeJson(res, 200, { room: updatedRoom });
         return;
       }
 
