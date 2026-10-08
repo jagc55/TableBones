@@ -2,7 +2,7 @@ module.exports = {
   apps: [
     {
       name: 'tablebones',
-      script: './server.js',
+      script: './src/server/index.js',
       instances: 1,
       exec_mode: 'fork',
       autorestart: true,

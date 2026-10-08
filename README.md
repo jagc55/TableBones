@@ -11,6 +11,12 @@ TableSkull has an authoritative Node.js game server, React client, PostgreSQL da
 - WebSockets authenticate with the guest session token and only receive events for rooms they joined.
 - A guest has one active room at a time. A room closes when its last human player leaves, even when bots remain; match history remains persisted.
 
+Source code is separated into `src/frontend` (React), `src/server` (Node HTTP API, WebSocket transport, services, database, and game engines), and `src/shared/types` (common data contracts). The backend starts from [src/server/index.js](src/server/index.js); game rules live under `src/server/games`, independently of WebSocket transport.
+
+See [the architecture guide](docs/ARQUITECTURA_AUTORITATIVA.md) for the connection lifecycle and module responsibilities, and [the game contract](docs/GAME_ARCHITECTURE_CONTRACT.md) for integration details.
+
+For a new game, follow [the integration guide](docs/ANADIR_JUEGO.md), including backend dispatch, database constraints, frontend registration, and tests. Profile avatar images live only in `src/frontend/assets/avatars`; do not duplicate them in `public`.
+
 ## Features
 
 ### 1. Room Management (Public & Private)
@@ -74,11 +80,22 @@ npm run build
 npm run server
 ```
 
+### Automated Checks
+
+```bash
+npm run build
+npm run test:server
+```
+
+The tests cover both game engines, HTTP routes/static assets, and real WebSocket connections with mocked database queries. Build first because the static-serving test reads `dist`.
+
+The PostgreSQL lifecycle test is opt-in: set `TABLEBONES_TEST_DATABASE_URL` to a test database connection before running `npm run test:server`. It creates and drops an isolated schema, so the database role must have schema creation permissions. Without this variable, the database test is skipped. `BASELINE_ENGINE_FILE` optionally enables comparison against an earlier engine snapshot during refactoring.
+
 ---
 
 ## 🚀 Despliegue en Producción y Gestión con PM2
 
-La aplicación corre en producción gestionada por **PM2** mediante el servidor `server.js` y el archivo de configuración `ecosystem.config.cjs`.
+La aplicación corre en producción gestionada por **PM2** mediante [src/server/index.js](src/server/index.js) y el archivo de configuración [ecosystem.config.cjs](ecosystem.config.cjs).
 
 ### ⚡ Chuleta de Comandos PM2 más Importantes
 

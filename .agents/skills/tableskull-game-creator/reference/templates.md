@@ -1,329 +1,175 @@
-# TableSkull Game Scaffolding Boilerplate Templates
+# Authoritative Game Templates
 
-Use these tested templates when creating a new game under `src/games/<game-id>/`.
+These are structural examples for a hypothetical `my-game`, not a playable implementation or pre-verified boilerplate. Replace the sample contracts and implement rule helpers from the agreed rules. Extend the current unions and backend dispatch before compiling or registering the UI. See [the integration guide](../../../../docs/ANADIR_JUEGO.md) for every wiring point.
 
----
+## 1. Shared Contracts
 
-## 1. `types.ts`
+Declare game-specific domain data in `src/shared/types/my-game.ts` when useful, then import and add its state/actions to `src/shared/types/network.ts`. Add the ID to `GameId` in `src/shared/types/index.ts`.
 
 ```typescript
-import { Player, RoomSettings, BaseGameEngineProps } from '../../types';
-
-export interface GameState {
-  currentRound: number;
-  activePlayerId: string;
-  isGameOver: boolean;
+export interface MyGameMatchState {
+  gameId: 'my-game';
+  roomId: string;
+  phase: 'active' | 'resolved';
+  turnPlayerId: string | null;
   scores: Record<string, number>;
-  // Add game-specific fields here (e.g. board, deck, dice, hands)
+  deadline: number | null;
+  winnerId?: string | null;
+  winReason?: string;
 }
 
-export type GameAction =
-  | { type: 'MAKE_MOVE'; playerId: string; moveData: unknown }
-  | { type: 'END_TURN'; playerId: string };
-
-export interface MyGameEngineProps extends BaseGameEngineProps {
-  settings?: RoomSettings;
-}
+export type MyGameAction = {
+  type: 'MY_GAME_MOVE';
+  moveId: string;
+};
 ```
 
----
+These are visible fields only. Define private server data separately and project it explicitly; never transmit all internal state simply to satisfy a UI type.
 
-## 2. `<game>Logic.ts`
+## 2. Backend Engine
 
-```typescript
-import { Player, RoomSettings, AbstractGameEngine } from '../../types';
-import { GameState, GameAction } from './types';
+`src/server/games/my-game/engine.js` imports game-specific pure rule helpers that must be implemented and tested. In this example, `applyMove` returns `{ finished: boolean }` and sets the terminal state/winner when appropriate. It does not write SQL or emit events.
 
-/**
- * Concrete game logic implementing the platform's AbstractGameEngine contract.
- */
-export class MyGameLogic extends AbstractGameEngine<GameState, GameAction> {
-  readonly gameId = 'my-game' as const;
-  readonly title = 'My New Game';
+```javascript
+import { initializePosition, isLegalMove, applyMove } from './rules.js';
 
-  initialize(players: Player[], settings?: RoomSettings): GameState {
-    const scores: Record<string, number> = {};
-    players.forEach((p) => {
-      scores[p.id] = 0;
-    });
-
-    return {
-      currentRound: 1,
-      activePlayerId: players[0]?.id || '',
-      isGameOver: false,
-      scores,
-    };
-  }
-
-  processAction(state: GameState, action: GameAction): GameState {
-    switch (action.type) {
-      case 'MAKE_MOVE': {
-        // Apply move logic
-        return { ...state };
-      }
-      case 'END_TURN': {
-        // Cycle active player
-        return { ...state };
-      }
-      default:
-        return state;
-    }
-  }
-
-  calculateScores(state: GameState): Record<string, number> {
-    return { ...state.scores };
-  }
-
-  checkGameOver(state: GameState): boolean {
-    return state.isGameOver;
-  }
-}
-```
-
----
-
-## 3. `<Game>Engine.tsx`
-
-```typescript
-import React, { useState, useEffect, useRef } from 'react';
-import { BaseGameEngineProps } from '../../types';
-import { soundstage } from '../../utils/audio';
-import { Sparkles, Trophy } from 'lucide-react';
-import { MyGameLogic } from './myGameLogic';
-import { GameState } from './types';
-
-const logic = new MyGameLogic();
-
-export const MyGameEngine: React.FC<BaseGameEngineProps> = ({
-  currentUserPlayer,
-  players,
-  settings,
-  timeLeftSec = 0,
-  onPlayerScore,
-  onActionNotification,
-  onMatchResolved,
-}) => {
-  const [state, setState] = useState<GameState>(() => logic.initialize(players, settings));
-
-  // --- CRITICAL ANTI-LOOP PATTERN: Stabilize platform callbacks in mutable refs ---
-  const onActionNotificationRef = useRef(onActionNotification);
-  onActionNotificationRef.current = onActionNotification;
-
-  const onPlayerScoreRef = useRef(onPlayerScore);
-  onPlayerScoreRef.current = onPlayerScore;
-
-  const onMatchResolvedRef = useRef(onMatchResolved);
-  onMatchResolvedRef.current = onMatchResolved;
-
-  const timeLeftSecRef = useRef(timeLeftSec);
-  timeLeftSecRef.current = timeLeftSec;
-
-  // Single-execution initialization guard
-  const hasInitializedRef = useRef(false);
-  useEffect(() => {
-    if (hasInitializedRef.current) return;
-    hasInitializedRef.current = true;
-
-    // Trigger board generation or card distribution notice safely
-    onActionNotificationRef.current?.('The contest has begun! Make your moves.');
-  }, []);
-
-  // Bot simulation loop: does NOT depend on timeLeftSec to prevent 1-second interval resets
-  useEffect(() => {
-    const bots = players.filter((p) => p.isBot);
-    if (bots.length === 0) return;
-
-    const botInterval = setInterval(() => {
-      // Check countdown time atomically without interval churn
-      if (timeLeftSecRef.current <= 0) return;
-
-      const randomBot = bots[Math.floor(Math.random() * bots.length)];
-      if (Math.random() > 0.5) {
-        onActionNotificationRef.current?.(`${randomBot.name} calculated a swift maneuver.`);
-        onPlayerScoreRef.current?.(randomBot.id, 2);
-      }
-    }, 4500);
-
-    return () => clearInterval(botInterval);
-  }, [players]);
-
-  // Handle local player action
-  const handleAction = () => {
-    soundstage.playScoreTrumpet();
-    const pts = 5;
-    onPlayerScoreRef.current?.(currentUserPlayer.id, pts);
-    onActionNotificationRef.current?.(`${currentUserPlayer.name} executed a master stroke!`);
+export const createMyGameState = (room, matchId) => {
+  const players = room.players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    avatarId: player.avatarId,
+    isBot: player.isBot,
+  }));
+  return {
+    id: matchId,
+    roomId: room.id,
+    gameId: 'my-game',
+    players,
+    phase: 'active',
+    turnPlayerId: players[0]?.id ?? null,
+    scores: Object.fromEntries(players.map((player) => [player.id, 0])),
+    position: initializePosition(room.settings, players),
+    deadline: null,
+    startedAt: Date.now(),
   };
+};
 
-  return (
-    <div className="my-game-engine-layout cel-card">
-      <div className="my-game-header">
-        <h3 className="woodcut-title">MY GAME ARENA</h3>
-        <span className="ribbon-banner">ROUND {state.currentRound}</span>
-      </div>
-
-      <div className="my-game-board">
-        {/* Render game board, cards, dice, or interactive canvas */}
-      </div>
-
-      <div className="my-game-controls">
-        <button onClick={handleAction} className="btn-cel btn-brawl-primary">
-          <Sparkles size={16} strokeWidth={2.8} />
-          <span>PLAY MOVE</span>
-        </button>
-      </div>
-
-      <style>{`
-        .my-game-engine-layout {
-          width: 100%;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 16px;
-          padding: 24px;
-          background-color: var(--color-canvas-parchment);
-        }
-        .my-game-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          width: 100%;
-        }
-        .my-game-board {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 280px;
-          width: 100%;
-          background-color: var(--color-parchment-deep);
-          border: var(--border-frame);
-          border-radius: 12px;
-          box-shadow: var(--shadow-cel-sm);
-        }
-        .my-game-controls {
-          display: flex;
-          gap: 12px;
-        }
-      `}</style>
-    </div>
-  );
+export const submitMyGameAction = (state, userId, action) => {
+  if (state.phase !== 'active') throw new Error('Match is no longer active.');
+  if (!state.players.some((player) => player.id === userId)) throw new Error('Match membership required.');
+  if (state.turnPlayerId !== userId) throw new Error('It is not your turn.');
+  if (action.type !== 'MY_GAME_MOVE' || typeof action.moveId !== 'string') {
+    throw new Error('Invalid move action.');
+  }
+  if (!isLegalMove(state, userId, action.moveId)) throw new Error('Illegal move.');
+  return applyMove(state, userId, action.moveId);
 };
 ```
 
----
+Validate before mutating. Define deadlines with the server deadline helper and connect them in the match service; `deadline: null` means this skeleton has no scheduled expiry yet. Add removal, scoring and bot helpers as the game's rules require. Never accept `userId` from the action payload.
 
-## 4. `<Game>Rules.tsx`
+## 3. Projection
 
-```typescript
-import React from 'react';
-import { HelpCircle } from 'lucide-react';
+`src/server/games/my-game/projection.js` can return an explicit allowlist of visible fields. Extend both this function and the visible contract with a sanitized board/hand only when needed.
 
-export const MyGameRules: React.FC = () => {
-  return (
-    <>
-      <div className="codex-header">
-        <HelpCircle size={32} strokeWidth={2.6} />
-        <h3 className="woodcut-title codex-title">MY GAME: CODEX RULES</h3>
-      </div>
-
-      <div className="codex-body">
-        <div className="codex-section">
-          <h4>1. OVERVIEW & OBJECTIVE</h4>
-          <p>Description of core game flow, turn order, and win conditions.</p>
-        </div>
-
-        <div className="codex-section">
-          <h4>2. SCORING LEDGER</h4>
-          <div className="codex-scoring-grid">
-            <div className="codex-score-row">
-              <span className="score-rule-badge badge-pos">STANDARD MOVE</span>
-              <p>+5 Points for successful maneuver.</p>
-            </div>
-            <div className="codex-score-row">
-              <span className="score-rule-badge badge-bonus">SPECIAL BONUS</span>
-              <p>+15 Points for combo execution.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </>
-  );
-};
+```javascript
+export const projectMyGameState = (state, userId) => ({
+  gameId: state.gameId,
+  roomId: state.roomId,
+  phase: state.phase,
+  turnPlayerId: state.turnPlayerId,
+  scores: { ...state.scores },
+  deadline: state.deadline,
+  winnerId: state.winnerId,
+  winReason: state.winReason,
+});
 ```
 
----
+`userId` selects private visible data if the game has it; remove the unused parameter for entirely public games. Do not include internal `position` until its contents are projected safely. Filter nested history as well.
 
-## 5. `<Game>Settings.tsx`
+## 4. React Engine
 
-```typescript
-import React from 'react';
-import { GameSettingsFormProps } from '../../types';
+`src/frontend/games/my-game/MyGameEngine.tsx` renders the projected state and requests a move. The sample move ID is a placeholder; expose legal controls based on the game's visible data.
+
+```tsx
+import type { FC } from 'react';
+import { Play } from 'lucide-react';
+import type { BaseGameEngineProps } from '../../types';
 import { soundstage } from '../../utils/audio';
 
-export const MyGameSettings: React.FC<GameSettingsFormProps> = ({
-  settings,
-  onUpdateSetting,
-  isHost,
-  stepOffset = 4,
+export const MyGameEngine: FC<BaseGameEngineProps> = ({
+  currentUserPlayer,
+  matchState,
+  onGameAction,
 }) => {
+  const match = matchState?.gameId === 'my-game' ? matchState : null;
+  if (!match) return <div className="cel-card">WAITING FOR THE MATCH</div>;
+  const canMove = match.phase === 'active' && match.turnPlayerId === currentUserPlayer.id;
   return (
-    <div className="form-group">
-      <label className="group-label">{stepOffset}. SPECIAL GAME OPTION</label>
-      <div className="clock-options-row">
-        {/* Custom option chips */}
-      </div>
+    <div className="my-game-engine">
+      <button
+        type="button"
+        className="btn-cel btn-brawl-primary"
+        disabled={!canMove}
+        onClick={() => {
+          soundstage.playTap();
+          onGameAction?.({ type: 'MY_GAME_MOVE', moveId: 'replace-with-selected-move' });
+        }}
+      >
+        <Play size={16} />
+        Play Move
+      </button>
     </div>
   );
 };
 ```
 
----
+No client-side rules instance, canonical board initialization, bot interval, score callback or winner callback is involved. Local selection and animation state may be added without replacing `matchState`.
 
-## 6. `manifest.tsx`
+## 5. Manifest and UI Exports
 
-```typescript
-import { GameManifest, Room } from '../../types';
+`src/frontend/games/my-game/manifest.tsx` connects the UI and player-facing rules to the shell. The example min/max must also be implemented in the room route validation.
+
+```tsx
+import type { GameManifest } from '../../types';
 import { MyGameEngine } from './MyGameEngine';
 import { MyGameRules } from './MyGameRules';
-import { MyGameSettings } from './MyGameSettings';
-import { MyGameLogic } from './myGameLogic';
 
 export const myGameManifest: GameManifest = {
   id: 'my-game',
   definition: {
     id: 'my-game',
-    title: 'My Game Title',
-    subtitle: 'Catchy Subtitle',
-    description: 'Crisp 1-2 sentence description for room cards and lobby.',
+    title: 'My Game',
+    subtitle: 'Replace with the game category',
+    description: 'Replace with the game objective.',
     minPlayers: 2,
     maxPlayers: 4,
     estimatedTimeMin: 5,
     iconName: 'Swords',
     badge: 'NEW',
   },
-  hasRoundTimer: true,
+  hasRoundTimer: false,
   hideContinuousScoreboard: false,
   engine: MyGameEngine,
   rulesComponent: MyGameRules,
-  settingsComponent: MyGameSettings,
-  lobbyMetaChips: (room: Room) => (
-    <span className="meta-chip">
-      <strong>Mode:</strong> Standard
-    </span>
-  ),
-  logic: new MyGameLogic(),
 };
 ```
 
----
+Implement `MyGameRules.tsx` using neighboring rules views. Add a `GameSettingsFormProps` component only when there are custom controls, and validate those settings on the backend. Do not attach a legacy `logic: new AbstractGameEngineSubclass()` and assume it registers a server engine.
 
-## 7. `index.ts`
+`src/frontend/games/my-game/index.ts`:
 
 ```typescript
-export * from './types';
-export * from './myGameLogic';
-export * from './MyGameEngine';
-export * from './MyGameRules';
-export * from './MyGameSettings';
-export * from './manifest';
+export { myGameManifest } from './manifest';
+export { MyGameEngine } from './MyGameEngine';
 ```
+
+Import the manifest into `src/frontend/games/registry.ts` and add `'my-game': myGameManifest` to `GAME_REGISTRY`. Export the game from `src/frontend/games/index.ts` if following the existing barrel convention.
+
+## 6. Backend Wiring Is Required
+
+Import the new functions in `src/server/games/index.js` and add explicit dispatch for initialization, projection, score extraction and removal. Update the match service action/deadline/bot branches, room lifecycle, allowed IDs, limits, settings, both SQL CHECKs, and an installed-database migration. The templates do not install those branches automatically.
+
+The existing `GAME_ACTION` handler can remain generic. For normal actions, the match service applies the game action and invokes `commitMatchAction(match, result.finished)`. Projection is called by the broadcaster per user. Extend transport only for new event semantics, not for game rules.
+
+Adapt frontend `MATCH_FINISHED` score mapping if this game's `scores` field does not match the existing `cumulativeScores` format. Update state/action unions before compiling the TSX example. Add focused game and backend tests before marking the game complete.

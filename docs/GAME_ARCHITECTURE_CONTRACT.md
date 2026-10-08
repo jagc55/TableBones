@@ -15,7 +15,7 @@ Node.js server
   |- HTTP API: sessions, profiles, rooms, chat, achievements
   |- WebSocket: room events and game actions
   |- authoritative match state, timers, bots, scoring, winners
-  `- server/matchEngine.js: Bonegle and Midnight Alley rules
+  `- src/server/games/: Bonegle and Midnight Alley rules
              |
              v
 PostgreSQL
@@ -25,6 +25,8 @@ PostgreSQL
 ```
 
 Development PostgreSQL runs in Docker through `docker compose up -d postgres`. The server defaults to `postgresql://tableskull:tableskull@localhost:5432/tableskull`.
+
+The runtime entry point is `src/server/index.js`; it composes routes, services, database initialization, and the WebSocket server. Browser code lives in `src/frontend`. Transport-independent data contracts live in `src/shared/types` and must not import browser or server modules. `src/frontend/websocket` and `src/server/websocket` implement the two ends of the same connection.
 
 ## 2. Ownership Rules
 
@@ -68,13 +70,15 @@ New engines must use `matchState` and `onGameAction` for gameplay. The legacy ca
 
 ## 4. Match State and Actions
 
-The client action union is defined in `src/utils/networkSync.ts`:
+The action union is defined in `src/shared/types/network.ts`:
 
 ```typescript
 type GameAction =
   | { type: 'SUBMIT_WORD'; word: string; path: Array<{ row: number; col: number }> }
   | { type: 'PLACE_BID'; bid: number }
-  | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' };
+  | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' }
+  | { type: 'ADVANCE_TRICK' }
+  | { type: 'NEXT_ROUND' };
 ```
 
 ### Bonegle
@@ -90,7 +94,7 @@ type GameAction =
 
 ## 5. WebSocket Protocol
 
-Sockets authenticate with a server-issued session token and only receive events for rooms they subscribed to.
+Sockets authenticate with a server-issued session token. Match state and chat are scoped to subscribed rooms; public room announcements can also reach authenticated clients outside those rooms.
 
 ```typescript
 type NetworkEvent =
@@ -105,7 +109,7 @@ type NetworkEvent =
   | { type: 'ERROR'; message: string };
 ```
 
-Clients send `SUBSCRIBE_ROOM`, `GAME_ACTION`, and `CHAT_SEND`. The server rejects actions from non-members and broadcasts projected state only to subscribed room members.
+Clients send `SUBSCRIBE_ROOM`, `UNSUBSCRIBE_ROOM`, `GAME_ACTION`, and `CHAT_SEND`. The server rejects actions from non-members and broadcasts projected state only to subscribed room members. Transport handlers in `src/server/websocket/handlers.js` call services; game rules run in `src/server/games`, not in the WebSocket layer.
 
 ## 6. Room Lifecycle
 
@@ -136,13 +140,15 @@ Bonegle renders local selection feedback inside the iframe:
 
 ## 8. Adding a Game
 
+See [Anadir un Juego](ANADIR_JUEGO.md) for file placement, transport flow, existing database migrations, and the integration checklist.
+
 Adding a game requires both client and server work:
 
-1. Add the game ID to `src/types/index.ts`.
-2. Create `src/games/<game-id>/` with manifest, engine, rules, settings, and game-specific types.
-3. Register the manifest in `src/games/registry.ts`.
-4. Add authoritative state creation, action validation, state projection, scoring, deadlines, and bot behavior in `server/matchEngine.js`.
-5. Extend `GameAction`, `MatchState`, and the server WebSocket action handling with only the new game's declared data.
+1. Add the game ID to `src/shared/types/index.ts`.
+2. Create `src/frontend/games/<game-id>/` with manifest, UI engine, player-facing rules, and settings.
+3. Register the manifest in `src/frontend/games/registry.ts`.
+4. Implement authoritative state creation, action validation, state projection, scoring, deadlines, and bot behavior in `src/server/games/<game-id>/`, and wire it through `src/server/games/index.js` and `src/server/services/matches.js`.
+5. Extend `GameAction` and `MatchState` in `src/shared/types/network.ts`, plus the service and WebSocket handling where necessary.
 6. Update room database validation if the game ID is persisted.
 7. Verify the engine inside `GameStageFrame`, including iframe pointer/document boundaries and room-scoped multiplayer behavior.
 
