@@ -6,6 +6,7 @@ import {
   unconfirmToken,
   nextExpedition,
   recomputeAvailableTokens,
+  canAdvancePhase,
   advancePhase,
   MAX_EXPEDITIONS,
   TARGET_SUCCESSES,
@@ -72,6 +73,9 @@ export const doomedMineEngine = {
 
     if (action.type === 'SELECT_TOKEN') {
       selectToken(state, userId, Number(action.token));
+      if (canAdvancePhase(state)) {
+        return advancePhase(state);
+      }
       return { finished: false };
     }
 
@@ -118,14 +122,7 @@ export const doomedMineEngine = {
       return nextExpedition(state);
     }
 
-    // Rounds are host-driven. If the host is a human, do not auto-advance on deadline
-    const hostId = state.hostId || state.players[0]?.id;
-    const hostIsBot = state.players.find((p) => p.id === hostId)?.isBot;
-    if (!hostIsBot) {
-      return { finished: false };
-    }
-
-    // Force-assign any unassigned tokens to unready bot players when deadline truly expires
+    // Force-assign any unassigned tokens to players when deadline truly expires
     for (const p of state.players) {
       if (state.tokens[p.id] === null || state.tokens[p.id] === undefined) {
         if (state.availableTokens && state.availableTokens.length > 0) {
@@ -149,12 +146,7 @@ export const doomedMineEngine = {
     const hasUnreadyBot = state.players.some(
       (p) => p.isBot && state.tokens[p.id] === null
     );
-    const hostId = state.hostId || state.players[0]?.id;
-    const hostIsBot = state.players.find((p) => p.id === hostId)?.isBot;
-    const allHaveTokens = state.players.every(
-      (p) => state.tokens[p.id] !== null && state.tokens[p.id] !== undefined
-    );
-    if (hasUnreadyBot || (hostIsBot && allHaveTokens)) {
+    if (hasUnreadyBot) {
       return 1500;
     }
     return null;
@@ -163,7 +155,7 @@ export const doomedMineEngine = {
   onWalkover: (state, winnerId) => {
     state.phase = 'game_over';
     state.winnerId = winnerId;
-    state.winReason = 'Walkover: el resto de mineros abandonó la expedición.';
+    state.winReason = 'Walkover: other miners abandoned the expedition.';
     state.finishedAt = Date.now();
   },
 
@@ -193,18 +185,18 @@ export const doomedMineEngine = {
       const history = state.tokenHistory[player.id] || {};
       const items = [
         {
-          label: 'Galerías Aseguradas',
+          label: 'Shafts Secured',
           value: `${state.successes} / ${TARGET_SUCCESSES}`,
           variant: state.successes > 0 ? 'primary' : 'neutral',
         },
         {
-          label: 'Derrumbes en el Pozo',
+          label: 'Cave-ins in the Shaft',
           value: `${state.failures} / ${MAX_FAILURES}`,
           variant: state.failures > 0 ? 'secondary' : 'neutral',
         },
         {
-          label: 'Expedición Alcanzada',
-          value: `${state.expedition} de ${MAX_EXPEDITIONS}`,
+          label: 'Expedition Reached',
+          value: `${state.expedition} of ${MAX_EXPEDITIONS}`,
           variant: 'neutral',
         },
       ];
@@ -213,8 +205,8 @@ export const doomedMineEngine = {
         score: state.scores[player.id] || 0,
         sections: [
           {
-            title: 'Expedición en la Mina',
-            badge: isSuccess ? 'RESCATADOS' : isColapsed ? 'COLAPSO' : 'INCOMPLETA',
+            title: 'Mine Expedition',
+            badge: isSuccess ? 'RESCUED' : isColapsed ? 'COLLAPSE' : 'INCOMPLETE',
             items,
           },
         ],

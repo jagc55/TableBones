@@ -9,26 +9,26 @@ export const SUIT_COLORS: Record<PokerSuit, string> = {
 };
 
 export const SUIT_LABELS: Record<PokerSuit, string> = {
-  spades: 'Picas',
-  hearts: 'Corazones',
-  diamonds: 'Diamantes',
-  clubs: 'Tréboles',
+  spades: 'Spades',
+  hearts: 'Hearts',
+  diamonds: 'Diamonds',
+  clubs: 'Clubs',
 };
 
 export const RANK_NAMES: Record<string, string> = {
-  '2': 'Doses',
-  '3': 'Treses',
-  '4': 'Cuatros',
-  '5': 'Cincos',
-  '6': 'Seises',
-  '7': 'Sietes',
-  '8': 'Ochos',
-  '9': 'Nueves',
-  '10': 'Dieces',
-  J: 'Jotas',
-  Q: 'Damas',
-  K: 'Reyes',
-  A: 'Ases',
+  '2': 'Deuces',
+  '3': 'Threes',
+  '4': 'Fours',
+  '5': 'Fives',
+  '6': 'Sixes',
+  '7': 'Sevens',
+  '8': 'Eights',
+  '9': 'Nines',
+  '10': 'Tens',
+  J: 'Jacks',
+  Q: 'Queens',
+  K: 'Kings',
+  A: 'Aces',
 };
 
 export interface PhaseMetadata {
@@ -41,46 +41,46 @@ export interface PhaseMetadata {
 export const PHASE_METADATA: Record<DoomedMinePhase, PhaseMetadata> = {
   pre_flop: {
     step: 1,
-    title: 'EL SONDEO',
-    subtitle: '2 Cartas en Mano',
-    description: 'Examina tus 2 cartas secretas y elige una ficha de presión estimada.',
+    title: 'THE SOUNDING',
+    subtitle: '2 Pocket Cards',
+    description: 'Examine your 2 secret hole cards and claim an estimated pressure token.',
   },
   flop: {
     step: 2,
-    title: 'EL FLOP',
-    subtitle: '3 Rocas Comunitarias',
-    description: 'Se abren 3 cartas en la mesa. Ajusta tu ficha si tu jugada ha mejorado.',
+    title: 'THE FLOP',
+    subtitle: '3 Community Rocks',
+    description: '3 cards are revealed on the table. Adjust your token if your hand improved.',
   },
   turn: {
     step: 3,
-    title: 'EL TURN',
-    subtitle: '4ª Roca Comunitaria',
-    description: 'Crujen las vigas de la mina. Revisa la solidez de tu combinación.',
+    title: 'THE TURN',
+    subtitle: '4th Community Rock',
+    description: 'Mine timbers groan. Reassess the strength of your hand.',
   },
   river: {
     step: 4,
-    title: 'EL RIVER',
-    subtitle: '5ª Roca Comunitaria',
-    description: 'Presión máxima. Última oportunidad de ajustar tu viga antes del despeje.',
+    title: 'THE RIVER',
+    subtitle: '5th Community Rock',
+    description: 'Maximum pressure. Final opportunity to adjust before the showdown.',
   },
   showdown: {
     step: 5,
-    title: 'EL DESPEJE',
-    subtitle: 'Veredicto de la Mina',
-    description: 'Se revelan todas las manos: las fichas deben coincidir de menor a mayor.',
+    title: 'THE VERDICT',
+    subtitle: 'Mine Showdown',
+    description: 'All hands revealed: tokens must match card strengths from weakest to strongest.',
   },
   game_over: {
     step: 6,
-    title: 'FIN DE LA EXPEDICIÓN',
-    subtitle: 'Resultado Final',
-    description: 'La cuadrilla concluyó su incursión subterránea.',
+    title: 'EXPEDITION OVER',
+    subtitle: 'Final Outcome',
+    description: 'The mining crew concluded their underground run.',
   },
 };
 
 // Client-side quick poker hand namer for active player feedback
 export function evaluateQuickHandName(myCards: PokerCard[], communityCards: PokerCard[]): string {
   const allCards = [...(myCards || []), ...(communityCards || [])];
-  if (allCards.length < 2) return 'Esperando reparto...';
+  if (allCards.length < 2) return 'Waiting for deal...';
 
   // Count ranks
   const rankCounts: Record<number, number> = {};
@@ -122,36 +122,36 @@ export function evaluateQuickHandName(myCards: PokerCard[], communityCards: Poke
   const pairs = Object.entries(rankCounts).filter(([, count]) => count === 2).map(([val]) => Number(val)).sort((a, b) => b - a);
 
   const getRankName = (val: number) => {
-    if (val === 14) return 'Ases';
-    if (val === 13) return 'Reyes';
-    if (val === 12) return 'Damas';
-    if (val === 11) return 'Jotas';
+    if (val === 14) return 'Aces';
+    if (val === 13) return 'Kings';
+    if (val === 12) return 'Queens';
+    if (val === 11) return 'Jacks';
     return `${val}s`;
   };
 
   const getSingleName = (val: number) => {
-    if (val === 14) return 'As';
-    if (val === 13) return 'Rey';
-    if (val === 12) return 'Dama';
-    if (val === 11) return 'Jota';
+    if (val === 14) return 'Ace';
+    if (val === 13) return 'King';
+    if (val === 12) return 'Queen';
+    if (val === 11) return 'Jack';
     return `${val}`;
   };
 
-  if (hasFlush && hasStraight) return `Escalera de Color (al ${getSingleName(straightHigh)})`;
-  if (quads.length > 0) return `Póquer de ${getRankName(quads[0])}`;
+  if (hasFlush && hasStraight) return `Straight Flush (${getSingleName(straightHigh)} High)`;
+  if (quads.length > 0) return `Four of a Kind (${getRankName(quads[0])})`;
   if (trips.length > 0 && (pairs.length > 0 || trips.length > 1)) {
     const pairVal = trips.length > 1 ? trips[1] : pairs[0];
-    return `Full House (${getRankName(trips[0])} y ${getRankName(pairVal)})`;
+    return `Full House (${getRankName(trips[0])} & ${getRankName(pairVal)})`;
   }
-  if (hasFlush) return 'Color';
-  if (hasStraight) return `Escalera (al ${getSingleName(straightHigh)})`;
-  if (trips.length > 0) return `Trío de ${getRankName(trips[0])}`;
-  if (pairs.length >= 2) return `Doble Pareja (${getRankName(pairs[0])} y ${getRankName(pairs[1])})`;
-  if (pairs.length === 1) return `Pareja de ${getRankName(pairs[0])}`;
+  if (hasFlush) return 'Flush';
+  if (hasStraight) return `Straight (${getSingleName(straightHigh)} High)`;
+  if (trips.length > 0) return `Three of a Kind (${getRankName(trips[0])})`;
+  if (pairs.length >= 2) return `Two Pair (${getRankName(pairs[0])} & ${getRankName(pairs[1])})`;
+  if (pairs.length === 1) return `Pair of ${getRankName(pairs[0])}`;
 
   // High card
   const high = Math.max(...allCards.map((c) => c.value));
-  return `Carta Alta (${getSingleName(high)})`;
+  return `High Card (${getSingleName(high)})`;
 }
 
 // Sound effects wrapper using soundstage

@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import type { BaseGameEngineProps, Player } from '../../types';
 import type { DoomedMineMatchState } from './types';
 import { PokerCardView, PressureTokenChip } from './DoomedMineCards';
-import { DoomedMineRules } from './DoomedMineRules';
 import {
   playTokenSelectSound,
   playSuccessSound,
@@ -17,8 +16,6 @@ import {
   CheckCircle2,
   Clock,
   Crown,
-  BookOpen,
-  X,
   ChevronRight,
   Zap,
 } from 'lucide-react';
@@ -40,7 +37,6 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const [showRulesModal, setShowRulesModal] = useState(false);
   const feedScrollRef = React.useRef<HTMLDivElement>(null);
 
   // Sound effects on showdown (called unconditionally at top level)
@@ -48,10 +44,10 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     if (state?.phase === 'showdown' && state?.showdownResult) {
       if (state.showdownResult.success) {
         playSuccessSound();
-        onActionNotification?.('¡Viga apuntalada! El orden de las fichas fue correcto.');
+        onActionNotification?.('Shaft secured! The token order was correct.');
       } else {
         playCaveInSound();
-        onActionNotification?.('¡Derrumbe en la mina! Las fichas no coincidieron.');
+        onActionNotification?.('Cave-in in the mine! Tokens did not match hand rankings.');
       }
     }
   }, [state?.phase, state?.expedition, state?.showdownResult, onActionNotification]);
@@ -72,8 +68,8 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     return (
       <div className="cel-card doomed-mine-loading-box">
         <Pickaxe size={32} className="animate-tremble" />
-        <h3 className="woodcut-title">CARGANDO LA MINA...</h3>
-        <p>Preparando cartas y vigas de soporte.</p>
+        <h3 className="woodcut-title">LOADING THE MINE...</h3>
+        <p>Preparing cards and timber supports.</p>
         <style>{`
           .doomed-mine-loading-box {
             text-align: center;
@@ -92,23 +88,23 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
   const isShowdown = state.phase === 'showdown';
   const isGameOver = state.phase === 'game_over';
 
-  // Round naming without poker jargon: Ronda 1, Ronda 2, Ronda 3, Ronda 4, Veredicto
+  // Round naming without poker jargon: Round 1, Round 2, Round 3, Round 4, Showdown
   const getRoundLabel = () => {
     switch (state.phase) {
       case 'pre_flop':
-        return 'RONDA 1';
+        return 'ROUND 1';
       case 'flop':
-        return 'RONDA 2';
+        return 'ROUND 2';
       case 'turn':
-        return 'RONDA 3';
+        return 'ROUND 3';
       case 'river':
-        return 'RONDA 4';
+        return 'ROUND 4';
       case 'showdown':
-        return 'VEREDICTO';
+        return 'SHOWDOWN';
       case 'game_over':
         return 'FINAL';
       default:
-        return 'RONDA';
+        return 'ROUND';
     }
   };
 
@@ -127,10 +123,6 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
       (state.hostId && state.hostId === userId) ||
       (!state.hostId && activePlayers[0]?.id === userId)
   );
-  const hostPlayer = activePlayers.find(
-    (p) => p.id === (state.hostId || (activePlayers.find((ap) => ap.isHost)?.id || activePlayers[0]?.id))
-  );
-  const hostName = hostPlayer ? (hostPlayer.id === userId ? 'Tú (Capataz)' : hostPlayer.name) : 'Capataz';
 
   const tokensHeldCount = (state.players || []).filter(
     (p) => state.tokens?.[p.id] !== null && state.tokens?.[p.id] !== undefined
@@ -141,15 +133,15 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
   const getNextRoundLabel = () => {
     switch (state.phase) {
       case 'pre_flop':
-        return 'RONDA 2';
+        return 'ROUND 2';
       case 'flop':
-        return 'RONDA 3';
+        return 'ROUND 3';
       case 'turn':
-        return 'RONDA 4';
+        return 'ROUND 4';
       case 'river':
-        return 'VEREDICTO';
+        return 'SHOWDOWN';
       default:
-        return 'SIGUIENTE RONDA';
+        return 'NEXT ROUND';
     }
   };
 
@@ -175,12 +167,12 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     if (isShowdown || isGameOver) return;
     if (myToken !== null) {
       if (myToken === token) {
-        onActionNotification?.(`Ya tienes la Ficha ${myToken}. No puedes soltarla.`);
+        onActionNotification?.(`You already hold Token ${myToken}. You cannot release it.`);
         soundstage.playTileBacktrack();
         return;
       }
       onActionNotification?.(
-        `Ya tienes la Ficha ${myToken}. Solo puedes librarte de ella si otro minero te la quita.`
+        `You already hold Token ${myToken}. You can only lose it if another miner steals it from you.`
       );
       soundstage.playTileBacktrack();
       return;
@@ -193,13 +185,13 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     if (isShowdown || isGameOver) return;
     const playerToken = state.tokens?.[minerPlayer.id];
     if (playerToken === null || playerToken === undefined) {
-      onActionNotification?.(`${minerPlayer.name} no tiene ninguna ficha.`);
+      onActionNotification?.(`${minerPlayer.name} does not hold any token.`);
       return;
     }
 
     if (myToken !== null) {
       onActionNotification?.(
-        `Ya tienes la Ficha ${myToken}. Solo puedes librarte de ella si otro minero te la quita.`
+        `You already hold Token ${myToken}. You can only lose it if another miner steals it from you.`
       );
       soundstage.playTileBacktrack();
       return;
@@ -216,18 +208,18 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
   return (
     <div className="doomed-mine-compact-container">
       {/* ========================================================= */}
-      {/* 1. ESTADO GLOBAL DE LA PARTIDA (MINIMALISTA, SOLO ICONOS) */}
+      {/* 1. GLOBAL GAME STATUS (MINIMALIST, ICONS & METERS)        */}
       {/* ========================================================= */}
       <header className="cel-card mine-compact-header">
-        {/* Vigas Aseguradas (3 slots, solo iconos de faroles/trofeos) */}
-        <div className="header-icon-group" title="Vigas aseguradas (3 para escapar)">
+        {/* Shafts Secured (3 slots, trophy icons) */}
+        <div className="header-icon-group" title="Shafts secured (3 to escape)">
           {[1, 2, 3].map((num) => {
             const secured = state.successes >= num;
             return (
               <div
                 key={`beam-slot-${num}`}
                 className={`compact-meter-slot beam-meter-slot ${secured ? 'meter-active-gold' : ''}`}
-                title={secured ? `Viga ${num} asegurada` : `Viga ${num} pendiente`}
+                title={secured ? `Shaft ${num} secured` : `Shaft ${num} pending`}
               >
                 <Trophy size={14} className={secured ? 'icon-lit-gold' : 'icon-dim'} />
                 <span className="meter-num">{num}</span>
@@ -236,15 +228,15 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           })}
         </div>
 
-        {/* Derrumbes Sufridos (3 slots, solo iconos de peligro/derrumbes) */}
-        <div className="header-icon-group" title="Derrumbes (3 = colapso)">
+        {/* Cave-ins Suffered (3 slots, warning icons) */}
+        <div className="header-icon-group" title="Cave-ins (3 = collapse)">
           {[1, 2, 3].map((num) => {
             const collapsed = state.failures >= num;
             return (
               <div
                 key={`cavein-slot-${num}`}
                 className={`compact-meter-slot cavein-meter-slot ${collapsed ? 'meter-active-red' : ''}`}
-                title={collapsed ? `Derrumbe ${num} sufrido` : `Sin derrumbe`}
+                title={collapsed ? `Cave-in ${num} suffered` : 'No cave-in'}
               >
                 <AlertTriangle size={14} className={collapsed ? 'icon-lit-red' : 'icon-dim'} />
                 <span className="meter-num">{num}</span>
@@ -253,39 +245,25 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           })}
         </div>
 
-        {/* Ronda Actual (Ronda 1, 2, 3, 4) */}
+        {/* Current Round Badge (Round 1, 2, 3, 4) */}
         <div className="compact-round-badge">
           <span className="round-badge-text">{getRoundLabel()}</span>
         </div>
 
-        {/* Temporizador */}
+        {/* Timer */}
         <div
           className={`compact-timer-badge ${
             timeLeft <= 10 && !isShowdown && !isGameOver ? 'timer-urgent-pulse animate-tremble' : ''
           }`}
-          title="Tiempo restante"
+          title="Time remaining"
         >
           <Clock size={13} strokeWidth={2.6} />
           <span>{timeLeft}s</span>
         </div>
-
-        {/* Botón de Reglas */}
-        <button
-          type="button"
-          onClick={() => {
-            soundstage.playTap();
-            setShowRulesModal(true);
-          }}
-          className="btn-cel btn-brawl-neutral btn-sm compact-rules-btn"
-          title="Ver reglas"
-        >
-          <BookOpen size={13} />
-          <span>REGLAS</span>
-        </button>
       </header>
 
       {/* ========================================================= */}
-      {/* 1.5 CONTROL DE AVANCE DE RONDA (CONTROLADO POR EL CAPATAZ) */}
+      {/* 1.5 ROUND ADVANCEMENT STATUS / CONTROLS                   */}
       {/* ========================================================= */}
       {!isShowdown && !isGameOver && (
         <div
@@ -293,43 +271,32 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
             allPlayersHaveTokens ? 'bar-ready-to-advance' : 'bar-waiting-tokens'
           }`}
         >
-          {isHost ? (
-            allPlayersHaveTokens ? (
-              <button
-                type="button"
-                onClick={handleAdvancePhase}
-                className="btn-cel btn-advance-gold"
-                title={`Avanzar a ${getNextRoundLabel()}`}
-              >
-                <Pickaxe size={15} className="animate-tremble" />
-                <span className="advance-btn-text">AVANZAR A {getNextRoundLabel()}</span>
-                <ChevronRight size={15} />
-              </button>
-            ) : (
-              <div className="advance-status-row waiting-host">
-                <Clock size={14} />
-                <span>
-                  Esperando que todos los mineros tengan ficha ({tokensHeldCount}/{totalPlayers}) para avanzar a {getNextRoundLabel()}
-                </span>
-              </div>
-            )
-          ) : (
+          {allPlayersHaveTokens ? (
             <div className="advance-status-row">
-              {allPlayersHaveTokens ? (
-                <>
-                  <CheckCircle2 size={14} className="icon-lit-gold" />
-                  <span>
-                    ¡Todos los mineros tienen ficha! Esperando a que el Capataz ({hostName}) avance a {getNextRoundLabel()}...
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Clock size={14} />
-                  <span>
-                    Esperando a que todos los mineros tengan ficha ({tokensHeldCount}/{totalPlayers})...
-                  </span>
-                </>
+              <CheckCircle2 size={14} className="icon-lit-gold" />
+              <span>
+                All miners have claimed a token! Advancing to {getNextRoundLabel()}...
+              </span>
+              {isHost && (
+                <button
+                  type="button"
+                  onClick={handleAdvancePhase}
+                  className="btn-cel btn-advance-gold btn-sm"
+                  title={`Advance to ${getNextRoundLabel()}`}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  <Pickaxe size={13} className="animate-tremble" />
+                  <span className="advance-btn-text">ADVANCE TO {getNextRoundLabel()}</span>
+                  <ChevronRight size={13} />
+                </button>
               )}
+            </div>
+          ) : (
+            <div className="advance-status-row waiting-host">
+              <Clock size={14} />
+              <span>
+                Waiting for all miners to claim a token ({tokensHeldCount}/{totalPlayers})...
+              </span>
             </div>
           )}
         </div>
@@ -377,7 +344,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                 <AlertTriangle size={20} className="icon-lit-red" />
               )}
               <strong className="woodcut-title showdown-modal-title">
-                {state.showdownResult.success ? '¡VIGA APUNTALADA!' : '¡DERRUMBE EN LA MINA!'}
+                {state.showdownResult.success ? 'SHAFT SECURED!' : 'CAVE-IN IN THE MINE!'}
               </strong>
             </div>
 
@@ -399,7 +366,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
               onClick={handleNextExpedition}
               className="btn-cel btn-brawl-primary btn-sm showdown-advance-btn"
             >
-              <span>{state.pendingGameOver ? 'VER PODIO FINAL' : 'SIGUIENTE EXPEDICIÓN'}</span>
+              <span>{state.pendingGameOver ? 'VIEW FINAL PODIUM' : 'NEXT EXPEDITION'}</span>
               <ChevronRight size={14} />
             </button>
           </div>
@@ -407,20 +374,20 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
       </section>
 
       {/* ========================================================= */}
-      {/* 3. EN PARALELO: TUS CARTAS (1/3) Y EL RESTO DE MINEROS (2/3)*/}
+      {/* 3. SIDE BY SIDE: YOUR HAND (1/3) & TEAMMATES (2/3)        */}
       {/* ========================================================= */}
       <section className="doomed-mine-split-arena">
-        {/* LADO A: TUS CARTAS Y FICHAS DISPONIBLES (~1/3 ESPACIO) */}
+        {/* SIDE A: YOUR CARDS & CLAIMABLE TOKENS (~1/3 SPACE) */}
         <div className="cel-card split-panel my-hand-panel">
           <div className="split-panel-header">
-            <span className="woodcut-title panel-mini-title">TUS CARTAS</span>
+            <span className="woodcut-title panel-mini-title">YOUR CARDS</span>
           </div>
 
           <div className="my-hand-content">
             {/* Pocket Cards Together */}
             <div className="my-pocket-cards-fan">
               {myCards.length === 0 ? (
-                <span className="empty-cards-note">Repartiendo cartas...</span>
+                <span className="empty-cards-note">Dealing cards...</span>
               ) : (
                 myCards.map((card, idx) => (
                   <div key={`my-hole-card-${card.id || idx}`} className="pocket-card-holder">
@@ -430,15 +397,15 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
               )}
             </div>
 
-            {/* Historial de fichas en rondas previas a simple vista */}
+            {/* Token History in Previous Rounds */}
             <div className="my-history-strip">
-              <span className="history-strip-label">FICHAS PREVIAS:</span>
+              <span className="history-strip-label">PREVIOUS TOKENS:</span>
               {getPlayerHistoryRounds(userId).length === 0 ? (
-                <span className="history-empty-tag">Sin rondas previas</span>
+                <span className="history-empty-tag">No prior rounds</span>
               ) : (
                 <div className="history-pills-row">
                   {getPlayerHistoryRounds(userId).map((item) => (
-                    <span key={item.label} className="token-history-badge" title={`${item.label}: Ficha ${item.token}`}>
+                    <span key={item.label} className="token-history-badge" title={`${item.label}: Token ${item.token}`}>
                       <span className="badge-round">{item.label}:</span>
                       <span className="badge-token">★{item.token}</span>
                     </span>
@@ -453,8 +420,8 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                 <div className="claim-box-header">
                   <span className="claim-title">
                     {myToken === null
-                      ? `ELIGE TU FICHA (1=MÍN, ${totalPlayers}=MÁX):`
-                      : `TU FICHA ACTUAL: FICHA ${myToken} (¡LISTO!)`}
+                      ? `CLAIM YOUR TOKEN (1=MIN, ${totalPlayers}=MAX):`
+                      : `YOUR CURRENT TOKEN: TOKEN ${myToken} (READY!)`}
                   </span>
                 </div>
 
@@ -479,7 +446,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                         holderName={
                           holderPlayer
                             ? holderPlayer.id === userId
-                              ? 'TÚ'
+                              ? 'YOU'
                               : holderPlayer.name
                             : undefined
                         }
@@ -489,19 +456,19 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                   })}
                 </div>
 
-                {/* Instant Ready State (no reconfirm / no voluntary drop) */}
+                {/* Instant Ready State (no voluntary drop) */}
                 <div className="my-status-action-area">
                   {myToken === null ? (
                     <span className="choose-token-hint">
-                      ⛏ Elige una ficha libre o pincha en un minero para quitársela
+                      ⛏ Claim an available token or click a teammate to steal theirs
                     </span>
                   ) : (
                     <div className="confirmed-ready-state">
                       <span className="ready-indicator-text">
-                        <CheckCircle2 size={14} /> ¡LISTO CON FICHA {myToken}!
+                        <CheckCircle2 size={14} /> READY WITH TOKEN {myToken}!
                       </span>
                       <span className="ready-sub-hint">
-                        No se puede soltar; solo te libras si te la roban
+                        Locked in; can only change if another miner steals it
                       </span>
                     </div>
                   )}
@@ -511,11 +478,11 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           </div>
         </div>
 
-        {/* LADO B: EL RESTO DE LOS MINEROS (~2/3 ESPACIO) */}
+        {/* SIDE B: TEAMMATES (~2/3 SPACE) */}
         <div className="cel-card split-panel team-miners-panel">
           <div className="split-panel-header">
-            <span className="woodcut-title panel-mini-title">MINEROS</span>
-            <span className="miners-count-pill">{otherPlayers.length} COMPAÑEROS</span>
+            <span className="woodcut-title panel-mini-title">MINERS</span>
+            <span className="miners-count-pill">{otherPlayers.length} TEAMMATES</span>
           </div>
 
           <div className="miners-roster-grid">
@@ -537,17 +504,17 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                   }`}
                   title={
                     canSteal
-                      ? `Pincha para quitarle la Ficha ${playerToken} a ${player.name}`
+                      ? `Click to steal Token ${playerToken} from ${player.name}`
                       : hasToken
-                      ? `Ficha ${playerToken} en poder de ${player.name}`
-                      : `${player.name} todavía no tiene ficha`
+                      ? `Token ${playerToken} held by ${player.name}`
+                      : `${player.name} does not have a token yet`
                   }
                 >
                   <div className="miner-main-row">
                     <div className="miner-avatar-box">
                       <AvatarIcon id={player.avatarId} size={28} />
                       {player.isHost && (
-                        <div className="miner-crown" title="Capataz">
+                        <div className="miner-crown" title="Pit Boss">
                           <Crown size={8} strokeWidth={3} />
                         </div>
                       )}
@@ -561,14 +528,14 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
 
                       <div className="miner-status-line">
                         {isReady ? (
-                          <span className="miner-ready-text">✓ LISTO</span>
+                          <span className="miner-ready-text">✓ READY</span>
                         ) : (
-                          <span className="miner-thinking-text">⏳ PENSANDO...</span>
+                          <span className="miner-thinking-text">⏳ THINKING...</span>
                         )}
                       </div>
 
                       {canSteal && (
-                        <span className="miner-steal-tip">⛏ Pincha para robar</span>
+                        <span className="miner-steal-tip">⛏ Click to steal</span>
                       )}
                     </div>
 
@@ -587,9 +554,9 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                     </div>
                   </div>
 
-                  {/* Fichas previas de este minero a simple vista */}
+                  {/* Previous tokens for this miner */}
                   <div className="miner-history-row">
-                    <span className="miner-hist-title">Previas:</span>
+                    <span className="miner-hist-title">Prior:</span>
                     {pastRounds.length === 0 ? (
                       <span className="miner-hist-empty">—</span>
                     ) : (
@@ -598,7 +565,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                           <span
                             key={item.label}
                             className="miner-past-badge"
-                            title={`${player.name} en ${item.label}: Ficha ${item.token}`}
+                            title={`${player.name} in ${item.label}: Token ${item.token}`}
                           >
                             <span className="past-round">{item.label}:</span>
                             <span className="past-num">★{item.token}</span>
@@ -629,18 +596,18 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
       </section>
 
       {/* ========================================================= */}
-      {/* 4. HISTORIAL DE DISPUTA Y ROTACIÓN DE FICHAS (ABAJO)      */}
+      {/* 4. DISPUTE & TOKEN ROTATION FEED (BOTTOM)                 */}
       {/* ========================================================= */}
       <footer className="cel-card-deep dispute-feed-card">
         <div className="feed-header-line">
           <Zap size={13} className="gold-icon" />
-          <strong className="feed-title-text">HISTORIAL DE DISPUTA Y ROTACIÓN DE FICHAS:</strong>
+          <strong className="feed-title-text">TOKEN DISPUTE & ROTATION FEED:</strong>
           <span className="feed-badge-count">{(state.actionLog || []).length}</span>
         </div>
 
         <div className="feed-scroll-list" ref={feedScrollRef}>
           {!state.actionLog || state.actionLog.length === 0 ? (
-            <span className="feed-row-empty">Sin movimientos registrados aún...</span>
+            <span className="feed-row-empty">No moves recorded yet...</span>
           ) : (
             state.actionLog.map((entry) => (
               <div key={entry.id} className="feed-row-item">
@@ -651,33 +618,6 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           )}
         </div>
       </footer>
-
-      {/* ========================================================= */}
-      {/* MODAL DE REGLAS                                           */}
-      {/* ========================================================= */}
-      {showRulesModal && (
-        <div className="modal-overlay" onClick={() => setShowRulesModal(false)}>
-          <div className="modal-content rules-modal-window" onClick={(e) => e.stopPropagation()}>
-            <div className="rules-modal-header">
-              <div className="header-title-row">
-                <Pickaxe size={22} className="gold-icon" />
-                <h3 className="woodcut-title">LA MINA MALDITA — MANUAL DE REGLAS</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRulesModal(false)}
-                className="btn-cel btn-brawl-neutral btn-icon-sq"
-                title="Cerrar"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="rules-modal-body">
-              <DoomedMineRules />
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ========================================================= */}
       {/* CSS ESPECÍFICO (COMPACTO Y SIN SCROLL)                    */}
@@ -1582,29 +1522,6 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
         .chip-confirmed {
           border-color: #10b981;
           box-shadow: 0 0 0 2.5px #10b981, 2px 2px 0px #1c1511;
-        }
-
-        /* MODAL */
-        .rules-modal-window {
-          max-width: 680px;
-          padding: 16px;
-        }
-        .rules-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 2px solid var(--color-ink-stroke);
-          padding-bottom: 8px;
-          margin-bottom: 12px;
-        }
-        .header-title-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .header-title-row h3 {
-          font-size: 16px;
-          color: var(--color-text-main);
         }
       `}</style>
     </div>

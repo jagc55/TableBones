@@ -17,44 +17,48 @@ export const RANK_VALUES = {
   A: 14,
 };
 
-export const RANK_NAMES_ES = {
-  '2': 'Doses',
-  '3': 'Treses',
-  '4': 'Cuatros',
-  '5': 'Cincos',
-  '6': 'Seises',
-  '7': 'Sietes',
-  '8': 'Ochos',
-  '9': 'Nueves',
-  '10': 'Dieces',
-  J: 'Jotas',
-  Q: 'Reinas',
-  K: 'Reyes',
-  A: 'Ases',
+export const RANK_NAMES_EN = {
+  '2': 'Deuces',
+  '3': 'Threes',
+  '4': 'Fours',
+  '5': 'Fives',
+  '6': 'Sixes',
+  '7': 'Sevens',
+  '8': 'Eights',
+  '9': 'Nines',
+  '10': 'Tens',
+  J: 'Jacks',
+  Q: 'Queens',
+  K: 'Kings',
+  A: 'Aces',
 };
 
-export const RANK_SINGULAR_ES = {
-  '2': 'Dos',
-  '3': 'Tres',
-  '4': 'Cuatro',
-  '5': 'Cinco',
-  '6': 'Seis',
-  '7': 'Siete',
-  '8': 'Ocho',
-  '9': 'Nueve',
-  '10': 'Diez',
-  J: 'Jota',
-  Q: 'Reina',
-  K: 'Rey',
-  A: 'As',
+export const RANK_SINGULAR_EN = {
+  '2': 'Two',
+  '3': 'Three',
+  '4': 'Four',
+  '5': 'Five',
+  '6': 'Six',
+  '7': 'Seven',
+  '8': 'Eight',
+  '9': 'Nine',
+  '10': 'Ten',
+  J: 'Jack',
+  Q: 'Queen',
+  K: 'King',
+  A: 'Ace',
 };
 
-export const SUIT_NAMES_ES = {
-  spades: 'Picas',
-  hearts: 'Corazones',
-  diamonds: 'Diamantes',
-  clubs: 'Tréboles',
+export const SUIT_NAMES_EN = {
+  spades: 'Spades',
+  hearts: 'Hearts',
+  diamonds: 'Diamonds',
+  clubs: 'Clubs',
 };
+
+export const RANK_NAMES_ES = RANK_NAMES_EN;
+export const RANK_SINGULAR_ES = RANK_SINGULAR_EN;
+export const SUIT_NAMES_ES = SUIT_NAMES_EN;
 
 export const HAND_CATEGORIES = {
   HIGH_CARD: 0,
@@ -177,7 +181,7 @@ export function evaluate5Cards(cards) {
         categoryRank: HAND_CATEGORIES.ROYAL_FLUSH,
         category: 'royal_flush',
         score: [HAND_CATEGORIES.ROYAL_FLUSH, 14],
-        handName: `Escalera Real de ${SUIT_NAMES_ES[suits[0]]}`,
+        handName: `Royal Flush in ${SUIT_NAMES_EN[suits[0]]}`,
         bestCards: sorted,
       };
     }
@@ -186,7 +190,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.STRAIGHT_FLUSH,
       category: 'straight_flush',
       score: [HAND_CATEGORIES.STRAIGHT_FLUSH, straightHigh],
-      handName: `Escalera de Color al ${RANK_SINGULAR_ES[highRank]}`,
+      handName: `${RANK_SINGULAR_EN[highRank]}-High Straight Flush`,
       bestCards: sorted,
     };
   }
@@ -199,7 +203,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.FOUR_OF_A_KIND,
       category: 'four_of_a_kind',
       score: [HAND_CATEGORIES.FOUR_OF_A_KIND, groups[0].value, kicker],
-      handName: `Póquer de ${RANK_NAMES_ES[quadRank]}`,
+      handName: `Four of a Kind, ${RANK_NAMES_EN[quadRank]}`,
       bestCards: sorted,
     };
   }
@@ -212,7 +216,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.FULL_HOUSE,
       category: 'full_house',
       score: [HAND_CATEGORIES.FULL_HOUSE, groups[0].value, groups[1].value],
-      handName: `Full House de ${RANK_NAMES_ES[trioRank]} y ${RANK_NAMES_ES[pairRank]}`,
+      handName: `Full House, ${RANK_NAMES_EN[trioRank]} full of ${RANK_NAMES_EN[pairRank]}`,
       bestCards: sorted,
     };
   }
@@ -224,7 +228,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.FLUSH,
       category: 'flush',
       score: [HAND_CATEGORIES.FLUSH, ...values],
-      handName: `Color de ${SUIT_NAMES_ES[suits[0]]} al ${RANK_SINGULAR_ES[highRank]}`,
+      handName: `${SUIT_NAMES_EN[suits[0]]} Flush (${RANK_SINGULAR_EN[highRank]} High)`,
       bestCards: sorted,
     };
   }
@@ -236,7 +240,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.STRAIGHT,
       category: 'straight',
       score: [HAND_CATEGORIES.STRAIGHT, straightHigh],
-      handName: `Escalera al ${RANK_SINGULAR_ES[highRank]}`,
+      handName: `Straight to the ${RANK_SINGULAR_EN[highRank]}`,
       bestCards: sorted,
     };
   }
@@ -249,7 +253,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.THREE_OF_A_KIND,
       category: 'three_of_a_kind',
       score: [HAND_CATEGORIES.THREE_OF_A_KIND, groups[0].value, ...kickers],
-      handName: `Trío de ${RANK_NAMES_ES[trioRank]}`,
+      handName: `Three of a Kind, ${RANK_NAMES_EN[trioRank]}`,
       bestCards: sorted,
     };
   }
@@ -263,7 +267,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.TWO_PAIR,
       category: 'two_pair',
       score: [HAND_CATEGORIES.TWO_PAIR, groups[0].value, groups[1].value, kicker],
-      handName: `Doble Pareja de ${RANK_NAMES_ES[highPairRank]} y ${RANK_NAMES_ES[lowPairRank]}`,
+      handName: `Two Pair, ${RANK_NAMES_EN[highPairRank]} and ${RANK_NAMES_EN[lowPairRank]}`,
       bestCards: sorted,
     };
   }
@@ -276,7 +280,7 @@ export function evaluate5Cards(cards) {
       categoryRank: HAND_CATEGORIES.ONE_PAIR,
       category: 'one_pair',
       score: [HAND_CATEGORIES.ONE_PAIR, groups[0].value, ...kickers],
-      handName: `Pareja de ${RANK_NAMES_ES[pairRank]}`,
+      handName: `Pair of ${RANK_NAMES_EN[pairRank]}`,
       bestCards: sorted,
     };
   }
@@ -287,7 +291,7 @@ export function evaluate5Cards(cards) {
     categoryRank: HAND_CATEGORIES.HIGH_CARD,
     category: 'high_card',
     score: [HAND_CATEGORIES.HIGH_CARD, ...values],
-    handName: `Carta Alta ${RANK_SINGULAR_ES[highRank]}`,
+    handName: `${RANK_SINGULAR_EN[highRank]} High`,
     bestCards: sorted,
   };
 }
@@ -320,7 +324,7 @@ export function evaluateBestHand(cards) {
           categoryRank: HAND_CATEGORIES.ONE_PAIR,
           category: 'one_pair',
           score: [HAND_CATEGORIES.ONE_PAIR, sorted[0].value],
-          handName: `Pareja de mano de ${RANK_NAMES_ES[pairRank]}`,
+          handName: `Pocket Pair of ${RANK_NAMES_EN[pairRank]}`,
           bestCards: sorted,
         };
       }
@@ -329,7 +333,7 @@ export function evaluateBestHand(cards) {
         categoryRank: HAND_CATEGORIES.HIGH_CARD,
         category: 'high_card',
         score: [HAND_CATEGORIES.HIGH_CARD, sorted[0].value, sorted[1].value],
-        handName: `Mano inicial con ${RANK_SINGULAR_ES[highRank]}`,
+        handName: `Starting Hand with ${RANK_SINGULAR_EN[highRank]}`,
         bestCards: sorted,
       };
     }
@@ -337,7 +341,7 @@ export function evaluateBestHand(cards) {
       categoryRank: HAND_CATEGORIES.HIGH_CARD,
       category: 'high_card',
       score: [0],
-      handName: 'Mano incompleta',
+      handName: 'Incomplete Hand',
       bestCards: cards,
     };
   }
