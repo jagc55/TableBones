@@ -35,12 +35,16 @@ Implement new multiplayer games across `src/frontend`, `src/server`, and `src/sh
 
 To introduce a new game `<game-id>`, follow these exact steps:
 
-### Step 1: Declare Contracts (`src/shared/types/`)
-1. In `src/shared/types/index.ts`:
-   - `GameId` allows any registered string ID (`export type GameId = 'bonegle' | 'midnight-alley' | (string & {});`).
-2. In `src/shared/types/network.ts`:
-   - Add `<GameName>MatchState` and include it in `MatchState`.
-   - Add your game actions to `GameAction`.
+### Step 1: Encapsulate Game Types (`src/frontend/games/<game-id>/types.ts`)
+1. Create `src/frontend/games/<game-id>/types.ts` containing:
+   - All internal game pieces, cards, and domain models.
+   - `<GameName>MatchState` (extending or adhering to `{ gameId: '<game-id>'; roomId: string; ... }`).
+   - `<GameName>Action` types.
+2. In `src/shared/types/index.ts`:
+   - Add your ID to `GameId` (e.g. `'bonegle' | 'midnight-alley' | 'doomed-mine' | '<my-game>' | (string & {})`).
+3. In `src/shared/types/network.ts`:
+   - Import `<GameName>MatchState` from `../../frontend/games/<game-id>/types` and include it in `MatchState`.
+   - The platform network layer uses generic `BaseMatchState` and `GameAction` contracts; games do NOT pollute shared types with internal structures.
 
 ### Step 2: Implement the Server Engine Adapter (`src/server/games/<game-id>/`)
 Create `src/server/games/<game-id>/engine.js` (and auxiliary modules like `rules.js` or `bot.js` as needed).
@@ -52,6 +56,12 @@ export const myGameEngine = {
   minPlayers: 2,
   maxPlayers: 4,
   createState: (room, matchId) => { /* Return initial authoritative state */ },
+  // (Optional) Game-specific settings validation/sanitization when host updates room settings:
+  validateSettings: (settings, currentSettings) => {
+    return settings;
+  },
+  // (Optional) Initialize turn timers or custom deadlines upon match start:
+  initDeadline: (state) => { /* setDeadline(state, limitSec) */ },
   applyAction: (state, userId, action, rootDir) => {
     /* Validate and apply action. Return { finished: boolean, clientResult?: object } */
   },
@@ -77,7 +87,7 @@ export const myGameEngine = {
     /* Return { [playerId]: scoreNumber } */
   },
   getPlayerBreakdowns: (state) => {
-    /* Return { [playerId]: { sections: [...], items: [...] } } for VictoryModal expanders */
+    /* Return { [playerId]: { score, sections: [{ title, badge, items: [{ label, value, detail, variant }] }] } } for VictoryModal expanders */
   },
   projectState: (state, userId) => {
     /* Return sanitized state visible to this specific user */
@@ -92,6 +102,7 @@ import { myGameEngine } from './my-game/engine.js';
 export const GAME_ENGINES = {
   bonegle: bonegleEngine,
   'midnight-alley': midnightAlleyEngine,
+  'doomed-mine': doomedMineEngine,
   'my-game': myGameEngine, // <-- Register here
 };
 ```
@@ -99,18 +110,20 @@ export const GAME_ENGINES = {
 
 ### Step 3: Implement the Frontend UI (`src/frontend/games/<game-id>/`)
 1. Create `src/frontend/games/<game-id>/`:
+   - `types.ts`: Domain models and `<GameName>MatchState`.
    - `<GameName>Engine.tsx`: React component receiving `BaseGameEngineProps`. Reads `matchState` and dispatches actions via `onGameAction(action)`.
    - `<GameName>Rules.tsx`: Player-facing rules explaining how to play.
-   - `<GameName>Settings.tsx`: (Optional) Custom settings form for room creation lobby.
+   - `<GameName>Settings.tsx`: (Optional) Custom settings form for room creation and lobby modal.
    - `manifest.tsx`: Defines `GameManifest` (`id`, `definition`, `engine`, `rulesComponent`, `settingsComponent`, `hasRoundTimer`, etc.).
    - `index.ts`: Barrel export.
 2. Register the manifest in `src/frontend/games/registry.ts`:
 ```typescript
 import { myGameManifest } from './my-game';
 
-export const GAME_REGISTRY: Record<string, GameManifest> = {
+export const GAME_REGISTRY: Record<GameId, GameManifest> = {
   bonegle: bonegleManifest,
   'midnight-alley': midnightAlleyManifest,
+  'doomed-mine': doomedMineManifest,
   'my-game': myGameManifest, // <-- Register here
 };
 ```

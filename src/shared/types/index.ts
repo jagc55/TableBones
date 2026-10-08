@@ -1,4 +1,4 @@
-export type GameId = 'bonegle' | 'midnight-alley' | (string & {});
+export type GameId = 'bonegle' | 'midnight-alley' | 'doomed-mine' | (string & {});
 
 export interface BreakdownSectionItem {
   label: string;

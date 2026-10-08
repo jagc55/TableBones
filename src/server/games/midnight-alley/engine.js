@@ -210,6 +210,9 @@ export const midnightAlleyEngine = {
     }
     return null;
   },
+  initDeadline: (state) => {
+    setDeadline(state, state.turnTimeLimitSec || 45);
+  },
   onWalkover: (state) => {
     state.phase = 'game_over';
     state.currentTrick = [];

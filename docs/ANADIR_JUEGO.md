@@ -9,59 +9,61 @@ When introducing a new game, **you only touch your game's folders and two centra
 ---
 
 ## Directory Structure
-
-```text
-src/
-  shared/types/
-    index.ts                         GameId and shared platform models
-    network.ts                       MatchState, GameAction, and NetworkEvent
-    <my-game>.ts                     (Optional) Domain models and piece definitions
-  server/games/<my-game>/
-    engine.js                        Engine adapter, initial state, action validation & resolution
-    rules.js                         (Optional) Pure game rules and scoring calculations
-    bot.js                           (Optional) Automated bot move decisions
-    projection.js                    (Optional) State sanitization / per-player projection
-  frontend/games/<my-game>/
-    <MyGame>Engine.tsx               React component rendering board and dispatching actions
-    <MyGame>Rules.tsx                Player-facing rules modal
-    <MyGame>Settings.tsx             (Optional) Custom room options in create room modal
-    manifest.tsx                     GameManifest definition and metadata
-    index.ts                         Barrel exports for manifest and components
-tests/
-  games.test.js                      Engine logic, transitions, and scoring unit tests
-  backend.test.js                    End-to-end HTTP, WebSocket, and lifecycle tests
-```
-
----
-
-## Step-by-Step Implementation Guide
-
-### Step 1: Define Contracts in `src/shared/types`
-
-1. **Game ID**: `src/shared/types/index.ts` allows any registered string ID (`GameId`).
-2. **Match State & Actions**: In `src/shared/types/network.ts`:
-   - Define `<MyGame>MatchState` (projected state visible to the client).
-   - Add `<MyGame>MatchState` to `MatchState`.
-   - Add game action variants to `GameAction`.
-
-```typescript
-// Example: src/shared/types/network.ts
-export interface TicTacToeMatchState {
-  gameId: 'tictactoe';
-  roomId: string;
-  board: Array<string | null>;
-  turnPlayerId: string | null;
-  phase: 'active' | 'resolved';
-  winnerId?: string | null;
-  winReason?: string;
-  deadline?: number | null;
-}
-
-export type TicTacToeAction = {
-  type: 'PLACE_MARK';
-  cellIndex: number;
-};
-```
+ 
+ ```text
+ src/
+   shared/types/
+     index.ts                         GameId and shared platform models
+     network.ts                       BaseMatchState, MatchState union, generic GameAction & NetworkEvent
+   server/games/<my-game>/
+     engine.js                        Engine adapter, initial state, action validation & resolution
+     rules.js                         (Optional) Pure game rules and scoring calculations
+     bot.js                           (Optional) Automated bot move decisions
+     projection.js                    (Optional) State sanitization / per-player projection
+   frontend/games/<my-game>/
+     types.ts                         Domain models, <MyGame>MatchState, and <MyGame>Action
+     <MyGame>Engine.tsx               React component rendering board and dispatching actions
+     <MyGame>Rules.tsx                Player-facing rules modal
+     <MyGame>Settings.tsx             (Optional) Custom room options in create room modal
+     manifest.tsx                     GameManifest definition and metadata
+     index.ts                         Barrel exports for manifest and components
+ tests/
+   games.test.js                      Engine logic, transitions, and scoring unit tests
+   backend.test.js                    End-to-end HTTP, WebSocket, and lifecycle tests
+ ```
+ 
+ ---
+ 
+ ## Step-by-Step Implementation Guide
+ 
+ ### Step 1: Encapsulate Game Types in `src/frontend/games/<my-game>/types.ts`
+ 
+ 1. **Game Domain Models**: Put all game-specific types, pieces, cards, and state in `src/frontend/games/<my-game>/types.ts`:
+    - Define `<MyGame>MatchState` (must contain `gameId: '<my-game>'` and `roomId: string`).
+    - Define `<MyGame>Action` variants.
+ 2. **Register Game ID**: In `src/shared/types/index.ts`, add your ID to the `GameId` type union.
+ 3. **Wire MatchState Union**: In `src/shared/types/network.ts`:
+    - Import `<MyGame>MatchState` and add it to the `MatchState` discriminated union.
+    - Note: `GameAction` is generic (`{ type: string; [key: string]: unknown }`), so you don't need to pollute shared types with game actions!
+ 
+ ```typescript
+ // Example: src/frontend/games/tictactoe/types.ts
+ export interface TicTacToeMatchState {
+   gameId: 'tictactoe';
+   roomId: string;
+   board: Array<string | null>;
+   turnPlayerId: string | null;
+   phase: 'active' | 'resolved';
+   winnerId?: string | null;
+   winReason?: string;
+   deadline?: number | null;
+ }
+ 
+ export type TicTacToeAction = {
+   type: 'PLACE_MARK';
+   cellIndex: number;
+ };
+ ```
 
 ---
 
@@ -89,6 +91,16 @@ export const myGameEngine = {
       scores: Object.fromEntries(players.map((p) => [p.id, 0])),
       startedAt: Date.now(),
     };
+  },
+
+  // (Optional) Validate and sanitize custom room settings (called on PATCH /api/rooms/:id/settings)
+  validateSettings: (settings, currentSettings) => {
+    return settings;
+  },
+
+  // (Optional) Initialize match deadlines upon creation
+  initDeadline: (state) => {
+    // setDeadline(state, state.turnTimeLimitSec);
   },
 
   // 2. Validate and apply a player action
@@ -182,6 +194,7 @@ import { myGameEngine } from './my-game/engine.js';
 export const GAME_ENGINES = {
   bonegle: bonegleEngine,
   'midnight-alley': midnightAlleyEngine,
+  'doomed-mine': doomedMineEngine,
   'my-game': myGameEngine, // <-- Register here!
 };
 ```
@@ -230,9 +243,10 @@ export const myGameManifest: GameManifest = {
 ```typescript
 import { myGameManifest } from './my-game';
 
-export const GAME_REGISTRY: Record<string, GameManifest> = {
+export const GAME_REGISTRY: Record<GameId, GameManifest> = {
   bonegle: bonegleManifest,
   'midnight-alley': midnightAlleyManifest,
+  'doomed-mine': doomedMineManifest,
   'my-game': myGameManifest, // <-- Register here!
 };
 ```

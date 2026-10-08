@@ -2,11 +2,12 @@
 
 These are structural examples for a hypothetical `my-game`, not a playable implementation or pre-verified boilerplate. Replace the sample contracts and implement rule helpers from the agreed rules. Extend the current unions and backend dispatch before compiling or registering the UI. See [the integration guide](../../../../docs/ANADIR_JUEGO.md) for every wiring point.
 
-## 1. Shared Contracts
+## 1. Encapsulated Contracts (`src/frontend/games/my-game/types.ts`)
 
-Declare game-specific domain data in `src/shared/types/my-game.ts` when useful, then import and add its state/actions to `src/shared/types/network.ts`. Add the ID to `GameId` in `src/shared/types/index.ts`.
+Declare all game-specific domain data, pieces, actions, and state in `src/frontend/games/my-game/types.ts`. Then import and add `<MyGame>MatchState` to `src/shared/types/network.ts` (`MatchState` union) and add the ID to `GameId` in `src/shared/types/index.ts`.
 
 ```typescript
+// src/frontend/games/my-game/types.ts
 export interface MyGameMatchState {
   gameId: 'my-game';
   roomId: string;

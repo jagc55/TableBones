@@ -173,6 +173,16 @@ export const bonegleEngine = {
   minPlayers: 2,
   maxPlayers: 6,
   createState: createBonegleState,
+  validateSettings: (settings, currentSettings = {}) => {
+    const size = Number(settings.bonegleGridSize);
+    if (![4, 5, 6].includes(size)) {
+      settings.bonegleGridSize = currentSettings.bonegleGridSize || 5;
+    }
+    if (settings.dictionaryLang !== 'en' && settings.dictionaryLang !== 'es') {
+      settings.dictionaryLang = currentSettings.dictionaryLang || 'es';
+    }
+    return settings;
+  },
   applyAction: applyBonegleAction,
   onDeadline: (state) => ({ finished: resolveBonegle(state) }),
   getAutomaticAction: () => null,

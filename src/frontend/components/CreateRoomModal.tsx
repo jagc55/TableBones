@@ -17,14 +17,14 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
   currentUser,
   onCreateRoom,
 }) => {
-  const [selectedGameId, setSelectedGameId] = useState<GameId>('bonegle');
+  const catalog = getAllGameDefinitions();
+  const [selectedGameId, setSelectedGameId] = useState<GameId>(catalog[0]?.id || 'bonegle');
   const [roomTitle, setRoomTitle] = useState(`${currentUser.name}’s Room`);
   const [isPrivate, setIsPrivate] = useState(false);
   const [roomSettings, setRoomSettings] = useState<RoomSettings>({
     roundDurationSec: 120,
     turnTimeLimitSec: 30,
     dictionaryLang: 'es',
-    bonegleGridSize: 5,
   });
 
   const handleUpdateSetting = (key: string, value: any) => {
@@ -33,7 +33,6 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
   if (!isOpen) return null;
 
-  const catalog = getAllGameDefinitions();
   const selectedManifest = getGameManifest(selectedGameId);
   const selectedGame = selectedManifest?.definition || catalog.find((g) => g.id === selectedGameId) || catalog[0];
 

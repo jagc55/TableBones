@@ -9,6 +9,26 @@ export interface BoneglePathStep {
   letter: string;
 }
 
+export interface BonegleWordFeedback {
+  word: string;
+  status: 'valid' | 'duplicate' | 'invalid';
+  id: number;
+}
+
+export interface BonegleMatchState {
+  gameId: 'bonegle';
+  roomId: string;
+  board: string[][];
+  deadline: number;
+  phase: 'active' | 'resolved';
+  language?: 'en' | 'es';
+  submittedWords: Record<string, Array<{ word: string; path: Array<{ row: number; col: number }> }>>;
+  wordFeedback?: BonegleWordFeedback;
+  breakdowns?: Record<string, { score: number; words: Array<{ word: string; points: number; shared: boolean; awarded: number }> }>;
+  winnerId?: string | null;
+  winReason?: string;
+}
+
 export interface BonegleSubmissionFeedback {
   word: string;
   status: 'valid' | 'invalid' | 'duplicate';

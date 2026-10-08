@@ -47,8 +47,6 @@ export const createMatchService = (broadcast) => {
     const engine = getGameEngine(room.gameId);
     if (engine?.initDeadline) {
       engine.initDeadline(state);
-    } else if (state.gameId === 'midnight-alley') {
-      setDeadline(state, state.turnTimeLimitSec);
     }
 
     const match = { id: matchId, state, timer: null, finalized: false };

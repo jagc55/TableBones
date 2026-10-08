@@ -233,17 +233,23 @@ export const App: React.FC = () => {
         });
       } else if (data.type === 'MATCH_STATE') {
         if (currentRoomRef.current?.id === data.roomId) {
-          setActiveMatchState((previous) => (
-            data.state.gameId === 'bonegle' && previous?.gameId === 'bonegle' && previous.wordFeedback
-              ? { ...data.state, wordFeedback: previous.wordFeedback }
-              : data.state
-          ));
+          setActiveMatchState((previous) => {
+            const prevFeedback = (previous as any)?.wordFeedback || (previous as any)?.actionFeedback;
+            if (prevFeedback && previous?.gameId === data.state.gameId) {
+              return { ...data.state, wordFeedback: prevFeedback, actionFeedback: prevFeedback };
+            }
+            return data.state;
+          });
         }
       } else if (data.type === 'BONEGLE_WORD_RESULT') {
         if (currentRoomRef.current?.id === data.roomId) {
           setActiveMatchState((previous) => (
-            previous?.gameId === 'bonegle'
-              ? { ...previous, wordFeedback: { word: data.word, status: data.status, id: Date.now() } }
+            previous
+              ? {
+                  ...previous,
+                  wordFeedback: { word: data.word, status: data.status, id: Date.now() },
+                  actionFeedback: { word: data.word, status: data.status, id: Date.now() },
+                }
               : previous
           ));
         }
@@ -252,10 +258,13 @@ export const App: React.FC = () => {
         if (previousRoom?.id !== data.roomId) return;
 
         const scoresMap: Record<string, number> = data.scores || (
-          (data.state as any).scores || (
-            data.state.gameId === 'bonegle'
-              ? Object.fromEntries(Object.entries((data.state as any).breakdowns || {}).map(([playerId, breakdown]: any) => [playerId, breakdown.score]))
-              : (data.state as any).cumulativeScores || {}
+          (data.state as any).scores ||
+          (data.state as any).cumulativeScores ||
+          Object.fromEntries(
+            Object.entries((data.state as any).breakdowns || {}).map(([playerId, breakdown]: any) => [
+              playerId,
+              breakdown?.score ?? 0,
+            ])
           )
         );
 

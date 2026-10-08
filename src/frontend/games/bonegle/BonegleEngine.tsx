@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { BaseGameEngineProps } from '../../types';
 import { soundstage } from '../../utils/audio';
 import { Flame } from 'lucide-react';
+import { BonegleMatchState } from './types';
 
 interface AuthoritativePathStep {
   row: number;
@@ -24,8 +25,8 @@ export const BonegleEngine: React.FC<BaseGameEngineProps> = ({
   matchState,
   onGameAction,
 }) => {
-  const match = matchState?.gameId === 'bonegle' ? matchState : null;
-  const board = match?.board || [];
+  const match = matchState?.gameId === 'bonegle' ? (matchState as BonegleMatchState) : null;
+  const board: string[][] = match?.board || [];
   const boardKey = board.map((row) => row.join('|')).join('/');
   const [path, setPath] = useState<AuthoritativePathStep[]>([]);
   const [pathLine, setPathLine] = useState<{ width: number; height: number; points: PathPoint[] }>({ width: 0, height: 0, points: [] });

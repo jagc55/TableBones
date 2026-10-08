@@ -172,9 +172,11 @@ export const createRoomRoutes = (connections, broadcast, matches, lifecycle) => 
         if (!(await isRoomMember(roomId, user.id))) throw new Error('Room membership required.');
         const body = await readJson(req);
         const incomingSettings = body.settings && typeof body.settings === 'object' ? body.settings : {};
-        const settings = { ...room.settings, ...incomingSettings };
-        if (![4, 5, 6].includes(Number(settings.bonegleGridSize))) settings.bonegleGridSize = room.settings.bonegleGridSize || DEFAULT_SETTINGS.bonegleGridSize;
-        if (settings.dictionaryLang !== 'en' && settings.dictionaryLang !== 'es') settings.dictionaryLang = room.settings.dictionaryLang || DEFAULT_SETTINGS.dictionaryLang;
+        let settings = { ...room.settings, ...incomingSettings };
+        const engine = getGameEngine(room.gameId);
+        if (engine?.validateSettings) {
+          settings = engine.validateSettings(settings, room.settings);
+        }
         if (!Number.isFinite(Number(settings.roundDurationSec)) || Number(settings.roundDurationSec) < 1) settings.roundDurationSec = room.settings.roundDurationSec || DEFAULT_SETTINGS.roundDurationSec;
         if (!Number.isFinite(Number(settings.turnTimeLimitSec)) || Number(settings.turnTimeLimitSec) < 1) settings.turnTimeLimitSec = room.settings.turnTimeLimitSec || DEFAULT_SETTINGS.turnTimeLimitSec;
         const title = body.title === undefined ? room.title : String(body.title).trim().slice(0, 36);
