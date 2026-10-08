@@ -159,8 +159,8 @@ export const api = {
     })).room;
   },
 
-  async startRoom(roomId: string): Promise<Room> {
-    return (await request<{ room: Room }>(`/rooms/${encodeURIComponent(roomId)}/start`, { method: 'POST' })).room;
+  async startRoom(roomId: string): Promise<{ room: Room; match: MatchState }> {
+    return request<{ room: Room; match: MatchState }>(`/rooms/${encodeURIComponent(roomId)}/start`, { method: 'POST' });
   },
 
   async rematchRoom(roomId: string): Promise<{ room: Room; match: MatchState }> {

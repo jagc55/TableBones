@@ -226,6 +226,22 @@ interface MidnightCardViewProps {
   chameleonChoice?: 'gangster' | 'alibi';
 }
 
+const ROLE_SUBTITLES: Record<string, string> = {
+  boss: 'THE BOSS',
+  'femme-fatale': 'FEMME FATALE',
+  gangster: 'GANGSTER',
+  chameleon: 'CHAMELEON',
+  alibi: 'ALIBI',
+};
+
+const ROLE_DESCRIPTIONS: Record<string, string> = {
+  boss: 'Defeats all Gangsters and standard suits. Loses ONLY to a Femme Fatale.',
+  'femme-fatale': 'Defeats normal cards and enchants The Boss (+50 bonus). Loses to Gangsters.',
+  gangster: 'Defeats Femme Fatale and normal suits. The first Gangster played wins the trick.',
+  chameleon: 'Can be played as either a Gangster or an Alibi.',
+  alibi: 'Zero value escape card. Avoids winning unwanted tricks.',
+};
+
 export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
   card,
   isPlayable = true,
@@ -269,6 +285,9 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
     return '#1c1511';
   };
 
+  const cardSubtitle = card.subtitle || (role ? ROLE_SUBTITLES[role] : undefined) || (isSpecial ? 'SPECIAL' : '');
+  const cardDesc = card.description || (role ? ROLE_DESCRIPTIONS[role] : undefined) || '';
+
   return (
     <div
       onClick={isPlayable && onClick ? onClick : undefined}
@@ -276,7 +295,7 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
         isDimmed ? 'card-unplayable' : ''
       } ${onClick && isPlayable ? 'card-interactive' : ''}`}
       style={{ borderColor: getBorderColor() }}
-      title={`${card.name}: ${card.description}`}
+      title={`${card.name}${cardDesc ? `: ${cardDesc}` : ''}`}
     >
       {/* Top Banner / Number */}
       <div className="card-top-header" style={{ backgroundColor: getHeaderBg(), color: getHeaderTextColor() }}>
@@ -317,7 +336,7 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
         {card.bonusValue ? (
           <span className="card-bonus-tag">+{card.bonusValue} PTS</span>
         ) : isSpecial ? (
-          <span className="card-sub-name">{card.subtitle.split(' ')[0]}</span>
+          <span className="card-sub-name">{cardSubtitle ? cardSubtitle.split(' ')[0] : 'SPECIAL'}</span>
         ) : (
           <span className="card-corner-num">{card.value}</span>
         )}

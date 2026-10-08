@@ -198,7 +198,23 @@ export const App: React.FC = () => {
     const unsubscribe = networkManager.subscribe((data) => {
       if (data.type === 'ROOM_UPDATED' || data.type === 'MATCH_STARTED') {
         const incomingRoom: Room = data.room;
+        if (incomingRoom.status === 'closed') {
+          setRooms((prev) => prev.filter((r) => r.id !== incomingRoom.id));
+          setCurrentRoom((prev) => {
+            if (prev && prev.id === incomingRoom.id) {
+              setCurrentView('browser');
+              addToast('info', 'ROOM CLOSED', 'The room was closed.');
+              return null;
+            }
+            return prev;
+          });
+          return;
+        }
+
         setRooms((prev) => {
+          if (incomingRoom.isPrivate && !incomingRoom.players.some((p) => p.id === userIdRef.current)) {
+            return prev.filter((r) => r.id !== incomingRoom.id);
+          }
           const exists = prev.some((r) => r.id === incomingRoom.id);
           if (exists) {
             return prev.map((r) => (r.id === incomingRoom.id ? incomingRoom : r));
@@ -456,9 +472,10 @@ export const App: React.FC = () => {
   const handleStartGame = async () => {
     if (!currentRoom) return;
     try {
-      const room = await api.startRoom(currentRoom.id);
+      const { room, match } = await api.startRoom(currentRoom.id);
       setCurrentRoom(room);
       setRooms((previous) => previous.map((item) => item.id === room.id ? room : item));
+      if (match) setActiveMatchState(match);
       setCurrentView('arena');
     } catch (error) {
       addToast('alert', 'START FAILED', error instanceof Error ? error.message : 'Unable to start match.');
@@ -547,10 +564,14 @@ export const App: React.FC = () => {
         onOpenProfile={() => setIsProfileModalOpen(true)}
         onGoHome={() => {
           if (currentView !== 'browser') {
-            if (window.location.search) {
-              window.history.replaceState({}, document.title, window.location.pathname);
+            if (currentRoom) {
+              void handleLeaveMatch();
+            } else {
+              if (window.location.search) {
+                window.history.replaceState({}, document.title, window.location.pathname);
+              }
+              setCurrentView('browser');
             }
-            setCurrentView('browser');
           }
         }}
       />
@@ -645,7 +666,7 @@ export const App: React.FC = () => {
         isRematching={isRematching}
         onReturnToLobby={() => {
           setIsVictoryModalOpen(false);
-          setCurrentView('browser');
+          void handleLeaveMatch();
         }}
       />
 

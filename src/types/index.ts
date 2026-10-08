@@ -13,7 +13,7 @@ export interface GameDefinition {
   badge: string;
 }
 
-export type RoomStatus = 'waiting' | 'in_progress' | 'finished';
+export type RoomStatus = 'waiting' | 'in_progress' | 'finished' | 'closed';
 
 export interface Player {
   id: string;

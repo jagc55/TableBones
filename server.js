@@ -24,13 +24,15 @@ const __dirname = path.dirname(__filename);
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const DIST_DIR = path.join(__dirname, 'dist');
-const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://tableskull:tableskull@localhost:5432/tableskull';
+const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://tableskull:tableskull@127.0.0.1:5432/tableskull';
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 const pool = new Pool({ connectionString: DATABASE_URL });
 const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID || undefined);
 const activeMatches = new Map();
 const connections = new Map();
+const disconnectTimers = new Map();
+const DISCONNECT_GRACE_MS = 4000;
 
 const DEFAULT_STATS = {
   matchesPlayed: 0,
@@ -163,7 +165,7 @@ const mapRoom = (roomRow, playerRows) => ({
 });
 
 const loadRoom = async (roomId) => {
-  const roomResult = await pool.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
+  const roomResult = await pool.query("SELECT * FROM rooms WHERE id = $1 AND status != 'closed'", [roomId]);
   const room = roomResult.rows[0];
   if (!room) return null;
   const playersResult = await pool.query(
@@ -215,7 +217,12 @@ const broadcastRoom = async (roomId, type = 'ROOM_UPDATED') => {
   const room = await loadRoom(roomId);
   if (!room) return;
   for (const [ws, connection] of connections) {
-    if (connection.roomIds.has(roomId)) send(ws, { type, room });
+    if (
+      connection.roomIds.has(roomId) ||
+      (!room.isPrivate && (room.status === 'waiting' || room.status === 'in_progress'))
+    ) {
+      send(ws, { type, room });
+    }
   }
 };
 
@@ -223,7 +230,13 @@ const broadcastPublicRooms = async () => {
   const result = await pool.query(
     "SELECT id FROM rooms WHERE is_private = FALSE AND status IN ('waiting', 'in_progress')"
   );
-  for (const row of result.rows) await broadcastRoom(row.id);
+  for (const row of result.rows) {
+    const room = await loadRoom(row.id);
+    if (!room) continue;
+    for (const [ws] of connections) {
+      send(ws, { type: 'ROOM_UPDATED', room });
+    }
+  }
 };
 
 const getLiveMatch = async (roomId) => {
@@ -369,7 +382,6 @@ const applyAutomaticMidnightAction = async (matchId) => {
   const next = automaticMidnightAction(match.state);
   if (!next) return;
   const result = submitMidnightAction(match.state, next.userId, next.action);
-  if (!result.finished) setDeadline(match.state, match.state.turnTimeLimitSec);
   await commitMatchAction(match, result.finished);
 };
 
@@ -387,15 +399,23 @@ const scheduleMatch = (match) => {
   clearMatchTimer(match);
   if (match.finalized || !match.state.deadline) return;
   const state = match.state;
-  const activePlayer = state.players.find((player) => player.id === state.turnPlayerId);
-  const delay = state.gameId === 'midnight-alley' && activePlayer?.isBot
-    ? 250
-    : Math.max(0, state.deadline - Date.now());
+  let delay = Math.max(0, state.deadline - Date.now());
+
+  if (state.gameId === 'midnight-alley') {
+    if (state.phase === 'bidding') {
+      const hasUnbidBot = state.players.some((p) => p.isBot && state.bids[p.id] === undefined);
+      if (hasUnbidBot) delay = 300;
+    } else if (state.phase === 'playing') {
+      const activePlayer = state.players.find((p) => p.id === state.turnPlayerId);
+      if (activePlayer?.isBot) delay = 450;
+    }
+  }
+
   const deadline = state.deadline;
   match.timer = setTimeout(() => {
     const current = activeMatches.get(match.id);
     if (!current || current.state.deadline !== deadline) return;
-    if (state.gameId === 'midnight-alley' && activePlayer?.isBot) {
+    if (state.gameId === 'midnight-alley') {
       applyAutomaticMidnightAction(match.id).catch((error) => console.error('Automatic match action failed', error));
       return;
     }
@@ -428,10 +448,116 @@ const applyMatchAction = async (roomId, userId, action) => {
     await commitMatchAction(match, false);
     return { type: 'BONEGLE_WORD_RESULT', roomId, word, status: 'valid' };
   }
-  if (action.type !== 'PLACE_BID' && action.type !== 'PLAY_CARD') throw new Error('Unsupported Midnight Alley action.');
+  if (!['PLACE_BID', 'PLAY_CARD', 'ADVANCE_TRICK', 'NEXT_ROUND'].includes(action.type)) {
+    throw new Error('Unsupported Midnight Alley action.');
+  }
   const result = submitMidnightAction(match.state, userId, action);
-  if (!result.finished) setDeadline(match.state, match.state.turnTimeLimitSec);
   await commitMatchAction(match, result.finished);
+};
+
+const deleteOrCloseRoom = async (roomId) => {
+  const matchResult = await pool.query(
+    "SELECT id FROM matches WHERE room_id = $1 AND status = 'active'",
+    [roomId]
+  );
+  for (const match of matchResult.rows) {
+    const activeMatch = activeMatches.get(match.id);
+    if (activeMatch) clearMatchTimer(activeMatch);
+    activeMatches.delete(match.id);
+  }
+  await pool.query(
+    "UPDATE matches SET status = 'abandoned', finished_at = NOW() WHERE room_id = $1 AND status = 'active'",
+    [roomId]
+  );
+  await pool.query("UPDATE rooms SET status = 'closed', closed_at = NOW() WHERE id = $1", [roomId]);
+  await pool.query("DELETE FROM room_players WHERE room_id = $1", [roomId]);
+
+  try {
+    await pool.query("DELETE FROM chat_messages WHERE room_id = $1", [roomId]);
+    await pool.query("DELETE FROM matches WHERE room_id = $1 AND status = 'abandoned'", [roomId]);
+    await pool.query("DELETE FROM rooms WHERE id = $1", [roomId]);
+  } catch {
+    // Retain closed status if foreign key constraint restricts row deletion
+  }
+
+  for (const [ws, connection] of connections) {
+    connection.roomIds.delete(roomId);
+    send(ws, { type: 'ROOM_CLOSED', roomId });
+  }
+};
+
+const leavePlayerFromRoom = async (roomId, userId) => {
+  const isMember = await isRoomMember(roomId, userId);
+  if (!isMember) return false;
+
+  await pool.query('DELETE FROM room_players WHERE room_id = $1 AND user_id = $2', [roomId, userId]);
+
+  for (const [, connection] of connections) {
+    if (connection.userId === userId) connection.roomIds.delete(roomId);
+  }
+
+  const roomResult = await pool.query('SELECT * FROM rooms WHERE id = $1', [roomId]);
+  if (!roomResult.rows[0] || roomResult.rows[0].status === 'closed') {
+    return true;
+  }
+  const currentRoomRow = roomResult.rows[0];
+
+  let remaining = await loadRoom(roomId);
+
+  // Requirement: delete/close room if all players leave or only bots remain
+  const hasHumanContenders = remaining && remaining.players.some((player) => !player.isBot);
+  if (!hasHumanContenders) {
+    await deleteOrCloseRoom(roomId);
+    return true;
+  }
+
+  // If host leaves, migrate host to the next human contender (never a bot!)
+  if (remaining.hostId === userId) {
+    const nextHumanHost = remaining.players.find((player) => !player.isBot);
+    if (nextHumanHost) {
+      await pool.query('UPDATE rooms SET host_id = $1 WHERE id = $2', [nextHumanHost.id, roomId]);
+      remaining = await loadRoom(roomId);
+    }
+  }
+
+  if (currentRoomRow.status === 'in_progress') {
+    const match = await getLiveMatch(roomId);
+    if (match) {
+      removePlayerFromMatch(match.state, userId);
+      if (remaining.players.length < remaining.minPlayers) {
+        const winner = remaining.players[0];
+        if (winner && match.state.players.some((p) => p.id === winner.id)) {
+          if (match.state.gameId === 'bonegle') {
+            resolveBonegle(match.state);
+          } else {
+            match.state.phase = 'game_over';
+            match.state.currentTrick = [];
+            match.state.turnPlayerId = null;
+            match.state.leadPlayerId = null;
+          }
+          match.state.winnerId = winner.id;
+          match.state.winReason = 'Walkover victory: last player standing.';
+          match.state.isWalkover = true;
+          match.state.finishedAt = Date.now();
+          await finishMatch(match);
+        } else {
+          await deleteOrCloseRoom(roomId);
+          return true;
+        }
+      } else {
+        if (match.state.gameId === 'midnight-alley') {
+          setDeadline(match.state, match.state.turnTimeLimitSec || remaining.settings.turnTimeLimitSec);
+        }
+        await commitMatchAction(match, false);
+        await broadcastRoom(roomId);
+      }
+    }
+  } else {
+    await broadcastRoom(roomId);
+  }
+
+  await broadcastPublicRooms();
+  return true;
 };
 
 const assertHost = async (roomId, userId) => {
@@ -513,6 +639,13 @@ const initializeDatabase = async () => {
       unlocked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (user_id, achievement_id)
     );
+  `);
+  await pool.query(`
+    UPDATE rooms SET status = 'closed', closed_at = NOW()
+    WHERE status IN ('waiting', 'in_progress')
+    AND id NOT IN (
+      SELECT DISTINCT room_id FROM room_players WHERE is_bot = FALSE
+    )
   `);
 };
 
@@ -764,7 +897,9 @@ const server = http.createServer(async (req, res) => {
         if (!(await isRoomMember(roomId, user.id))) throw new Error('Room membership required.');
         const body = await readJson(req);
         const playerId = String(body.playerId || body.newHostId || '');
-        if (!playerId || !room.players.some((player) => player.id === playerId)) throw new Error('The new host must be in this room.');
+        const targetPlayer = room.players.find((player) => player.id === playerId);
+        if (!targetPlayer) throw new Error('The new host must be in this room.');
+        if (targetPlayer.isBot) throw new Error('A bot cannot be assigned as host.');
         await pool.query('UPDATE rooms SET host_id = $1 WHERE id = $2', [playerId, roomId]);
         const updatedRoom = await loadRoom(roomId);
         await broadcastRoom(roomId);
@@ -810,6 +945,13 @@ const server = http.createServer(async (req, res) => {
           [title, body.isPrivate === undefined ? room.isPrivate : Boolean(body.isPrivate), settings, roomId]
         );
         const updatedRoom = await loadRoom(roomId);
+        if (updatedRoom.isPrivate && !room.isPrivate) {
+          for (const [client, peer] of connections) {
+            if (!peer.roomIds.has(roomId)) {
+              send(client, { type: 'ROOM_CLOSED', roomId });
+            }
+          }
+        }
         await broadcastRoom(roomId);
         await broadcastPublicRooms();
         writeJson(res, 200, { room: updatedRoom });
@@ -849,64 +991,7 @@ const server = http.createServer(async (req, res) => {
 
       if (action === 'leave' && req.method === 'POST') {
         if (!(await isRoomMember(roomId, user.id))) throw new Error('Room membership required.');
-        await pool.query('DELETE FROM room_players WHERE room_id = $1 AND user_id = $2', [roomId, user.id]);
-        for (const [, connection] of connections) {
-          if (connection.userId === user.id) connection.roomIds.delete(roomId);
-        }
-        let remaining = await loadRoom(roomId);
-        if (!remaining || !remaining.players.some((player) => !player.isBot)) {
-          await pool.query("UPDATE rooms SET status = 'closed', closed_at = NOW() WHERE id = $1", [roomId]);
-          const matchResult = await pool.query("SELECT id FROM matches WHERE room_id = $1 AND status = 'active'", [roomId]);
-          for (const match of matchResult.rows) {
-            const activeMatch = activeMatches.get(match.id);
-            if (activeMatch) clearMatchTimer(activeMatch);
-            activeMatches.delete(match.id);
-          }
-          await pool.query("UPDATE matches SET status = 'abandoned', finished_at = NOW() WHERE room_id = $1 AND status = 'active'", [roomId]);
-          for (const [ws, connection] of connections) {
-            connection.roomIds.delete(roomId);
-            send(ws, { type: 'ROOM_CLOSED', roomId });
-          }
-        } else {
-          if (remaining.hostId === user.id) {
-            const nextHost = remaining.players[0];
-            await pool.query('UPDATE rooms SET host_id = $1 WHERE id = $2', [nextHost.id, roomId]);
-            remaining = await loadRoom(roomId);
-          }
-          if (room.status === 'in_progress') {
-            const match = await getLiveMatch(roomId);
-            if (!match) throw new Error('The active match could not be found.');
-            removePlayerFromMatch(match.state, user.id);
-            if (remaining.players.length < remaining.minPlayers) {
-              const winner = remaining.players[0];
-              if (!match.state.players.some((player) => player.id === winner.id)) {
-                throw new Error('The remaining player is not part of the active match.');
-              }
-              if (match.state.gameId === 'bonegle') {
-                resolveBonegle(match.state);
-              } else {
-                match.state.phase = 'game_over';
-                match.state.currentTrick = [];
-                match.state.turnPlayerId = null;
-                match.state.leadPlayerId = null;
-              }
-              match.state.winnerId = winner.id;
-              match.state.winReason = 'Walkover victory: last player standing.';
-              match.state.isWalkover = true;
-              match.state.finishedAt = Date.now();
-              await finishMatch(match);
-            } else {
-              if (match.state.gameId === 'midnight-alley') {
-                setDeadline(match.state, match.state.turnTimeLimitSec || remaining.settings.turnTimeLimitSec);
-              }
-              await commitMatchAction(match, false);
-              await broadcastRoom(roomId);
-            }
-          } else {
-            await broadcastRoom(roomId);
-          }
-        }
-        await broadcastPublicRooms();
+        await leavePlayerFromRoom(roomId, user.id);
         writeJson(res, 200, { ok: true });
         return;
       }
@@ -1030,6 +1115,11 @@ wss.on('connection', async (ws, request) => {
     const connection = { userId: user.id, roomIds: new Set() };
     connections.set(ws, connection);
 
+    if (disconnectTimers.has(user.id)) {
+      clearTimeout(disconnectTimers.get(user.id));
+      disconnectTimers.delete(user.id);
+    }
+
     ws.on('message', async (messageRaw) => {
       try {
         const message = JSON.parse(messageRaw.toString());
@@ -1040,6 +1130,15 @@ wss.on('connection', async (ws, request) => {
           send(ws, { type: 'ROOM_UPDATED', room });
           const match = await getLiveMatch(message.roomId);
           if (match) sendMatchState(ws, match.state, user.id);
+          return;
+        }
+        if (message.type === 'UNSUBSCRIBE_ROOM') {
+          connection.roomIds.delete(message.roomId);
+          return;
+        }
+        if (message.type === 'LEAVE_ROOM') {
+          const roomId = String(message.roomId || '');
+          if (roomId) await leavePlayerFromRoom(roomId, user.id);
           return;
         }
         if (message.type === 'GAME_ACTION') {
@@ -1090,7 +1189,35 @@ wss.on('connection', async (ws, request) => {
       }
     });
 
-    ws.on('close', () => connections.delete(ws));
+    ws.on('close', () => {
+      connections.delete(ws);
+      let hasOtherSockets = false;
+      for (const [, conn] of connections) {
+        if (conn.userId === user.id) {
+          hasOtherSockets = true;
+          break;
+        }
+      }
+      if (!hasOtherSockets) {
+        const timer = setTimeout(async () => {
+          disconnectTimers.delete(user.id);
+          try {
+            const result = await pool.query(
+              `SELECT rp.room_id FROM room_players rp
+               JOIN rooms r ON r.id = rp.room_id
+               WHERE rp.user_id = $1 AND r.status IN ('waiting', 'in_progress')`,
+              [user.id]
+            );
+            for (const row of result.rows) {
+              await leavePlayerFromRoom(row.room_id, user.id);
+            }
+          } catch (err) {
+            console.error('Failed to cleanup disconnected user rooms', err);
+          }
+        }, DISCONNECT_GRACE_MS);
+        disconnectTimers.set(user.id, timer);
+      }
+    });
     send(ws, { type: 'CONNECTED', userId: user.id });
   } catch {
     ws.close(1011, 'Connection failed');

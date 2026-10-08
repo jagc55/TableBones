@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
-    "db:up": "docker compose up -d postgres",
-    "db:down": "docker compose down",
+    "db:up": "node scripts/db-up.js",
+    "db:down": "node scripts/db-down.js",
     "build": "tsc && vite build",
     "preview": "node server.js",
     "tunnel": "npx --yes localtunnel --port 3000"

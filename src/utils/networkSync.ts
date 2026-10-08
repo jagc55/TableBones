@@ -27,7 +27,7 @@ export interface MidnightMatchState {
   roomId: string;
   round: number;
   maxRounds: number;
-  phase: 'bidding' | 'playing' | 'game_over';
+  phase: 'bidding' | 'playing' | 'trick_resolved' | 'round_summary' | 'game_over';
   hands: Record<string, MidnightCard[]>;
   handCounts: Record<string, number>;
   bids: Record<string, number | undefined>;
@@ -39,10 +39,15 @@ export interface MidnightMatchState {
   currentTrick: PlayedTrickCard[];
   lastResult: {
     winnerPlayerId: string;
+    winnerPlayerName?: string;
     winningCard: MidnightCard;
     bonusPoints: number;
     bonusReason?: string;
   } | null;
+  players?: Array<{ id: string; name: string; avatarId: string; isBot: boolean }>;
+  roundSummaryScores?: Record<string, any> | null;
+  roundHistory?: Record<number, Record<string, any>>;
+  lastRoundWinnerId?: string | null;
   history: unknown[];
   deadline: number | null;
   winnerId?: string | null;
@@ -54,7 +59,9 @@ export type MatchState = BonegleMatchState | MidnightMatchState;
 export type GameAction =
   | { type: 'SUBMIT_WORD'; word: string; path: Array<{ row: number; col: number }> }
   | { type: 'PLACE_BID'; bid: number }
-  | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' };
+  | { type: 'PLAY_CARD'; cardId: string; chameleonChoice?: 'gangster' | 'alibi' }
+  | { type: 'ADVANCE_TRICK' }
+  | { type: 'NEXT_ROUND' };
 
 export type NetworkEvent =
   | { type: 'CONNECTED'; userId: string }
@@ -144,7 +151,18 @@ class NetworkManager {
   }
 
   public clearRoom(roomId?: string): void {
+    const targetRoomId = roomId || this.roomId;
+    if (targetRoomId && this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'UNSUBSCRIBE_ROOM', roomId: targetRoomId }));
+    }
     if (!roomId || this.roomId === roomId) this.roomId = null;
+  }
+
+  public leaveRoom(roomId: string): void {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'LEAVE_ROOM', roomId }));
+    }
+    this.clearRoom(roomId);
   }
 
   public sendChat(roomId: string, text: string): void {

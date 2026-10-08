@@ -13,8 +13,8 @@ export interface MidnightCard {
   value?: number; // 1 to 14
   role?: SpecialRole;
   name: string;
-  subtitle: string;
-  description: string;
+  subtitle?: string;
+  description?: string;
   bonusValue?: number; // 14s carry bonus points if won in trick
 }
 
