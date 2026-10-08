@@ -1,14 +1,18 @@
-import { dealMidnightRound } from './deck.js';
+import { dealMidnightRound, getRoundCardCount } from './deck.js';
 import { isPlayable, evaluateTrick, scoreRound } from './rules.js';
 import { setDeadline } from '../deadline.js';
 import { automaticMidnightAction } from './bot.js';
+
 export const submitMidnightAction = (state, userId, action) => {
   if (state.phase === 'game_over') throw new Error('This Midnight Alley match has finished.');
 
   if (action.type === 'PLACE_BID') {
     if (state.phase !== 'bidding') throw new Error('Bidding is not open.');
     const bid = Number(action.bid);
-    if (!Number.isInteger(bid) || bid < 0 || bid > state.round) throw new Error('Bid must be between zero and the round card count.');
+    const maxBid = getRoundCardCount(state.round, state.playerOrder.length);
+    if (!Number.isInteger(bid) || bid < 0 || bid > maxBid) {
+      throw new Error(`Bid must be between zero and ${maxBid}.`);
+    }
     state.bids[userId] = bid;
     const unbid = state.playerOrder.find((playerId) => state.bids[playerId] === undefined);
     if (unbid) {
@@ -30,10 +34,18 @@ export const submitMidnightAction = (state, userId, action) => {
     const card = hand[cardIndex];
     if (!isPlayable(card, hand, state.currentTrick)) throw new Error('You must follow suit when possible.');
     const chameleonChoice = card.role === 'chameleon' ? (action.chameleonChoice || 'gangster') : undefined;
-    if (chameleonChoice && chameleonChoice !== 'gangster' && chameleonChoice !== 'alibi') throw new Error('Chameleon must choose gangster or alibi.');
+    if (chameleonChoice && chameleonChoice !== 'gangster' && chameleonChoice !== 'alibi') {
+      throw new Error('Chameleon must choose gangster or alibi.');
+    }
     hand.splice(cardIndex, 1);
     const player = state.players.find((entry) => entry.id === userId);
-    state.currentTrick.push({ playerId: userId, playerName: player?.name || 'Player', playerAvatarId: player?.avatarId || '', card, chameleonChoice });
+    state.currentTrick.push({
+      playerId: userId,
+      playerName: player?.name || 'Player',
+      playerAvatarId: player?.avatarId || '',
+      card,
+      chameleonChoice,
+    });
 
     if (state.currentTrick.length < state.playerOrder.length) {
       state.turnPlayerId = state.playerOrder[(state.playerOrder.indexOf(userId) + 1) % state.playerOrder.length];
@@ -41,17 +53,43 @@ export const submitMidnightAction = (state, userId, action) => {
       return { finished: false };
     }
 
-    const result = evaluateTrick(state.currentTrick);
-    state.tricksWon[result.playerId] += 1;
-    state.roundBonuses[result.playerId] += result.bonusPoints;
-    state.lastResult = {
-      winnerPlayerId: result.playerId,
-      winnerPlayerName: result.playerName,
-      winningCard: result.card,
-      bonusPoints: result.bonusPoints,
-      bonusReason: result.bonusReason,
-    };
-    state.lastTrickWinnerId = result.playerId;
+    // Evaluate trick
+    const result = evaluateTrick(state.currentTrick, state.playerOrder);
+    if (result.destroyed) {
+      // The Police destroyed the trick completely
+      state.lastResult = {
+        destroyed: true,
+        policePlayerId: result.policePlayerId,
+        policePlayerName: result.policePlayerName,
+        nextLeadPlayerId: result.nextLeadPlayerId,
+        winnerPlayerId: null,
+        winnerPlayerName: null,
+        winningCard: result.winningCard,
+        bonusPoints: 0,
+        bonusReason: result.bonusReason,
+      };
+      state.lastTrickWinnerId = null;
+      state.policeNextLeadId = result.nextLeadPlayerId;
+    } else {
+      state.tricksWon[result.playerId] += 1;
+      state.roundBonuses[result.playerId] += result.bonusPoints;
+      state.lastResult = {
+        destroyed: false,
+        winnerPlayerId: result.playerId,
+        winnerPlayerName: result.playerName,
+        winningCard: result.card,
+        bonusPoints: result.bonusPoints,
+        bonusReason: result.bonusReason,
+      };
+      state.lastTrickWinnerId = result.playerId;
+      state.policeNextLeadId = null;
+
+      if (result.briefcases && result.briefcases.length > 0) {
+        if (!state.briefcaseAlliances) state.briefcaseAlliances = [];
+        state.briefcaseAlliances.push(...result.briefcases);
+      }
+    }
+
     state.history.push({ round: state.round, trick: [...state.currentTrick], result: state.lastResult });
 
     // Transition to trick_resolved for 3 seconds so cards and winner banner remain visible!
@@ -74,16 +112,19 @@ export const submitMidnightAction = (state, userId, action) => {
         historyEntry[pId] = {
           roundScore: breakdown[pId]?.totalRoundScore || 0,
           cumulativeScore: state.cumulativeScores[pId] || 0,
+          briefcaseBonus: breakdown[pId]?.briefcaseBonus || 0,
+          briefcaseDetails: breakdown[pId]?.briefcaseDetails || [],
         };
       }
       state.roundHistory[state.round] = historyEntry;
 
-      // "Si estamos en ronda 3 hay 3 manos, pues lo que me referia es que si el jugador Pepe gana la mano 1 entonces pepe empieza la mano 2. Si manolo gana la mano 3 de la ronda 3 entonces manolo empieza la mano 1 de la ronda 4."
-      state.lastRoundWinnerId = state.lastTrickWinnerId || state.lastResult?.winnerPlayerId || state.playerOrder[0];
+      state.lastRoundWinnerId = state.policeNextLeadId || state.lastTrickWinnerId || state.lastResult?.winnerPlayerId || state.playerOrder[0];
       state.lastTrickWinnerId = state.lastRoundWinnerId;
 
       if (state.round >= state.maxRounds) {
-        const ranked = [...state.playerOrder].sort((left, right) => state.cumulativeScores[right] - state.cumulativeScores[left] || left.localeCompare(right));
+        const ranked = [...state.playerOrder].sort(
+          (left, right) => state.cumulativeScores[right] - state.cumulativeScores[left] || left.localeCompare(right)
+        );
         state.winnerId = ranked[0];
         state.winReason = 'Highest cumulative score after ten rounds.';
         state.phase = 'game_over';
@@ -100,7 +141,8 @@ export const submitMidnightAction = (state, userId, action) => {
     }
 
     state.currentTrick = [];
-    const nextLead = state.lastTrickWinnerId || state.lastResult?.winnerPlayerId || state.leadPlayerId;
+    const nextLead = state.policeNextLeadId || state.lastTrickWinnerId || state.lastResult?.winnerPlayerId || state.leadPlayerId;
+    state.policeNextLeadId = null;
     state.leadPlayerId = nextLead;
     state.turnPlayerId = nextLead;
     state.phase = 'playing';
@@ -127,16 +169,26 @@ export const submitMidnightAction = (state, userId, action) => {
 export const projectMatchState = (state, userId) => {
   if (state.gameId !== 'midnight-alley') return state;
   const projected = structuredClone(state);
-  projected.handCounts = Object.fromEntries(state.playerOrder.map((playerId) => [playerId, state.hands[playerId]?.length || 0]));
+  projected.handCounts = Object.fromEntries(
+    state.playerOrder.map((playerId) => [playerId, state.hands[playerId]?.length || 0])
+  );
   projected.hands = { [userId]: state.hands[userId] || [] };
   return projected;
 };
+
 export const createMidnightState = (room, matchId) => {
-  const players = room.players.map((player) => ({ id: player.id, name: player.name, avatarId: player.avatarId, isBot: player.isBot }));
+  const players = room.players.map((player) => ({
+    id: player.id,
+    name: player.name,
+    avatarId: player.avatarId,
+    isBot: player.isBot,
+  }));
+  const advancedMode = Boolean(room.settings?.advancedMode);
   const state = {
     id: matchId,
     roomId: room.id,
     gameId: room.gameId,
+    advancedMode,
     players,
     playerOrder: players.map((player) => player.id),
     maxRounds: 10,
@@ -146,10 +198,12 @@ export const createMidnightState = (room, matchId) => {
     bids: {},
     tricksWon: {},
     roundBonuses: {},
+    briefcaseAlliances: [],
     cumulativeScores: Object.fromEntries(players.map((player) => [player.id, 0])),
     roundHistory: {},
     leadPlayerId: null,
     turnPlayerId: null,
+    policeNextLeadId: null,
     currentTrick: [],
     lastResult: null,
     roundSummaryScores: null,
@@ -173,9 +227,13 @@ export const getMidnightPlayerBreakdowns = (state) => {
     if (state.roundHistory) {
       for (const [roundNum, entry] of Object.entries(state.roundHistory)) {
         if (entry[pId]) {
+          let valueText = `+${entry[pId].roundScore} PTS (Total: ${entry[pId].cumulativeScore})`;
+          if (entry[pId].briefcaseBonus) {
+            valueText += ` [Briefcase Alliance: +${entry[pId].briefcaseBonus}]`;
+          }
           items.push({
             label: `Round ${roundNum}`,
-            value: `+${entry[pId].roundScore} PTS (Total: ${entry[pId].cumulativeScore})`,
+            value: valueText,
           });
         }
       }
@@ -194,6 +252,12 @@ export const midnightAlleyEngine = {
   minPlayers: 2,
   maxPlayers: 8,
   createState: createMidnightState,
+  validateSettings: (settings, currentSettings = {}) => {
+    settings.advancedMode = typeof settings.advancedMode === 'boolean'
+      ? settings.advancedMode
+      : Boolean(currentSettings.advancedMode);
+    return settings;
+  },
   applyAction: (state, userId, action) => {
     const res = submitMidnightAction(state, userId, action);
     return { finished: res.finished, clientResult: null };

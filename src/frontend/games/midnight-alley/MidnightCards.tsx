@@ -170,6 +170,113 @@ export const AlibiIcon: React.FC<{ size?: number; className?: string }> = ({ siz
   </svg>
 );
 
+// Advanced Mode SVG Icons: Police (Kraken), Fat Vinnie (Whale), Briefcase (Loot)
+
+export const PoliceIcon: React.FC<{ size?: number; className?: string }> = ({ size = 64, className }) => (
+  <svg width={size} height={size} viewBox="0 0 72 72" fill="none" className={className}>
+    {/* Police Peaked Visor Cap */}
+    <path d="M16 20 C16 9, 56 9, 56 20 C58 26, 14 26, 16 20 Z" fill="#1b2a4a" stroke="#ffd043" strokeWidth="2" />
+    <ellipse cx="36" cy="24" rx="22" ry="4.5" fill="#1c1511" />
+    {/* Gold Star Badge on Cap */}
+    <polygon
+      points="36,11 37.8,15.5 42.5,15.5 38.6,18.3 40.1,22.8 36,20 31.9,22.8 33.4,18.3 29.5,15.5 34.2,15.5"
+      fill="#ffd043"
+      stroke="#1c1511"
+      strokeWidth="0.8"
+    />
+    {/* Stern Skeleton Head */}
+    <path
+      d="M22 24 C22 18, 50 18, 50 24 C51 34, 48 42, 44 45 L44 49 L28 49 L28 45 C24 42, 21 34, 22 24 Z"
+      fill="#fdfbf5"
+      stroke="#1c1511"
+      strokeWidth="2.5"
+    />
+    {/* Stern Eyes */}
+    <ellipse cx="29" cy="33" rx="4" ry="4.5" fill="#1c1511" />
+    <ellipse cx="43" cy="33" rx="4" ry="4.5" fill="#1c1511" />
+    <circle cx="30" cy="32" r="1.2" fill="#ffd043" />
+    <circle cx="44" cy="32" r="1.2" fill="#ffd043" />
+    {/* Nose Cavity */}
+    <path d="M36 36 L34 40 L38 40 Z" fill="#1c1511" />
+    {/* Teeth */}
+    <rect x="30" y="44" width="3" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    <rect x="33" y="44" width="3" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    <rect x="36" y="44" width="3" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    <rect x="39" y="44" width="3" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    {/* Navy Uniform Jacket & Brass Buttons */}
+    <path d="M16 66 L26 49 L46 49 L56 66 Z" fill="#1b2a4a" stroke="#1c1511" strokeWidth="2.2" />
+    <path d="M36 49 L33 66 L39 66 Z" fill="#d33833" stroke="#ffd043" strokeWidth="1" />
+    <circle cx="36" cy="54" r="1.5" fill="#ffd043" />
+    <circle cx="36" cy="60" r="1.5" fill="#ffd043" />
+    {/* Nightstick / Baton */}
+    <line x1="8" y1="40" x2="20" y2="66" stroke="#4a3525" strokeWidth="4.5" strokeLinecap="round" />
+    <line x1="8" y1="40" x2="13" y2="43" stroke="#ffd043" strokeWidth="3.5" strokeLinecap="round" />
+  </svg>
+);
+
+export const FatVinnieIcon: React.FC<{ size?: number; className?: string }> = ({ size = 64, className }) => (
+  <svg width={size} height={size} viewBox="0 0 72 72" fill="none" className={className}>
+    {/* Wide All-White Mob Fedora */}
+    <ellipse cx="36" cy="18" rx="28" ry="6.5" fill="#fdfbf5" stroke="#1c1511" strokeWidth="2.2" />
+    <path d="M22 18 C22 9, 26 5, 36 5 C46 5, 50 9, 50 18 Z" fill="#ffffff" stroke="#1c1511" strokeWidth="2.2" />
+    <path d="M22 17 C26 15, 46 15, 50 17" stroke="#1c1511" strokeWidth="3" />
+    {/* Giant Heavyweight Skull */}
+    <path
+      d="M16 23 C16 16, 56 16, 56 23 C58 35, 54 44, 46 47 L46 51 L26 51 L26 47 C18 44, 14 35, 16 23 Z"
+      fill="#fdfbf5"
+      stroke="#1c1511"
+      strokeWidth="2.5"
+    />
+    {/* Dark Sunglasses */}
+    <rect x="23" y="27" width="10" height="8" rx="2.5" fill="#1c1511" />
+    <rect x="39" y="27" width="10" height="8" rx="2.5" fill="#1c1511" />
+    <line x1="33" y1="30" x2="39" y2="30" stroke="#ffd043" strokeWidth="2" />
+    {/* Nose Cavity */}
+    <path d="M36 37 L33 41 L39 41 Z" fill="#1c1511" />
+    {/* Grin with Golden Tooth */}
+    <rect x="28" y="46" width="4" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    <rect x="32" y="46" width="4" height="4" fill="#ffd043" stroke="#1c1511" strokeWidth="1" />
+    <rect x="36" y="46" width="4" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    <rect x="40" y="46" width="4" height="4" fill="#fdfbf5" stroke="#1c1511" strokeWidth="1" />
+    {/* White Pinstripe Suit with Gold Pocket Chain */}
+    <path d="M12 68 L24 51 L48 51 L60 68 Z" fill="#ffffff" stroke="#1c1511" strokeWidth="2.5" />
+    <path d="M36 51 L33 68 L39 68 Z" fill="#1c1511" />
+    <path d="M26 58 C32 63, 40 63, 46 58" stroke="#ffd043" strokeWidth="2" strokeLinecap="round" />
+    {/* Fat Smoldering Cigar */}
+    <rect x="42" y="40" width="15" height="4" rx="2" fill="#6e421a" stroke="#1c1511" strokeWidth="1.2" />
+    <circle cx="56" cy="42" r="1.5" fill="#ff4422" />
+    <circle cx="61" cy="38" r="2" fill="rgba(200, 200, 200, 0.6)" />
+  </svg>
+);
+
+export const BriefcaseIcon: React.FC<{ size?: number; className?: string }> = ({ size = 64, className }) => (
+  <svg width={size} height={size} viewBox="0 0 72 72" fill="none" className={className}>
+    {/* Leather Handle */}
+    <path d="M28 20 C28 14, 44 14, 44 20" stroke="#5a3d28" strokeWidth="3.5" strokeLinecap="round" />
+    {/* Main Leather Briefcase Body */}
+    <rect x="12" y="20" width="48" height="38" rx="4" fill="#784824" stroke="#1c1511" strokeWidth="2.5" />
+    {/* Straps */}
+    <rect x="22" y="20" width="4" height="38" fill="#5a3d28" stroke="#1c1511" strokeWidth="1" />
+    <rect x="46" y="20" width="4" height="38" fill="#5a3d28" stroke="#1c1511" strokeWidth="1" />
+    {/* Brass Latches */}
+    <rect x="21" y="34" width="6" height="5" rx="1" fill="#ffd043" stroke="#1c1511" strokeWidth="1.2" />
+    <rect x="45" y="34" width="6" height="5" rx="1" fill="#ffd043" stroke="#1c1511" strokeWidth="1.2" />
+    {/* Keyhole */}
+    <circle cx="36" cy="36" r="3.5" fill="#ffd043" stroke="#1c1511" strokeWidth="1" />
+    <rect x="35" y="36" width="2" height="3" fill="#1c1511" />
+    {/* Cash Stacks Popping Out ($$$) */}
+    <rect x="18" y="14" width="16" height="7" rx="1.5" fill="#2d8a4e" stroke="#1c1511" strokeWidth="1.2" transform="rotate(-6 18 14)" />
+    <text x="21" y="19" fontSize="6" fontFamily="sans-serif" fontWeight="900" fill="#fdfbf5">$100</text>
+    <rect x="38" y="13" width="16" height="7" rx="1.5" fill="#246e3e" stroke="#1c1511" strokeWidth="1.2" transform="rotate(8 38 13)" />
+    <text x="41" y="19" fontSize="6" fontFamily="sans-serif" fontWeight="900" fill="#fdfbf5">$100</text>
+    {/* Gold Coins around base */}
+    <circle cx="16" cy="58" r="4" fill="#ffd043" stroke="#1c1511" strokeWidth="1.2" />
+    <text x="14.5" y="60" fontSize="5" fontFamily="sans-serif" fontWeight="bold" fill="#1c1511">$</text>
+    <circle cx="56" cy="58" r="4" fill="#ffd043" stroke="#1c1511" strokeWidth="1.2" />
+    <text x="54.5" y="60" fontSize="5" fontFamily="sans-serif" fontWeight="bold" fill="#1c1511">$</text>
+  </svg>
+);
+
 // Suit Icons
 
 export const SuitIcon: React.FC<{ suit: 'gold' | 'cyan' | 'ruby' | 'black'; size?: number }> = ({
@@ -224,6 +331,7 @@ interface MidnightCardViewProps {
   onClick?: () => void;
   compact?: boolean;
   chameleonChoice?: 'gangster' | 'alibi';
+  isWhiteCard?: boolean;
 }
 
 const ROLE_SUBTITLES: Record<string, string> = {
@@ -232,6 +340,9 @@ const ROLE_SUBTITLES: Record<string, string> = {
   gangster: 'GANGSTER',
   chameleon: 'CHAMELEON',
   alibi: 'ALIBI',
+  police: 'THE POLICE',
+  'fat-vinnie': 'FAT VINNIE',
+  briefcase: 'BRIEFCASE',
 };
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
@@ -240,6 +351,9 @@ const ROLE_DESCRIPTIONS: Record<string, string> = {
   gangster: 'Defeats Femme Fatale and normal suits. The first Gangster played wins the trick.',
   chameleon: 'Can be played as either a Gangster or an Alibi.',
   alibi: 'Zero value escape card. Avoids winning unwanted tricks.',
+  police: 'Kraken raid! Destroys all trick cards. No trick winner. Next trick led by player to left.',
+  'fat-vinnie': 'White whale kingpin. Mutes all specials to Alibis and strips suits to white. Highest value wins.',
+  briefcase: 'Black money briefcase. Acts as an Alibi. Winner associates with you: +20 PTS if both hit exact bids.',
 };
 
 export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
@@ -249,16 +363,21 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
   onClick,
   compact = false,
   chameleonChoice,
+  isWhiteCard = false,
 }) => {
   const isSpecial = card.type === 'special';
   const role = chameleonChoice ? chameleonChoice : card.role;
 
   const getBorderColor = () => {
+    if (isWhiteCard) return '#9e9488';
     if (role === 'boss') return '#ffd043';
     if (role === 'femme-fatale') return '#4eb4dc';
     if (role === 'gangster') return '#d33833';
     if (role === 'chameleon') return '#8c5b1b';
     if (role === 'alibi') return '#887766';
+    if (role === 'police') return '#1b2a4a';
+    if (role === 'fat-vinnie') return '#bfa15f';
+    if (role === 'briefcase') return '#1e5f38';
     if (card.suit === 'black') return '#1c1511';
     if (card.suit === 'gold') return '#f6c445';
     if (card.suit === 'cyan') return '#3e88a5';
@@ -267,11 +386,15 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
   };
 
   const getHeaderBg = () => {
+    if (isWhiteCard) return '#fdfbf5';
     if (role === 'boss') return '#ffd043';
     if (role === 'femme-fatale') return '#4eb4dc';
     if (role === 'gangster') return '#d33833';
     if (role === 'chameleon') return '#e8dcc8';
     if (role === 'alibi') return '#e8dcc8';
+    if (role === 'police') return '#1b2a4a';
+    if (role === 'fat-vinnie') return '#fdfbf5';
+    if (role === 'briefcase') return '#1e5f38';
     if (card.suit === 'black') return '#1c1511';
     if (card.suit === 'gold') return '#f6c445';
     if (card.suit === 'cyan') return '#3e88a5';
@@ -280,8 +403,11 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
   };
 
   const getHeaderTextColor = () => {
+    if (isWhiteCard) return '#1c1511';
     if (role === 'boss' || card.suit === 'gold') return '#1c1511';
-    if (card.suit === 'black' || role === 'gangster' || card.suit === 'ruby') return '#fdfbf5';
+    if (card.suit === 'black' || role === 'gangster' || card.suit === 'ruby' || role === 'police' || role === 'briefcase') {
+      return '#fdfbf5';
+    }
     return '#1c1511';
   };
 
@@ -293,7 +419,7 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
       onClick={isPlayable && onClick ? onClick : undefined}
       className={`midnight-card-item ${compact ? 'card-compact' : ''} ${
         isDimmed ? 'card-unplayable' : ''
-      } ${onClick && isPlayable ? 'card-interactive' : ''}`}
+      } ${onClick && isPlayable ? 'card-interactive' : ''} ${isWhiteCard ? 'card-white-suit' : ''}`}
       style={{ borderColor: getBorderColor() }}
       title={`${card.name}${cardDesc ? `: ${cardDesc}` : ''}`}
     >
@@ -306,7 +432,15 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
             {role === 'gangster' && 'GANGSTER'}
             {role === 'chameleon' && 'CHAMELEON'}
             {role === 'alibi' && 'ALIBI'}
+            {role === 'police' && 'THE POLICE'}
+            {role === 'fat-vinnie' && 'FAT VINNIE'}
+            {role === 'briefcase' && 'BRIEFCASE'}
           </span>
+        ) : isWhiteCard ? (
+          <div className="card-suit-header-row">
+            <span className="card-number-val" style={{ color: '#1c1511' }}>{card.value}</span>
+            <span style={{ fontSize: '9px', fontWeight: 'bold', color: '#887766' }}>WHITE</span>
+          </div>
         ) : (
           <div className="card-suit-header-row">
             <span className="card-number-val">{card.value}</span>
@@ -322,18 +456,32 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
         {role === 'gangster' && <GangsterIcon size={compact ? 36 : 60} />}
         {role === 'chameleon' && <ChameleonIcon size={compact ? 36 : 60} />}
         {role === 'alibi' && <AlibiIcon size={compact ? 36 : 60} />}
+        {role === 'police' && <PoliceIcon size={compact ? 36 : 60} />}
+        {role === 'fat-vinnie' && <FatVinnieIcon size={compact ? 36 : 60} />}
+        {role === 'briefcase' && <BriefcaseIcon size={compact ? 36 : 60} />}
 
-        {!isSpecial && card.suit && (
+        {!isSpecial && !isWhiteCard && card.suit && (
           <div className="card-suit-center-badge">
             <SuitIcon suit={card.suit} size={compact ? 32 : 54} />
             <span className="card-center-num">{card.value}</span>
+          </div>
+        )}
+
+        {!isSpecial && isWhiteCard && (
+          <div className="card-suit-center-badge">
+            <span className="card-center-num" style={{ fontSize: compact ? '26px' : '36px', color: '#1c1511' }}>
+              {card.value}
+            </span>
+            <span style={{ fontSize: '7.5px', color: '#887766', fontWeight: 'bold', letterSpacing: '0.05em' }}>
+              WHITE CARD
+            </span>
           </div>
         )}
       </div>
 
       {/* Bottom Subtitle / Bonus */}
       <div className="card-bottom-bar">
-        {card.bonusValue ? (
+        {!isWhiteCard && card.bonusValue ? (
           <span className="card-bonus-tag">+{card.bonusValue} PTS</span>
         ) : isSpecial ? (
           <span className="card-sub-name">{cardSubtitle ? cardSubtitle.split(' ')[0] : 'SPECIAL'}</span>
@@ -358,6 +506,10 @@ export const MidnightCardView: React.FC<MidnightCardViewProps> = ({
           user-select: none;
           transition: transform 0.1s ease, box-shadow 0.1s ease;
           flex-shrink: 0;
+        }
+        .midnight-card-item.card-white-suit {
+          background-color: #ffffff;
+          box-shadow: 2px 2px 0px rgba(0, 0, 0, 0.2);
         }
         .midnight-card-item.card-compact {
           width: 74px;

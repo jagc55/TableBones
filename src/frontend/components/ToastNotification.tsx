@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Trophy, AlertCircle, Info, X } from 'lucide-react';
 
 export interface ToastData {
@@ -13,48 +13,64 @@ interface ToastNotificationProps {
   onDismiss: (id: string) => void;
 }
 
-export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, onDismiss }) => {
+const ToastItem: React.FC<{
+  toast: ToastData;
+  onDismiss: (id: string) => void;
+}> = ({ toast, onDismiss }) => {
+  const [isExiting, setIsExiting] = useState(false);
+
+  const triggerDismiss = useCallback(() => {
+    if (isExiting) return;
+    setIsExiting(true);
+    // Allow smooth fade-out animation before removing from parent state
+    setTimeout(() => {
+      onDismiss(toast.id);
+    }, 450);
+  }, [isExiting, onDismiss, toast.id]);
+
   useEffect(() => {
-    if (toasts.length === 0) return;
+    const timer = setTimeout(() => {
+      triggerDismiss();
+    }, 4200);
 
-    // Track timeouts for each toast item individually
-    const timeouts = toasts.map((t) =>
-      setTimeout(() => {
-        onDismiss(t.id);
-      }, 4000)
-    );
+    return () => clearTimeout(timer);
+  }, [triggerDismiss]);
 
-    return () => {
-      timeouts.forEach(clearTimeout);
-    };
-  }, [toasts, onDismiss]);
+  return (
+    <div
+      className={`toast-card toast-${toast.type} ${isExiting ? 'toast-exiting' : ''}`}
+      role="status"
+    >
+      <div className="toast-icon-badge">
+        {toast.type === 'achievement' && <Trophy size={18} strokeWidth={2.8} />}
+        {toast.type === 'alert' && <AlertCircle size={18} strokeWidth={2.8} />}
+        {toast.type === 'info' && <Info size={18} strokeWidth={2.8} />}
+      </div>
+      <div className="toast-body">
+        <span className="toast-eyebrow">
+          {toast.type === 'achievement' ? 'ACHIEVEMENT UNLOCKED!' : 'GAME NOTICE'}
+        </span>
+        <h4 className="toast-title">{toast.title}</h4>
+        <p className="toast-msg">{toast.message}</p>
+      </div>
+      <button
+        onClick={triggerDismiss}
+        className="toast-close-btn"
+        aria-label="Dismiss toast"
+      >
+        <X size={15} strokeWidth={3} />
+      </button>
+    </div>
+  );
+};
 
+export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, onDismiss }) => {
   if (toasts.length === 0) return null;
 
   return (
     <div className="toast-container" aria-live="polite">
       {toasts.map((toast) => (
-        <div key={toast.id} className={`toast-card toast-${toast.type}`}>
-          <div className="toast-icon-badge">
-            {toast.type === 'achievement' && <Trophy size={18} strokeWidth={2.8} />}
-            {toast.type === 'alert' && <AlertCircle size={18} strokeWidth={2.8} />}
-            {toast.type === 'info' && <Info size={18} strokeWidth={2.8} />}
-          </div>
-          <div className="toast-body">
-            <span className="toast-eyebrow">
-              {toast.type === 'achievement' ? 'ACHIEVEMENT UNLOCKED!' : 'GAME NOTICE'}
-            </span>
-            <h4 className="toast-title">{toast.title}</h4>
-            <p className="toast-msg">{toast.message}</p>
-          </div>
-          <button
-            onClick={() => onDismiss(toast.id)}
-            className="toast-close-btn"
-            aria-label="Dismiss toast"
-          >
-            <X size={15} strokeWidth={3} />
-          </button>
-        </div>
+        <ToastItem key={toast.id} toast={toast} onDismiss={onDismiss} />
       ))}
 
       <style>{`
@@ -79,7 +95,15 @@ export const ToastNotification: React.FC<ToastNotificationProps> = ({ toasts, on
           border-radius: var(--radius-cel-box);
           box-shadow: var(--shadow-cel-lg);
           padding: 12px 14px;
-          animation: toastPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          animation: toastPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+          transition: opacity 0.45s cubic-bezier(0.4, 0, 0.2, 1), transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+          opacity: 1;
+          transform: translateY(0) scale(1);
+        }
+        .toast-card.toast-exiting {
+          opacity: 0;
+          transform: translateY(-10px) scale(0.96);
+          pointer-events: none;
         }
         .toast-achievement {
           border-color: var(--color-ink-stroke);
