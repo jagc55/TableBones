@@ -118,8 +118,8 @@ export const doomedMineEngine = {
     }
 
     if (state.phase === 'showdown') {
-      // Auto-advance to next expedition or finish
-      return nextExpedition(state);
+      // Showdown does not auto-advance on timer: wait for host action
+      return { finished: false };
     }
 
     // Force-assign any unassigned tokens to players when deadline truly expires

@@ -1,7 +1,7 @@
 import { createDeck, shuffleDeck, evaluateBestHand, compareHandScores } from './poker.js';
 import { setDeadline } from '../deadline.js';
 
-export const TARGET_SUCCESSES = 3; // 3 Vaults / Shafts to win
+export const TARGET_SUCCESSES = 3; // 3 Shafts to win
 export const MAX_FAILURES = 3;      // 3 Cave-ins = defeat
 export const MAX_EXPEDITIONS = 5;   // 3 to 5 expeditions
 
@@ -18,7 +18,7 @@ export function getPhaseLabel(phase) {
 }
 
 /**
- * Initializes a new heist / expedition.
+ * Initializes a new shaft expedition.
  */
 export function startExpedition(state, expeditionNumber = 1, seed = undefined) {
   state.expedition = expeditionNumber;
@@ -389,14 +389,22 @@ export function evaluateShowdown(state) {
 
   const success = violations.length === 0;
 
+  state.actionLog = state.actionLog || [];
+
   if (success) {
     state.successes += 1;
     state.showdownResult = {
       success: true,
-      message: 'Vault secured! The crew estimated the pressure hierarchy flawlessly.',
+      message: 'Shaft secured! The crew estimated the pressure hierarchy flawlessly.',
       evaluations,
       violations: [],
     };
+    state.actionLog.push({
+      id: `${Date.now()}-showdown-success-${state.expedition}`,
+      type: 'PHASE_CHANGE',
+      text: `🏆 Expedition ${state.expedition} cleared! Tokens maintained ascending hand order flawlessly.`,
+      timestamp: Date.now(),
+    });
   } else {
     state.failures += 1;
     state.showdownResult = {
@@ -405,18 +413,32 @@ export function evaluateShowdown(state) {
       evaluations,
       violations,
     };
+    state.actionLog.push({
+      id: `${Date.now()}-showdown-fail-${state.expedition}`,
+      type: 'PHASE_CHANGE',
+      text: `💥 Cave-in in Expedition ${state.expedition}! Inverted token estimates among the crew:`,
+      timestamp: Date.now(),
+    });
+    for (const v of violations) {
+      state.actionLog.push({
+        id: `${Date.now()}-v-${Math.random().toString(36).slice(2, 6)}`,
+        type: 'TOKEN_SWAP',
+        text: `⚡ ${v.message}`,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   // Update scores
   updateScores(state);
 
-  // Give generous 30s deadline for reviewing showdown results
-  setDeadline(state, 30);
+  // Showdown has no auto-expiring timer: crew waits for host to review and start next expedition
+  state.deadline = null;
 
   // Check game over conditions
   if (state.successes >= TARGET_SUCCESSES) {
     state.pendingGameOver = 'victory';
-    state.winReason = `Master heist completed! The crew secured ${state.successes} vaults without collapsing.`;
+    state.winReason = `Deep mine conquered! The crew secured ${state.successes} shafts without collapsing.`;
     return { finished: false };
   }
 
@@ -429,8 +451,8 @@ export function evaluateShowdown(state) {
   if (state.expedition >= state.maxExpeditions) {
     state.pendingGameOver = state.successes >= TARGET_SUCCESSES ? 'victory' : 'defeat';
     state.winReason = state.successes >= TARGET_SUCCESSES
-      ? `Victory! The crew secured ${state.successes} vaults in ${state.expedition} expeditions.`
-      : `Defeat! Exhausted all ${state.maxExpeditions} expeditions without reaching 3 secured vaults.`;
+      ? `Victory! The crew secured ${state.successes} shafts in ${state.expedition} expeditions.`
+      : `Defeat! Exhausted all ${state.maxExpeditions} expeditions without reaching 3 secured shafts.`;
     return { finished: false };
   }
 
@@ -464,14 +486,16 @@ export function nextExpedition(state) {
   if (state.pendingGameOver) {
     state.phase = 'game_over';
     state.winnerId = null;
+    state.teamOutcome = state.pendingGameOver;
     return { finished: true };
   }
 
   if (state.expedition >= state.maxExpeditions || state.successes >= TARGET_SUCCESSES || state.failures >= MAX_FAILURES) {
     state.phase = 'game_over';
     state.winnerId = null;
+    state.teamOutcome = state.successes >= TARGET_SUCCESSES ? 'victory' : 'defeat';
     state.winReason = state.successes >= TARGET_SUCCESSES
-      ? 'Master heist completed! The crew secured 3 vaults successfully.'
+      ? 'Deep mine conquered! The crew secured 3 shafts successfully.'
       : '3 cave-ins occurred! The mine collapsed.';
     return { finished: true };
   }

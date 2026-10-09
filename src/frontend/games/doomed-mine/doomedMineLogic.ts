@@ -170,3 +170,134 @@ export function playSuccessSound() {
 export function playCaveInSound() {
   soundstage.playBulbHorn();
 }
+
+/**
+ * Compare two hand score arrays lexicographically.
+ * Returns > 0 if scoreA beats scoreB, < 0 if scoreB beats scoreA, 0 if tie.
+ */
+export function compareHandScores(scoreA?: number[], scoreB?: number[]): number {
+  const aList = scoreA || [];
+  const bList = scoreB || [];
+  const len = Math.max(aList.length, bList.length);
+  for (let i = 0; i < len; i++) {
+    const a = aList[i] ?? 0;
+    const b = bList[i] ?? 0;
+    if (a !== b) return a - b;
+  }
+  return 0;
+}
+
+export interface PlayerShowdownEvaluationStatus {
+  isEvaluated: boolean;
+  isSuccess: boolean;
+  isFirstError: boolean;
+  statusBadge: string;
+  reason?: string;
+  token?: number | null;
+  evaluation?: any;
+}
+
+/**
+ * Evaluates whether each player was positioned correctly according to ascending token order.
+ * Players who maintained the proper order are marked as isSuccess: true (green).
+ * Starting from the player whose hand broke the ascending sequence, players are marked isSuccess: false (red).
+ */
+export function computePlayerShowdownStatuses(
+  players: Array<{ id: string; name: string }>,
+  tokens: Record<string, number | null | undefined>,
+  showdownResult: any
+): Record<string, PlayerShowdownEvaluationStatus> {
+  if (!showdownResult) return {};
+
+  const { success, evaluations, violations } = showdownResult;
+  const result: Record<string, PlayerShowdownEvaluationStatus> = {};
+
+  const rankedPlayers = (players || [])
+    .filter((p) => tokens?.[p.id] !== null && tokens?.[p.id] !== undefined)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      token: tokens[p.id] as number,
+      evaluation: evaluations?.[p.id],
+    }))
+    .sort((a, b) => a.token - b.token);
+
+  if (success) {
+    rankedPlayers.forEach((p) => {
+      result[p.id] = {
+        isEvaluated: true,
+        isSuccess: true,
+        isFirstError: false,
+        statusBadge: `✓ ORDER OK (★${p.token})`,
+        token: p.token,
+        evaluation: p.evaluation,
+      };
+    });
+    return result;
+  }
+
+  // Cave-in: detect starting at which token the ascending sequence broke (1..N)
+  let firstErrorIndex = -1;
+  let maxScoreSoFar: number[] | null = null;
+  let breakReason = '';
+
+  for (let i = 0; i < rankedPlayers.length; i++) {
+    const current = rankedPlayers[i];
+    const currentScore = current.evaluation?.score || [0];
+
+    if (i === 0) {
+      // If Token 1 strictly beats any subsequent token, it started out of place
+      const beatsLater = rankedPlayers.slice(1).some((later) => {
+        const laterScore = later.evaluation?.score || [0];
+        return compareHandScores(currentScore, laterScore) > 0;
+      });
+
+      if (beatsLater) {
+        firstErrorIndex = 0;
+        breakReason = `Token 1 (${current.evaluation?.handName || 'Hand'}) beat subsequent tokens`;
+        break;
+      } else {
+        maxScoreSoFar = currentScore;
+      }
+    } else {
+      const cmp = compareHandScores(currentScore, maxScoreSoFar || [0]);
+      if (cmp < 0) {
+        firstErrorIndex = i;
+        const prevPlayer = rankedPlayers[i - 1];
+        breakReason = `Token ${current.token} (${current.evaluation?.handName || 'Hand'}) is lower than Token ${prevPlayer.token} (${prevPlayer.evaluation?.handName || 'Hand'})`;
+        break;
+      } else {
+        maxScoreSoFar = currentScore;
+      }
+    }
+  }
+
+  // Safety fallback using direct engine violations
+  if (firstErrorIndex === -1 && violations && violations.length > 0) {
+    const minViolatingToken = Math.min(...violations.map((v: any) => Math.min(v.tokenA, v.tokenB)));
+    firstErrorIndex = rankedPlayers.findIndex((p) => p.token === minViolatingToken);
+    if (firstErrorIndex === -1) firstErrorIndex = 0;
+  }
+
+  rankedPlayers.forEach((p, idx) => {
+    const isOk = firstErrorIndex === -1 || idx < firstErrorIndex;
+    const isFirst = idx === firstErrorIndex;
+
+    result[p.id] = {
+      isEvaluated: true,
+      isSuccess: isOk,
+      isFirstError: isFirst,
+      statusBadge: isOk
+        ? `✓ ORDER OK (★${p.token})`
+        : isFirst
+        ? `✗ ORDER BROKEN (★${p.token})`
+        : `✗ INCORRECT ORDER (★${p.token})`,
+      reason: isFirst ? breakReason : undefined,
+      token: p.token,
+      evaluation: p.evaluation,
+    };
+  });
+
+  return result;
+}
+
