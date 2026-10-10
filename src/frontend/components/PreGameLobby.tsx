@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Crown, Check, UserX, Copy, Play, ArrowLeft, Bot, AlertCircle, Users, Settings, HelpCircle, Share2 } from 'lucide-react';
+import { Crown, Check, UserX, Copy, Play, ArrowLeft, Bot, AlertCircle, Users, Settings, HelpCircle, Share2, Eye, EyeOff } from 'lucide-react';
 import { Room, UserProfile, ChatMessage, RoomSettings } from '../types';
 import { GAMES_CATALOG } from '../utils/mockData';
 import { AvatarIcon, AVATAR_LIST } from '../utils/avatars';
@@ -42,6 +42,8 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
   onUpdateRoomSettings,
 }) => {
   const [copiedLink, setCopiedLink] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
+  const [isCodeHidden, setIsCodeHidden] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -55,25 +57,41 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
     room.players.length >= room.minPlayers &&
     room.players.every((p) => p.isReady || p.isHost || p.isBot);
 
-  const handleCopyInviteLink = async () => {
-    soundstage.playTap();
-    const inviteUrl = buildInviteUrl(room);
+  const copyTextToClipboard = async (text: string) => {
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(inviteUrl);
+        await navigator.clipboard.writeText(text);
       } else {
         const input = document.createElement('input');
-        input.value = inviteUrl;
+        input.value = text;
         document.body.appendChild(input);
         input.select();
         document.execCommand('copy');
         document.body.removeChild(input);
       }
-      setCopiedLink(true);
-      setTimeout(() => setCopiedLink(false), 2500);
+      return true;
     } catch {
-      // Ignored
+      return false;
     }
+  };
+
+  const handleCopyRoomCode = async () => {
+    soundstage.playTap();
+    await copyTextToClipboard(room.code);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
+  };
+
+  const handleCopyInviteLinkOnly = async () => {
+    soundstage.playTap();
+    const inviteUrl = buildInviteUrl(room);
+    await copyTextToClipboard(inviteUrl);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
+  const handleOpenInviteModal = () => {
+    soundstage.playTap();
     setShowInviteModal(true);
   };
 
@@ -119,17 +137,17 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
             <span>RULES</span>
           </button>
           <button
-            onClick={handleCopyInviteLink}
+            onClick={handleOpenInviteModal}
             className="btn-cel btn-brawl-primary btn-sm invite-link-btn"
-            title="Copy invite link to share with friends"
+            title="Open invite friends modal"
           >
-            {copiedLink ? <Check size={16} strokeWidth={3} /> : <Share2 size={16} strokeWidth={2.8} />}
-            <span>{copiedLink ? 'LINK COPIED!' : 'INVITE FRIENDS'}</span>
+            <Share2 size={16} strokeWidth={2.8} />
+            <span>INVITE FRIENDS</span>
           </button>
         </div>
 
-        {/* Right side actions: Settings gear + Room Admission Ticket */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        {/* Right side actions: Settings gear + Split Room Code & Share Link containers */}
+        <div className="lobby-top-right-actions">
           <button
             onClick={() => {
               soundstage.playTap();
@@ -143,14 +161,65 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
             <span>SETTINGS</span>
           </button>
 
-          {/* Room Admission Ticket */}
-          <div className="lobby-ticket-hero" onClick={handleCopyInviteLink} title="Click to copy invite link for friends">
-            <div className="ticket-tag">
-              <span className="ticket-tag-title">ADMIT ONE</span>
-              <span className="ticket-tag-sub">{room.isPrivate ? 'PRIVATE' : 'PUBLIC'}</span>
+          {/* Button to the left of room code container to hide/show code */}
+          <button
+            type="button"
+            onClick={() => {
+              soundstage.playTap();
+              setIsCodeHidden((prev) => !prev);
+            }}
+            className="btn-ticket-visibility"
+            title={isCodeHidden ? 'Show room code' : 'Hide room code'}
+            aria-label={isCodeHidden ? 'Show room code' : 'Hide room code'}
+          >
+            {isCodeHidden ? <Eye size={16} strokeWidth={2.6} /> : <EyeOff size={16} strokeWidth={2.6} />}
+          </button>
+
+          {/* Container 1: Room Code */}
+          <div
+            className="lobby-ticket-hero lobby-ticket-code"
+            onClick={handleCopyRoomCode}
+            title="Copy room code"
+            role="button"
+            tabIndex={0}
+          >
+            <div className="ticket-value ticket-value-code">
+              <span className="code-sizer" aria-hidden="true">{room.code}</span>
+              <span className="code-display">{isCodeHidden ? '****' : room.code}</span>
             </div>
-            <div className="ticket-value">{room.code}</div>
-            <button className="ticket-copy-action" aria-label="Copy invite link">
+            <button
+              type="button"
+              className="ticket-copy-action"
+              aria-label="Copy room code"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyRoomCode();
+              }}
+            >
+              {copiedCode ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
+            </button>
+          </div>
+
+          {/* Container 2: Share Link */}
+          <div
+            className="lobby-ticket-hero"
+            onClick={handleCopyInviteLinkOnly}
+            title="Copy room invite link"
+            role="button"
+            tabIndex={0}
+          >
+            <div className="ticket-value ticket-value-share">
+              SHARE LINK
+            </div>
+            <button
+              type="button"
+              className="ticket-copy-action"
+              aria-label="Copy room invite link"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleCopyInviteLinkOnly();
+              }}
+            >
               {copiedLink ? <Check size={16} strokeWidth={3} /> : <Copy size={16} strokeWidth={2.5} />}
             </button>
           </div>
@@ -423,6 +492,32 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           justify-content: space-between;
           gap: 16px;
         }
+        .lobby-top-right-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .btn-ticket-visibility {
+          background-color: var(--color-glove-ivory);
+          border: var(--border-ink-standard);
+          border-radius: 9px;
+          box-shadow: var(--shadow-cel-sm);
+          height: 38px;
+          width: 38px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: var(--color-text-main);
+          transition: transform 0.08s ease, box-shadow 0.08s ease, background-color 0.1s ease;
+          flex-shrink: 0;
+        }
+        .btn-ticket-visibility:hover {
+          transform: translateY(-1px);
+          box-shadow: var(--shadow-cel-md);
+          background-color: var(--color-canvas-parchment);
+        }
         .lobby-ticket-hero {
           display: flex;
           align-items: center;
@@ -433,47 +528,59 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           overflow: hidden;
           cursor: pointer;
           transition: transform 0.08s ease, box-shadow 0.08s ease;
+          height: 38px;
         }
         .lobby-ticket-hero:hover {
           transform: translateY(-1px);
           box-shadow: var(--shadow-cel-md);
         }
-        .ticket-tag {
-          background-color: var(--color-cuphead-red);
-          color: var(--color-glove-ivory);
-          padding: 5px 10px;
-          display: flex;
-          flex-direction: column;
-          border-right: 2px dashed var(--color-ink-stroke);
-          line-height: 1.1;
-        }
-        .ticket-tag-title {
-          font-family: var(--font-theatre-rye);
-          font-size: 9.5px;
-          letter-spacing: 0.08em;
-        }
-        .ticket-tag-sub {
-          font-family: var(--font-theatre-rye);
-          font-size: 7.5px;
-          opacity: 0.85;
-          letter-spacing: 0.04em;
-        }
         .ticket-value {
           font-family: var(--font-typewriter-elite);
-          font-size: 16px;
+          font-size: 15px;
           font-weight: 700;
-          letter-spacing: 0.1em;
-          padding: 5px 12px;
+          letter-spacing: 0.08em;
+          padding: 6px 12px;
+          color: var(--color-text-main);
+          user-select: none;
+        }
+        .ticket-value-code {
+          display: inline-grid;
+          place-items: center;
+          position: relative;
+        }
+        .code-sizer {
+          grid-area: 1 / 1;
+          visibility: hidden;
+          pointer-events: none;
+          user-select: none;
+        }
+        .code-display {
+          grid-area: 1 / 1;
+          text-align: center;
+          white-space: nowrap;
+        }
+        .ticket-value-share {
+          font-family: var(--font-theatre-rye);
+          font-size: 13px;
+          letter-spacing: 0.08em;
+          font-weight: 700;
           color: var(--color-text-main);
         }
         .ticket-copy-action {
           background: none;
           border: none;
-          padding: 5px 8px;
+          border-left: 1.5px dashed var(--color-ink-stroke);
+          padding: 6px 10px;
           color: var(--color-text-main);
           cursor: pointer;
           display: flex;
           align-items: center;
+          justify-content: center;
+          height: 100%;
+          transition: background-color 0.1s ease;
+        }
+        .ticket-copy-action:hover {
+          background-color: rgba(0, 0, 0, 0.06);
         }
         .lobby-grid {
           display: grid;
@@ -700,6 +807,9 @@ export const PreGameLobby: React.FC<PreGameLobbyProps> = ({
           max-height: 520px;
         }
         @media (max-width: 800px) {
+          .lobby-top-bar { flex-direction: column; align-items: stretch; gap: 12px; }
+          .lobby-top-left-actions { flex-wrap: wrap; }
+          .lobby-top-right-actions { flex-wrap: wrap; }
           .lobby-grid { grid-template-columns: 1fr; }
           .roster-player-item { flex-direction: column; align-items: flex-start; }
           .roster-actions { width: 100%; justify-content: flex-end; }
