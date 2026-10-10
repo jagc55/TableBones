@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { LogOut, Crown, AlertTriangle, HelpCircle } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { LogOut, Crown, AlertTriangle, HelpCircle, MessageSquare, X } from 'lucide-react';
 import { Room, UserProfile, ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { GameAction, MatchState } from '../websocket/client';
@@ -36,6 +36,29 @@ export const GameArena: React.FC<GameArenaProps> = ({
   const [now, setNow] = useState(Date.now());
   const [showForfeitModal, setShowForfeitModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const prevMessagesCountRef = useRef(chatMessages.length);
+
+  useEffect(() => {
+    if (chatMessages.length > prevMessagesCountRef.current) {
+      if (!isChatOpen) {
+        setHasUnreadMessages(true);
+      }
+    }
+    prevMessagesCountRef.current = chatMessages.length;
+  }, [chatMessages.length, isChatOpen]);
+
+  const handleToggleChat = () => {
+    soundstage.playTap();
+    setIsChatOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setHasUnreadMessages(false);
+      }
+      return next;
+    });
+  };
 
   const currentUserPlayer = room.players.find((p) => p.id === currentUser.id) || room.players[0];
   const manifest = getGameManifest(room.gameId);
@@ -110,6 +133,9 @@ export const GameArena: React.FC<GameArenaProps> = ({
           <h2 className="woodcut-title hud-room-title">{room.title}</h2>
           <span className="hud-quorum-text">
             Quorum: {room.minPlayers} players · Active: {room.players.length}
+            {room.gameId === 'midnight-alley' && (
+              <> · Mode: {room.settings?.advancedMode ? 'Advanced Mode' : 'Normal Mode'}</>
+            )}
           </span>
         </div>
 
@@ -140,7 +166,7 @@ export const GameArena: React.FC<GameArenaProps> = ({
         </div>
       </div>
 
-      {/* Arena Stage & Chat Sidebar */}
+      {/* Arena Stage (iframe expands to occupy the space) */}
       <div className="arena-stage-grid">
         {/* Main Game Stage wrapped inside iframe */}
         <div className="arena-center-stage">
@@ -189,9 +215,33 @@ export const GameArena: React.FC<GameArenaProps> = ({
             />
           </GameStageFrame>
         </div>
+      </div>
 
-        {/* Fixed-height Chat Sidebar (Outside iframe) */}
-        <div className="arena-chat-sidebar">
+      {/* Floating Chat Bubble Button */}
+      <button
+        type="button"
+        className={`arena-chat-fab ${isChatOpen ? 'chat-fab-active' : ''}`}
+        onClick={handleToggleChat}
+        title={isChatOpen ? 'Close chat' : 'Open chat'}
+        aria-label={isChatOpen ? 'Close chat' : 'Open chat'}
+      >
+        {isChatOpen ? (
+          <X size={24} strokeWidth={2.8} />
+        ) : (
+          <MessageSquare size={24} strokeWidth={2.5} />
+        )}
+
+        {/* Unread indicator badge: red circle with small inner white circle on top-right border */}
+        {!isChatOpen && hasUnreadMessages && (
+          <span className="chat-fab-badge" aria-label="New messages">
+            <span className="chat-badge-inner" />
+          </span>
+        )}
+      </button>
+
+      {/* Floating Chat Window */}
+      {isChatOpen && (
+        <div className="arena-floating-chat-container">
           <ChatPanel
             messages={chatMessages}
             currentUserId={currentUser.id}
@@ -199,10 +249,11 @@ export const GameArena: React.FC<GameArenaProps> = ({
             onSendMessage={onSendMessage}
             onToggleMutePlayer={onToggleMutePlayer}
             title="MATCH CHAT"
-            className="arena-chat-card"
+            className="arena-chat-floating-card"
+            onClose={() => setIsChatOpen(false)}
           />
         </div>
-      </div>
+      )}
 
       {/* Leave Game Confirmation Modal */}
       {showForfeitModal && (
@@ -274,25 +325,35 @@ export const GameArena: React.FC<GameArenaProps> = ({
           padding: 2px;
           box-shadow: var(--shadow-cel-sm);
           flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
         .stopwatch-dial {
           position: relative;
-          width: 68px;
-          height: 68px;
+          width: 72px;
+          height: 72px;
           display: flex;
           align-items: center;
           justify-content: center;
         }
         .stopwatch-svg {
           position: absolute;
-          inset: 0;
+          top: 0;
+          left: 0;
+          width: 72px;
+          height: 72px;
+          display: block;
         }
         .stopwatch-digits {
-          position: relative;
+          position: absolute;
+          inset: 0;
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           line-height: 1;
+          pointer-events: none;
         }
         .digits-val {
           font-family: var(--font-luckiest-guy);
@@ -339,12 +400,9 @@ export const GameArena: React.FC<GameArenaProps> = ({
           background: transparent;
           overflow: hidden;
         }
-        .arena-page-layout.arena-midnight-layout {
-          max-width: 1400px;
-        }
         .arena-stage-grid {
           display: grid;
-          grid-template-columns: 1fr 350px;
+          grid-template-columns: 1fr;
           gap: 14px;
           align-items: start;
         }
@@ -418,12 +476,100 @@ export const GameArena: React.FC<GameArenaProps> = ({
           color: var(--color-cuphead-red);
           font-weight: 700;
         }
-        .arena-chat-sidebar {
-          height: 100%;
-          max-height: 600px;
+        .arena-chat-fab {
+          position: fixed;
+          bottom: 24px;
+          right: 24px;
+          width: 54px;
+          height: 54px;
+          border-radius: 999px;
+          background-color: var(--color-canvas-parchment);
+          border: var(--border-ink-thick);
+          box-shadow: var(--shadow-cel-md);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          color: var(--color-ink-black);
+          z-index: 1000;
+          transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
         }
-        .arena-chat-card {
-          height: 600px;
+        .arena-chat-fab:hover {
+          transform: translateY(-2px) scale(1.05);
+          box-shadow: var(--shadow-cel-lg);
+          background-color: var(--color-golden-buttercup);
+        }
+        .arena-chat-fab:active {
+          transform: translateY(1px) scale(0.98);
+        }
+        .arena-chat-fab.chat-fab-active {
+          background-color: var(--color-golden-buttercup);
+        }
+        .chat-fab-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          width: 18px;
+          height: 18px;
+          border-radius: 50%;
+          background-color: #dc2626;
+          border: 2px solid var(--color-ink-stroke, #1c1511);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+          pointer-events: none;
+        }
+        .chat-badge-inner {
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background-color: #ffffff;
+        }
+        .arena-floating-chat-container {
+          position: fixed;
+          bottom: 88px;
+          right: 24px;
+          width: 360px;
+          max-width: calc(100vw - 32px);
+          height: 520px;
+          max-height: calc(100vh - 120px);
+          z-index: 999;
+          display: flex;
+          flex-direction: column;
+          animation: chatSlideUp 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        @keyframes chatSlideUp {
+          from {
+            opacity: 0;
+            transform: translateY(10px) scale(0.98);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+        .arena-chat-floating-card {
+          width: 100%;
+          height: 100%;
+          max-height: 100% !important;
+          display: flex;
+          flex-direction: column;
+          box-shadow: var(--shadow-cel-lg);
+        }
+        @media (max-width: 600px) {
+          .arena-floating-chat-container {
+            bottom: 84px;
+            right: 12px;
+            left: 12px;
+            width: auto;
+            max-width: none;
+            height: 460px;
+          }
+          .arena-chat-fab {
+            bottom: 16px;
+            right: 16px;
+          }
         }
         .forfeit-modal {
           max-width: 400px;

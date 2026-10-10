@@ -1,4 +1,4 @@
-import { GameManifest } from '../../types';
+import { GameManifest, Room } from '../../types';
 import { MidnightAlleyEngine } from './MidnightAlleyEngine';
 import { MidnightRules } from './MidnightRules';
 import { MidnightAlleySettings } from './MidnightAlleySettings';
@@ -24,4 +24,9 @@ export const midnightAlleyManifest: GameManifest = {
   engine: (props) => <MidnightAlleyEngine {...props} />,
   rulesComponent: MidnightRules,
   settingsComponent: MidnightAlleySettings,
+  lobbyMetaChips: (room: Room) => (
+    <span className="meta-chip">
+      <strong>Mode:</strong> {room.settings?.advancedMode ? 'Advanced Mode' : 'Normal Mode'}
+    </span>
+  ),
 };

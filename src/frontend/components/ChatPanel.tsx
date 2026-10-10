@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Volume2, VolumeX, MessageSquare } from 'lucide-react';
+import { Send, Volume2, VolumeX, MessageSquare, X } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { AvatarIcon } from '../utils/avatars';
 import { soundstage } from '../utils/audio';
@@ -12,6 +12,7 @@ interface ChatPanelProps {
   onToggleMutePlayer: (playerId: string, playerName: string) => void;
   title?: string;
   className?: string;
+  onClose?: () => void;
 }
 
 export const ChatPanel: React.FC<ChatPanelProps> = ({
@@ -22,6 +23,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   onToggleMutePlayer,
   title = 'GAME CHAT',
   className = '',
+  onClose,
 }) => {
   const [inputText, setInputText] = useState('');
   const [revealedMutedMessageIds, setRevealedMutedMessageIds] = useState<Record<string, boolean>>({});
@@ -60,6 +62,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           <MessageSquare size={15} strokeWidth={2.8} />
           <span>{title}</span>
         </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={() => {
+              soundstage.playTap();
+              onClose();
+            }}
+            className="chat-header-close-btn"
+            title="Close chat"
+            aria-label="Close chat"
+          >
+            <X size={15} strokeWidth={2.8} />
+          </button>
+        )}
       </div>
 
       {/* Messages List - Fixed scroll viewport */}
@@ -177,6 +193,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
           font-size: 13px;
           letter-spacing: 0.05em;
           color: var(--color-text-main);
+        }
+        .chat-header-close-btn {
+          background: none;
+          border: none;
+          color: var(--color-text-main);
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 4px;
+          border-radius: 4px;
+          transition: transform 0.08s ease, color 0.1s ease;
+        }
+        .chat-header-close-btn:hover {
+          transform: scale(1.15);
+          color: var(--color-cuphead-red);
         }
         .chat-messages-viewport {
           flex: 1 1 0px;
