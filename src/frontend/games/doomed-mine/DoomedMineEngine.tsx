@@ -1,12 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import type { BaseGameEngineProps, Player } from '../../types';
 import type { DoomedMineMatchState } from './types';
 import { PokerCardView, PressureTokenChip } from './DoomedMineCards';
-import { DoomedMineRules } from './DoomedMineRules';
 import {
   playTokenSelectSound,
   playSuccessSound,
   playCaveInSound,
+  computePlayerShowdownStatuses,
 } from './doomedMineLogic';
 import { soundstage } from '../../utils/audio';
 import { AvatarIcon } from '../../utils/avatars';
@@ -17,11 +17,155 @@ import {
   CheckCircle2,
   Clock,
   Crown,
-  BookOpen,
-  X,
   ChevronRight,
   Zap,
+  BookOpen,
+  X,
 } from 'lucide-react';
+
+interface PokerHandGuideItem {
+  rank: number;
+  name: string;
+  desc: string;
+  exampleCards: Array<{ rank: string; suit: 'spades' | 'hearts' | 'diamonds' | 'clubs' }>;
+}
+
+const POKER_HAND_HIERARCHY: PokerHandGuideItem[] = [
+  {
+    rank: 1,
+    name: 'Royal Flush',
+    desc: 'A, K, Q, J, 10 of identical suit',
+    exampleCards: [
+      { rank: 'A', suit: 'spades' },
+      { rank: 'K', suit: 'spades' },
+      { rank: 'Q', suit: 'spades' },
+      { rank: 'J', suit: 'spades' },
+      { rank: '10', suit: 'spades' },
+    ],
+  },
+  {
+    rank: 2,
+    name: 'Straight Flush',
+    desc: 'Five consecutive cards of identical suit',
+    exampleCards: [
+      { rank: '9', suit: 'hearts' },
+      { rank: '8', suit: 'hearts' },
+      { rank: '7', suit: 'hearts' },
+      { rank: '6', suit: 'hearts' },
+      { rank: '5', suit: 'hearts' },
+    ],
+  },
+  {
+    rank: 3,
+    name: 'Four of a Kind',
+    desc: 'Four cards of identical rank',
+    exampleCards: [
+      { rank: 'Q', suit: 'spades' },
+      { rank: 'Q', suit: 'hearts' },
+      { rank: 'Q', suit: 'diamonds' },
+      { rank: 'Q', suit: 'clubs' },
+      { rank: '7', suit: 'spades' },
+    ],
+  },
+  {
+    rank: 4,
+    name: 'Full House',
+    desc: 'Three of a kind combined with a pair',
+    exampleCards: [
+      { rank: 'J', suit: 'spades' },
+      { rank: 'J', suit: 'hearts' },
+      { rank: 'J', suit: 'diamonds' },
+      { rank: '8', suit: 'clubs' },
+      { rank: '8', suit: 'diamonds' },
+    ],
+  },
+  {
+    rank: 5,
+    name: 'Flush',
+    desc: 'Any five cards of identical suit',
+    exampleCards: [
+      { rank: 'A', suit: 'diamonds' },
+      { rank: 'J', suit: 'diamonds' },
+      { rank: '8', suit: 'diamonds' },
+      { rank: '6', suit: 'diamonds' },
+      { rank: '2', suit: 'diamonds' },
+    ],
+  },
+  {
+    rank: 6,
+    name: 'Straight',
+    desc: 'Five consecutive ranks, mixed suits',
+    exampleCards: [
+      { rank: '10', suit: 'spades' },
+      { rank: '9', suit: 'diamonds' },
+      { rank: '8', suit: 'clubs' },
+      { rank: '7', suit: 'hearts' },
+      { rank: '6', suit: 'spades' },
+    ],
+  },
+  {
+    rank: 7,
+    name: 'Three of a Kind',
+    desc: 'Three cards of identical rank',
+    exampleCards: [
+      { rank: '7', suit: 'spades' },
+      { rank: '7', suit: 'hearts' },
+      { rank: '7', suit: 'diamonds' },
+      { rank: 'K', suit: 'clubs' },
+      { rank: '2', suit: 'spades' },
+    ],
+  },
+  {
+    rank: 8,
+    name: 'Two Pair',
+    desc: 'Two separate pairs of equal rank',
+    exampleCards: [
+      { rank: '9', suit: 'spades' },
+      { rank: '9', suit: 'diamonds' },
+      { rank: '4', suit: 'hearts' },
+      { rank: '4', suit: 'clubs' },
+      { rank: 'A', suit: 'spades' },
+    ],
+  },
+  {
+    rank: 9,
+    name: 'One Pair',
+    desc: 'Two cards of identical rank',
+    exampleCards: [
+      { rank: '10', suit: 'hearts' },
+      { rank: '10', suit: 'diamonds' },
+      { rank: 'A', suit: 'spades' },
+      { rank: '8', suit: 'clubs' },
+      { rank: '3', suit: 'hearts' },
+    ],
+  },
+  {
+    rank: 10,
+    name: 'High Card',
+    desc: 'No matching combinations; highest card plays',
+    exampleCards: [
+      { rank: 'A', suit: 'spades' },
+      { rank: 'K', suit: 'diamonds' },
+      { rank: '9', suit: 'clubs' },
+      { rank: '7', suit: 'hearts' },
+      { rank: '4', suit: 'spades' },
+    ],
+  },
+];
+
+const SUIT_SYMBOLS: Record<string, string> = {
+  spades: '♠',
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+};
+
+const SUIT_COLORS: Record<string, string> = {
+  spades: '#1c1511',
+  hearts: '#c92a2a',
+  diamonds: '#c92a2a',
+  clubs: '#1c1511',
+};
 
 export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
   matchState,
@@ -40,7 +184,9 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     return () => clearInterval(timer);
   }, []);
 
-  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showHandsGuide, setShowHandsGuide] = useState(false);
+  const [isGuidePinned, setIsGuidePinned] = useState(false);
+
   const feedScrollRef = React.useRef<HTMLDivElement>(null);
 
   // Sound effects on showdown (called unconditionally at top level)
@@ -48,10 +194,10 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     if (state?.phase === 'showdown' && state?.showdownResult) {
       if (state.showdownResult.success) {
         playSuccessSound();
-        onActionNotification?.('¡Viga apuntalada! El orden de las fichas fue correcto.');
+        onActionNotification?.('Shaft secured! The token order was correct.');
       } else {
         playCaveInSound();
-        onActionNotification?.('¡Derrumbe en la mina! Las fichas no coincidieron.');
+        onActionNotification?.('Cave-in in the mine! Tokens did not match hand rankings.');
       }
     }
   }, [state?.phase, state?.expedition, state?.showdownResult, onActionNotification]);
@@ -68,12 +214,35 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     ? players
     : ((state?.players as unknown as Player[]) || [currentUserPlayer])) as Player[];
 
+  const isShowdown = state?.phase === 'showdown';
+  const otherPlayers = activePlayers.filter((p) => p.id !== userId);
+
+  // At the end of the round (Showdown), sort teammate miners by final token ascending (1..N) to make results clear
+  const displayedOtherPlayers = useMemo(() => {
+    if (!isShowdown) return otherPlayers;
+    return [...otherPlayers].sort((a, b) => {
+      const tokenA = state?.tokens?.[a.id] ?? 999;
+      const tokenB = state?.tokens?.[b.id] ?? 999;
+      return tokenA - tokenB;
+    });
+  }, [isShowdown, otherPlayers, state?.tokens]);
+
+  // Evaluations and individual status of each miner in Showdown
+  const playerShowdownStatuses = useMemo(() => {
+    if (!isShowdown || !state?.showdownResult) return {};
+    return computePlayerShowdownStatuses(
+      state?.players || [],
+      state?.tokens || {},
+      state?.showdownResult
+    );
+  }, [isShowdown, state?.showdownResult, state?.players, state?.tokens]);
+
   if (!state || state.gameId !== 'doomed-mine') {
     return (
       <div className="cel-card doomed-mine-loading-box">
         <Pickaxe size={32} className="animate-tremble" />
-        <h3 className="woodcut-title">CARGANDO LA MINA...</h3>
-        <p>Preparando cartas y vigas de soporte.</p>
+        <h3 className="woodcut-title">LOADING THE MINE...</h3>
+        <p>Preparing cards and timber supports.</p>
         <style>{`
           .doomed-mine-loading-box {
             text-align: center;
@@ -89,48 +258,45 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     );
   }
 
-  const isShowdown = state.phase === 'showdown';
   const isGameOver = state.phase === 'game_over';
 
-  // Round naming without poker jargon: Ronda 1, Ronda 2, Ronda 3, Ronda 4, Veredicto
+  // Round naming without poker jargon: Round 1, Round 2, Round 3, Round 4, Showdown
   const getRoundLabel = () => {
     switch (state.phase) {
       case 'pre_flop':
-        return 'RONDA 1';
+        return 'ROUND 1';
       case 'flop':
-        return 'RONDA 2';
+        return 'ROUND 2';
       case 'turn':
-        return 'RONDA 3';
+        return 'ROUND 3';
       case 'river':
-        return 'RONDA 4';
+        return 'ROUND 4';
       case 'showdown':
-        return 'VEREDICTO';
+        return 'SHOWDOWN';
       case 'game_over':
         return 'FINAL';
       default:
-        return 'RONDA';
+        return 'ROUND';
     }
   };
 
   const myCards = state.privateCards?.[userId] || [];
   const myToken = state.tokens?.[userId] ?? null;
 
-  const otherPlayers = activePlayers.filter((p) => p.id !== userId);
   const totalPlayers = activePlayers.length || state.players?.length || 2;
   const tokenRange = Array.from({ length: totalPlayers }, (_, i) => i + 1);
+
+  const myShowdownStatus = playerShowdownStatuses[userId];
+  const myEvaluation = state.showdownResult?.evaluations?.[userId];
 
   const timeLeft = Math.max(0, Math.ceil(((state.deadline || 0) - now) / 1000));
 
   // Host identification
   const isHost = Boolean(
     currentUserPlayer?.isHost ||
-      (state.hostId && state.hostId === userId) ||
-      (!state.hostId && activePlayers[0]?.id === userId)
+    (state.hostId && state.hostId === userId) ||
+    (!state.hostId && activePlayers[0]?.id === userId)
   );
-  const hostPlayer = activePlayers.find(
-    (p) => p.id === (state.hostId || (activePlayers.find((ap) => ap.isHost)?.id || activePlayers[0]?.id))
-  );
-  const hostName = hostPlayer ? (hostPlayer.id === userId ? 'Tú (Capataz)' : hostPlayer.name) : 'Capataz';
 
   const tokensHeldCount = (state.players || []).filter(
     (p) => state.tokens?.[p.id] !== null && state.tokens?.[p.id] !== undefined
@@ -141,15 +307,15 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
   const getNextRoundLabel = () => {
     switch (state.phase) {
       case 'pre_flop':
-        return 'RONDA 2';
+        return 'ROUND 2';
       case 'flop':
-        return 'RONDA 3';
+        return 'ROUND 3';
       case 'turn':
-        return 'RONDA 4';
+        return 'ROUND 4';
       case 'river':
-        return 'VEREDICTO';
+        return 'SHOWDOWN';
       default:
-        return 'SIGUIENTE RONDA';
+        return 'NEXT ROUND';
     }
   };
 
@@ -175,12 +341,12 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     if (isShowdown || isGameOver) return;
     if (myToken !== null) {
       if (myToken === token) {
-        onActionNotification?.(`Ya tienes la Ficha ${myToken}. No puedes soltarla.`);
+        onActionNotification?.(`You already hold Token ${myToken}. You cannot release it.`);
         soundstage.playTileBacktrack();
         return;
       }
       onActionNotification?.(
-        `Ya tienes la Ficha ${myToken}. Solo puedes librarte de ella si otro minero te la quita.`
+        `You already hold Token ${myToken}. You can only lose it if another miner steals it from you.`
       );
       soundstage.playTileBacktrack();
       return;
@@ -193,13 +359,13 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
     if (isShowdown || isGameOver) return;
     const playerToken = state.tokens?.[minerPlayer.id];
     if (playerToken === null || playerToken === undefined) {
-      onActionNotification?.(`${minerPlayer.name} no tiene ninguna ficha.`);
+      onActionNotification?.(`${minerPlayer.name} does not hold any token.`);
       return;
     }
 
     if (myToken !== null) {
       onActionNotification?.(
-        `Ya tienes la Ficha ${myToken}. Solo puedes librarte de ella si otro minero te la quita.`
+        `You already hold Token ${myToken}. You can only lose it if another miner steals it from you.`
       );
       soundstage.playTileBacktrack();
       return;
@@ -216,18 +382,18 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
   return (
     <div className="doomed-mine-compact-container">
       {/* ========================================================= */}
-      {/* 1. ESTADO GLOBAL DE LA PARTIDA (MINIMALISTA, SOLO ICONOS) */}
+      {/* 1. GLOBAL GAME STATUS (MINIMALIST, ICONS & METERS)        */}
       {/* ========================================================= */}
       <header className="cel-card mine-compact-header">
-        {/* Vigas Aseguradas (3 slots, solo iconos de faroles/trofeos) */}
-        <div className="header-icon-group" title="Vigas aseguradas (3 para escapar)">
+        {/* Shafts Secured (3 slots, trophy icons) */}
+        <div className="header-icon-group" title="Shafts secured (3 to escape)">
           {[1, 2, 3].map((num) => {
             const secured = state.successes >= num;
             return (
               <div
                 key={`beam-slot-${num}`}
                 className={`compact-meter-slot beam-meter-slot ${secured ? 'meter-active-gold' : ''}`}
-                title={secured ? `Viga ${num} asegurada` : `Viga ${num} pendiente`}
+                title={secured ? `Shaft ${num} secured` : `Shaft ${num} pending`}
               >
                 <Trophy size={14} className={secured ? 'icon-lit-gold' : 'icon-dim'} />
                 <span className="meter-num">{num}</span>
@@ -236,15 +402,15 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           })}
         </div>
 
-        {/* Derrumbes Sufridos (3 slots, solo iconos de peligro/derrumbes) */}
-        <div className="header-icon-group" title="Derrumbes (3 = colapso)">
+        {/* Cave-ins Suffered (3 slots, warning icons) */}
+        <div className="header-icon-group" title="Cave-ins (3 = collapse)">
           {[1, 2, 3].map((num) => {
             const collapsed = state.failures >= num;
             return (
               <div
                 key={`cavein-slot-${num}`}
                 className={`compact-meter-slot cavein-meter-slot ${collapsed ? 'meter-active-red' : ''}`}
-                title={collapsed ? `Derrumbe ${num} sufrido` : `Sin derrumbe`}
+                title={collapsed ? `Cave-in ${num} suffered` : 'No cave-in'}
               >
                 <AlertTriangle size={14} className={collapsed ? 'icon-lit-red' : 'icon-dim'} />
                 <span className="meter-num">{num}</span>
@@ -253,92 +419,180 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           })}
         </div>
 
-        {/* Ronda Actual (Ronda 1, 2, 3, 4) */}
+        {/* Current Round Badge (Round 1, 2, 3, 4 + Showdown) */}
         <div className="compact-round-badge">
-          <span className="round-badge-text">{getRoundLabel()}</span>
+          <strong className="round-badge-text">{getRoundLabel()}</strong>
         </div>
 
-        {/* Temporizador */}
+
+        {/* Timer - compact vertical with countdown number */}
         <div
-          className={`compact-timer-badge ${
-            timeLeft <= 10 && !isShowdown && !isGameOver ? 'timer-urgent-pulse animate-tremble' : ''
-          }`}
-          title="Tiempo restante"
+          className={`compact-timer-badge ${isShowdown ? 'timer-showdown-paused' : ''}`}
+          title={isShowdown ? 'Expedition finished - Paused for crew review' : `Round ${state.phase.replace('_', ' ') || 'pending'} - ${timeLeft}s remaining`}
+          style={{ display: 'flex', alignItems: 'center', gap: '4px', fontWeight: timeLeft <= 10 && !isShowdown ? 'bold' : 'normal' }}
         >
           <Clock size={13} strokeWidth={2.6} />
-          <span>{timeLeft}s</span>
+          <span className="timer-countdown">{isShowdown ? 'PAUSED' : `${timeLeft}s`}</span>
         </div>
-
-        {/* Botón de Reglas */}
-        <button
-          type="button"
-          onClick={() => {
-            soundstage.playTap();
-            setShowRulesModal(true);
-          }}
-          className="btn-cel btn-brawl-neutral btn-sm compact-rules-btn"
-          title="Ver reglas"
-        >
-          <BookOpen size={13} />
-          <span>REGLAS</span>
-        </button>
       </header>
 
       {/* ========================================================= */}
-      {/* 1.5 CONTROL DE AVANCE DE RONDA (CONTROLADO POR EL CAPATAZ) */}
+      {/* 1.5 ROUND ADVANCEMENT STATUS / CONTROLS                   */}
       {/* ========================================================= */}
       {!isShowdown && !isGameOver && (
         <div
-          className={`mine-host-advance-bar cel-card ${
-            allPlayersHaveTokens ? 'bar-ready-to-advance' : 'bar-waiting-tokens'
-          }`}
+          className={`mine-host-advance-bar cel-card ${allPlayersHaveTokens ? 'bar-ready-to-advance' : 'bar-waiting-tokens'
+            }`}
         >
-          {isHost ? (
-            allPlayersHaveTokens ? (
-              <button
-                type="button"
-                onClick={handleAdvancePhase}
-                className="btn-cel btn-advance-gold"
-                title={`Avanzar a ${getNextRoundLabel()}`}
-              >
-                <Pickaxe size={15} className="animate-tremble" />
-                <span className="advance-btn-text">AVANZAR A {getNextRoundLabel()}</span>
-                <ChevronRight size={15} />
-              </button>
-            ) : (
-              <div className="advance-status-row waiting-host">
-                <Clock size={14} />
-                <span>
-                  Esperando que todos los mineros tengan ficha ({tokensHeldCount}/{totalPlayers}) para avanzar a {getNextRoundLabel()}
-                </span>
-              </div>
-            )
-          ) : (
+          {allPlayersHaveTokens ? (
             <div className="advance-status-row">
-              {allPlayersHaveTokens ? (
-                <>
-                  <CheckCircle2 size={14} className="icon-lit-gold" />
-                  <span>
-                    ¡Todos los mineros tienen ficha! Esperando a que el Capataz ({hostName}) avance a {getNextRoundLabel()}...
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Clock size={14} />
-                  <span>
-                    Esperando a que todos los mineros tengan ficha ({tokensHeldCount}/{totalPlayers})...
-                  </span>
-                </>
+              <CheckCircle2 size={14} className="icon-lit-gold" />
+              <span>
+                All miners have claimed a token! Advancing to {getNextRoundLabel()}...
+              </span>
+              {isHost && (
+                <button
+                  type="button"
+                  onClick={handleAdvancePhase}
+                  className="btn-cel btn-advance-gold btn-sm"
+                  title={`Advance to ${getNextRoundLabel()}`}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  <Pickaxe size={13} className="animate-tremble" />
+                  <span className="advance-btn-text">ADVANCE TO {getNextRoundLabel()}</span>
+                  <ChevronRight size={13} />
+                </button>
               )}
+            </div>
+          ) : (
+            <div className="advance-status-row waiting-host">
+              <Clock size={14} />
+              <span>
+                Waiting for all miners to claim a token ({tokensHeldCount}/{totalPlayers})...
+              </span>
             </div>
           )}
         </div>
       )}
 
+      {/* Host Resume between Hands / Expeditions (No auto-timer) */}
+      {isShowdown && !isGameOver && (
+        <div className={`mine-host-advance-bar cel-card ${
+          (state.pendingGameOver === 'defeat' || state.failures >= 3)
+            ? 'bar-game-over-defeat'
+            : isHost
+            ? 'bar-ready-to-advance'
+            : 'bar-waiting-tokens'
+        }`}>
+          <div className="advance-status-row">
+            {isHost ? (
+              <>
+                {(state.pendingGameOver === 'defeat' || state.failures >= 3) ? (
+                  <>
+                    <AlertTriangle size={15} className="icon-lit-red" />
+                    <span>💥 3 Cave-ins suffered! The mine collapsed. Review hands and conclude match:</span>
+                    <button
+                      type="button"
+                      onClick={handleNextExpedition}
+                      className="btn-cel btn-brawl-primary btn-sm"
+                      title="Conclude Expedition & View Results"
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      <Pickaxe size={13} className="animate-tremble" />
+                      <span className="advance-btn-text">CONCLUDE MATCH & VIEW RESULTS</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  </>
+                ) : (state.pendingGameOver === 'victory' || state.successes >= 3) ? (
+                  <>
+                    <Trophy size={15} className="icon-lit-gold" />
+                    <span>🏆 3 Shafts secured! Crew escaped! Review hands and conclude match:</span>
+                    <button
+                      type="button"
+                      onClick={handleNextExpedition}
+                      className="btn-cel btn-advance-gold btn-sm"
+                      title="Conclude Expedition & View Results"
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      <Trophy size={13} />
+                      <span className="advance-btn-text">CONCLUDE MATCH & VIEW RESULTS</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={15} className="icon-lit-gold" />
+                    <span>Expedition #{state.expedition} complete. Review hands and resume when ready:</span>
+                    <button
+                      type="button"
+                      onClick={handleNextExpedition}
+                      className="btn-cel btn-advance-gold btn-sm"
+                      title="Start Next Expedition"
+                      style={{ marginLeft: 'auto' }}
+                    >
+                      <Pickaxe size={13} className="animate-tremble" />
+                      <span className="advance-btn-text">START NEXT EXPEDITION</span>
+                      <ChevronRight size={13} />
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {(state.pendingGameOver === 'defeat' || state.failures >= 3) ? (
+                  <>
+                    <AlertTriangle size={14} className="icon-lit-red" />
+                    <span>💥 3 Cave-ins suffered! Waiting for Pit Boss (Host) to conclude match...</span>
+                  </>
+                ) : (state.pendingGameOver === 'victory' || state.successes >= 3) ? (
+                  <>
+                    <Trophy size={14} className="icon-lit-gold" />
+                    <span>🏆 3 Shafts secured! Waiting for Pit Boss (Host) to conclude match...</span>
+                  </>
+                ) : (
+                  <>
+                    <Clock size={14} />
+                    <span>Expedition #{state.expedition} complete. Waiting for Pit Boss (Host) to resume...</span>
+                  </>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Game Over Match Conclusion Banner */}
+      {isGameOver && (
+        <div className={`mine-host-advance-bar cel-card ${state.successes >= 3 ? 'bar-ready-to-advance' : 'bar-game-over-defeat'}`}>
+          <div className="advance-status-row">
+            {state.successes >= 3 ? (
+              <>
+                <Trophy size={16} className="icon-lit-gold" />
+                <span>🏆 All 3 shafts secured! The crew escaped successfully!</span>
+              </>
+            ) : (
+              <>
+                <AlertTriangle size={16} className="icon-lit-red" />
+                <span>💥 3 Cave-ins suffered! The mine completely collapsed.</span>
+              </>
+            )}
+            <span style={{ marginLeft: 'auto', fontStyle: 'italic', fontSize: '11px', color: 'var(--color-text-muted)' }}>
+              {state.winReason || 'Match concluded — Showing final standings.'}
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* ========================================================= */}
-      {/* 2. LA MESA CENTRAL (DIRECTAMENTE SOBRE EL TAPETE VERDE)  */}
+      {/* 2. CENTRAL TABLE (TEXAS HOLD'EM COMMUNITY CARDS)           */}
       {/* ========================================================= */}
       <section className="mine-felt-arena">
+        {/* Subtle Felt Banner with 5 community cards */}
+        <div className="felt-center-banner">
+          <Pickaxe size={12} className="gold-icon" />
+          <span>COMMUNITY CARDS (TEXAS HOLD'EM)</span>
+        </div>
+
         {/* The 5 Community Cards of Texas Hold'em directly on green felt */}
         <div className="community-cards-felt-row">
           {[0, 1, 2, 3, 4].map((idx) => {
@@ -354,7 +608,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                 {isRevealed ? (
                   <PokerCardView card={card} size="md" />
                 ) : (
-                  <div className="felt-card-placeholder" title={`Carta comunitaria de ${slotTag}`}>
+                  <div className="felt-card-placeholder" title={`Community card for ${slotTag}`}>
                     <span className="placeholder-subtle-tag">{slotTag}</span>
                   </div>
                 )}
@@ -363,64 +617,37 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           })}
         </div>
 
-        {/* Showdown Result Overlay on the Felt */}
-        {isShowdown && state.showdownResult && (
-          <div
-            className={`felt-showdown-modal cel-card ${
-              state.showdownResult.success ? 'showdown-box-success' : 'showdown-box-failure'
-            }`}
-          >
-            <div className="showdown-modal-header">
-              {state.showdownResult.success ? (
-                <Trophy size={20} className="icon-lit-gold" />
-              ) : (
-                <AlertTriangle size={20} className="icon-lit-red" />
-              )}
-              <strong className="woodcut-title showdown-modal-title">
-                {state.showdownResult.success ? '¡VIGA APUNTALADA!' : '¡DERRUMBE EN LA MINA!'}
-              </strong>
-            </div>
-
-            <p className="showdown-modal-msg">{state.showdownResult.message}</p>
-
-            {/* Violations details */}
-            {state.showdownResult.violations && state.showdownResult.violations.length > 0 && (
-              <div className="showdown-violations-list">
-                {state.showdownResult.violations.map((v, vIdx) => (
-                  <div key={`v-${vIdx}`} className="violation-line">
-                    <span>⚡ {v.message}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <button
-              type="button"
-              onClick={handleNextExpedition}
-              className="btn-cel btn-brawl-primary btn-sm showdown-advance-btn"
-            >
-              <span>{state.pendingGameOver ? 'VER PODIO FINAL' : 'SIGUIENTE EXPEDICIÓN'}</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
       </section>
 
       {/* ========================================================= */}
-      {/* 3. EN PARALELO: TUS CARTAS (1/3) Y EL RESTO DE MINEROS (2/3)*/}
+      {/* 3. SIDE BY SIDE: YOUR HAND (1/3) & TEAMMATES (2/3)        */}
       {/* ========================================================= */}
       <section className="doomed-mine-split-arena">
-        {/* LADO A: TUS CARTAS Y FICHAS DISPONIBLES (~1/3 ESPACIO) */}
-        <div className="cel-card split-panel my-hand-panel">
+        {/* SIDE A: YOUR CARDS & CLAIMABLE TOKENS (~1/3 SPACE) */}
+        <div
+          className={`cel-card split-panel my-hand-panel ${isShowdown && myShowdownStatus
+            ? myShowdownStatus.isSuccess
+              ? 'my-panel-showdown-success'
+              : 'my-panel-showdown-failed'
+            : ''
+            }`}
+        >
           <div className="split-panel-header">
-            <span className="woodcut-title panel-mini-title">TUS CARTAS</span>
+            <div className="split-title-with-badge">
+              <span className="woodcut-title panel-mini-title">YOUR CARDS</span>
+              {isShowdown && myToken !== null && (
+                <span className="my-token-badge-pill" title={`Your assigned token was ${myToken}`}>
+                  ★ TOKEN {myToken}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="my-hand-content">
             {/* Pocket Cards Together */}
             <div className="my-pocket-cards-fan">
               {myCards.length === 0 ? (
-                <span className="empty-cards-note">Repartiendo cartas...</span>
+                <span className="empty-cards-note">Dealing cards...</span>
               ) : (
                 myCards.map((card, idx) => (
                   <div key={`my-hole-card-${card.id || idx}`} className="pocket-card-holder">
@@ -430,35 +657,67 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
               )}
             </div>
 
-            {/* Historial de fichas en rondas previas a simple vista */}
+            {/* During Showdown: Evaluated Hand Name and explicit outcome/influence feedback */}
+            {isShowdown && (
+              <div className="my-eval-reveal-row">
+                {myEvaluation && (
+                  <span className="woodcut-title my-eval-hand-name">{myEvaluation.handName}</span>
+                )}
+                {myShowdownStatus?.isSuccess ? (
+                  <div className="my-outcome-pill outcome-success">
+                    <CheckCircle2 size={13} />
+                    <span>✓ Correct order: Token {myToken} matched hand strength</span>
+                  </div>
+                ) : myShowdownStatus?.isFirstError ? (
+                  <div className="my-outcome-pill outcome-danger is-first-break">
+                    <AlertTriangle size={13} />
+                    <span>⚠️ Broke sequence: {myShowdownStatus.reason || `Token ${myToken} out of order`}</span>
+                  </div>
+                ) : (
+                  <div className="my-outcome-pill outcome-danger">
+                    <AlertTriangle size={13} />
+                    <span>✗ Out of sequence: Displaced by earlier sequence break</span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Token History in Previous Rounds: Round indicator on top, Chapa coin below */}
             <div className="my-history-strip">
-              <span className="history-strip-label">FICHAS PREVIAS:</span>
+              <span className="history-strip-label">PRIOR:</span>
               {getPlayerHistoryRounds(userId).length === 0 ? (
-                <span className="history-empty-tag">Sin rondas previas</span>
+                <span className="history-empty-tag">None</span>
               ) : (
-                <div className="history-pills-row">
+                <div className="prior-token-stack-row">
                   {getPlayerHistoryRounds(userId).map((item) => (
-                    <span key={item.label} className="token-history-badge" title={`${item.label}: Ficha ${item.token}`}>
-                      <span className="badge-round">{item.label}:</span>
-                      <span className="badge-token">★{item.token}</span>
-                    </span>
+                    <div
+                      key={item.label}
+                      className="prior-chapa-slot"
+                      title={`Round ${item.label}: Token ${item.token}`}
+                    >
+                      <span className="prior-round-num">{item.label}</span>
+                      <div className="prior-chapa-coin">
+                        <span className="prior-chapa-val">{item.token}</span>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {/* Available Pressure Tokens (1..N) */}
+            {/* Available Pressure Tokens (1..N) in prior phases */}
             {!isShowdown && !isGameOver && (
               <div className="my-tokens-claim-box">
                 <div className="claim-box-header">
                   <span className="claim-title">
                     {myToken === null
-                      ? `ELIGE TU FICHA (1=MÍN, ${totalPlayers}=MÁX):`
-                      : `TU FICHA ACTUAL: FICHA ${myToken} (¡LISTO!)`}
+                      ? `CLAIM YOUR TOKEN (1=MIN, ${totalPlayers}=MAX):`
+                      : `YOUR CURRENT TOKEN: TOKEN ${myToken} (READY TO ADVANCE)`}
                   </span>
+                <small className="claim-box-subtitle" title="Click a chip to claim or steal">Select a token below</small>
                 </div>
 
-                <div className="compact-tokens-strip">
+                <div className="compact-tokens-strip tokens-visibility-enhanced-row">
                   {tokenRange.map((t) => {
                     const holderId = Object.keys(state.tokens || {}).find(
                       (id) => state.tokens[id] === t
@@ -479,7 +738,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                         holderName={
                           holderPlayer
                             ? holderPlayer.id === userId
-                              ? 'TÚ'
+                              ? 'YOU'
                               : holderPlayer.name
                             : undefined
                         }
@@ -489,19 +748,19 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                   })}
                 </div>
 
-                {/* Instant Ready State (no reconfirm / no voluntary drop) */}
+                {/* Instant Ready State (no voluntary drop) */}
                 <div className="my-status-action-area">
                   {myToken === null ? (
                     <span className="choose-token-hint">
-                      ⛏ Elige una ficha libre o pincha en un minero para quitársela
+                      ⛏ Claim an available token or click a teammate to steal theirs
                     </span>
                   ) : (
                     <div className="confirmed-ready-state">
                       <span className="ready-indicator-text">
-                        <CheckCircle2 size={14} /> ¡LISTO CON FICHA {myToken}!
+                        <CheckCircle2 size={14} /> READY WITH TOKEN {myToken}!
                       </span>
                       <span className="ready-sub-hint">
-                        No se puede soltar; solo te libras si te la roban
+                        Locked in; can only change if another miner steals it
                       </span>
                     </div>
                   )}
@@ -511,15 +770,40 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           </div>
         </div>
 
-        {/* LADO B: EL RESTO DE LOS MINEROS (~2/3 ESPACIO) */}
+        {/* SIDE B: TEAMMATES (~2/3 SPACE) */}
         <div className="cel-card split-panel team-miners-panel">
           <div className="split-panel-header">
-            <span className="woodcut-title panel-mini-title">MINEROS</span>
-            <span className="miners-count-pill">{otherPlayers.length} COMPAÑEROS</span>
+            <div className="miners-header-title-box">
+              <span className="woodcut-title panel-mini-title">MINERS</span>
+              <span className="miners-count-pill">{displayedOtherPlayers.length} TEAMMATES</span>
+            </div>
+
+            {/* Hand Rankings Guide Button in Miners Header */}
+            <div
+              className="miners-hands-guide-trigger"
+              onMouseEnter={() => setShowHandsGuide(true)}
+              onMouseLeave={() => {
+                if (!isGuidePinned) setShowHandsGuide(false);
+              }}
+            >
+              <button
+                type="button"
+                className={`compact-guide-btn ${showHandsGuide || isGuidePinned ? 'guide-btn-active' : ''}`}
+                onClick={() => {
+                  setIsGuidePinned((prev) => !prev);
+                  setShowHandsGuide((prev) => !prev);
+                }}
+                title="Hover or click to lock Poker Hand Rankings (#1 Best to #10 Lowest)"
+                aria-label="Poker hand rankings hierarchy"
+              >
+                <BookOpen size={13} strokeWidth={2.4} />
+                <span className="guide-btn-label">HAND RANKINGS</span>
+              </button>
+            </div>
           </div>
 
           <div className="miners-roster-grid">
-            {otherPlayers.map((player) => {
+            {displayedOtherPlayers.map((player) => {
               const playerToken = state.tokens?.[player.id];
               const isReady = state.ready?.[player.id];
               const evaluation = state.showdownResult?.evaluations?.[player.id];
@@ -528,26 +812,38 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
               const canSteal = !isShowdown && !isGameOver && myToken === null && hasToken;
               const pastRounds = getPlayerHistoryRounds(player.id);
 
+              const showdownStatus = playerShowdownStatuses[player.id];
+              const cardStatusClass = isShowdown
+                ? showdownStatus?.isSuccess
+                  ? 'miner-showdown-success'
+                  : 'miner-showdown-failed'
+                : isReady
+                  ? 'miner-ready'
+                  : '';
+
               return (
                 <div
                   key={player.id}
                   onClick={() => canSteal && handleMinerClick(player)}
-                  className={`miner-roster-chip cel-card ${isReady ? 'miner-ready' : ''} ${
-                    canSteal ? 'miner-clickable-steal' : ''
-                  }`}
+                  className={`miner-roster-chip cel-card ${cardStatusClass} ${canSteal ? 'miner-clickable-steal' : ''
+                    }`}
                   title={
-                    canSteal
-                      ? `Pincha para quitarle la Ficha ${playerToken} a ${player.name}`
-                      : hasToken
-                      ? `Ficha ${playerToken} en poder de ${player.name}`
-                      : `${player.name} todavía no tiene ficha`
+                    isShowdown
+                      ? showdownStatus?.isSuccess
+                        ? `${player.name}: Token ${playerToken} in correct order`
+                        : `${player.name}: Token ${playerToken} in incorrect order`
+                      : canSteal
+                        ? `Click to steal Token ${playerToken} from ${player.name}`
+                        : hasToken
+                          ? `Token ${playerToken} held by ${player.name}`
+                          : `${player.name} does not have a token yet`
                   }
                 >
                   <div className="miner-main-row">
                     <div className="miner-avatar-box">
                       <AvatarIcon id={player.avatarId} size={28} />
                       {player.isHost && (
-                        <div className="miner-crown" title="Capataz">
+                        <div className="miner-crown" title="Pit Boss">
                           <Crown size={8} strokeWidth={3} />
                         </div>
                       )}
@@ -560,15 +856,17 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                       </div>
 
                       <div className="miner-status-line">
-                        {isReady ? (
-                          <span className="miner-ready-text">✓ LISTO</span>
-                        ) : (
-                          <span className="miner-thinking-text">⏳ PENSANDO...</span>
+                        {!isShowdown && (
+                          isReady ? (
+                            <span className="miner-ready-text">✓ READY</span>
+                          ) : (
+                            <span className="miner-thinking-text">⏳ THINKING...</span>
+                          )
                         )}
                       </div>
 
                       {canSteal && (
-                        <span className="miner-steal-tip">⛏ Pincha para robar</span>
+                        <span className="miner-steal-tip">⛏ Click to steal</span>
                       )}
                     </div>
 
@@ -579,7 +877,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                           token={playerToken}
                           totalTokens={totalPlayers}
                           size="sm"
-                          confirmed={isReady}
+                          confirmed={isShowdown ? showdownStatus?.isSuccess : isReady}
                         />
                       ) : (
                         <div className="token-empty-circle">?</div>
@@ -587,28 +885,30 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                     </div>
                   </div>
 
-                  {/* Fichas previas de este minero a simple vista */}
+                  {/* Previous tokens for this miner: Round indicator on top, Chapa coin below */}
                   <div className="miner-history-row">
-                    <span className="miner-hist-title">Previas:</span>
+                    <span className="miner-hist-title">PRIOR:</span>
                     {pastRounds.length === 0 ? (
                       <span className="miner-hist-empty">—</span>
                     ) : (
-                      <div className="miner-hist-pills">
+                      <div className="prior-token-stack-row">
                         {pastRounds.map((item) => (
-                          <span
+                          <div
                             key={item.label}
-                            className="miner-past-badge"
-                            title={`${player.name} en ${item.label}: Ficha ${item.token}`}
+                            className="prior-chapa-slot"
+                            title={`${player.name} in ${item.label}: Token ${item.token}`}
                           >
-                            <span className="past-round">{item.label}:</span>
-                            <span className="past-num">★{item.token}</span>
-                          </span>
+                            <span className="prior-round-num">{item.label}</span>
+                            <div className="prior-chapa-coin">
+                              <span className="prior-chapa-val">{item.token}</span>
+                            </div>
+                          </div>
                         ))}
                       </div>
                     )}
                   </div>
 
-                  {/* ONLY in Showdown: Reveal other players' cards */}
+                  {/* ONLY in Showdown: Reveal other players' cards, hand ranking and outcome influence callout */}
                   {isShowdown && (
                     <div className="miner-showdown-reveal">
                       <div className="miner-cards-row">
@@ -619,28 +919,98 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
                       {evaluation && (
                         <span className="miner-eval-text">{evaluation.handName}</span>
                       )}
+                      {showdownStatus?.isSuccess ? (
+                        <div className="miner-outcome-callout outcome-success">
+                          <span>✓ Order preserved (Token {playerToken})</span>
+                        </div>
+                      ) : showdownStatus?.isFirstError ? (
+                        <div className="miner-outcome-callout outcome-danger is-first-break">
+                          <span>⚠️ {showdownStatus.reason || `Broke sequence with Token ${playerToken}`}</span>
+                        </div>
+                      ) : (
+                        <div className="miner-outcome-callout outcome-danger">
+                          <span>✗ Displaced after sequence break</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
               );
             })}
           </div>
+
+          {/* Hand Rankings Overlay over Miners panel (leaves table and your hand completely visible) */}
+          {(showHandsGuide || isGuidePinned) && (
+            <div
+              className="hands-guide-miners-overlay cel-card"
+              onMouseEnter={() => setShowHandsGuide(true)}
+              onMouseLeave={() => {
+                if (!isGuidePinned) setShowHandsGuide(false);
+              }}
+            >
+              <div className="hands-guide-header">
+                <div className="guide-header-title-row">
+                  <BookOpen size={14} className="gold-icon" />
+                  <strong className="woodcut-title guide-popover-title">POKER HAND HIERARCHY</strong>
+                  <span className="guide-popover-sub">(Best #1 to Lowest #10)</span>
+                  <button
+                    type="button"
+                    className="guide-close-btn"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsGuidePinned(false);
+                      setShowHandsGuide(false);
+                    }}
+                    title="Close rankings"
+                    aria-label="Close"
+                  >
+                    <X size={12} strokeWidth={3} />
+                  </button>
+                </div>
+              </div>
+              <div className="hands-guide-grid">
+                {POKER_HAND_HIERARCHY.map((item) => (
+                  <div key={item.rank} className="hands-guide-row">
+                    <div className="guide-rank-header">
+                      <span className={`guide-rank-pill ${item.rank === 1 ? 'rank-pill-best' : ''}`}>
+                        #{item.rank}
+                      </span>
+                      <strong className="guide-hand-name">{item.name}</strong>
+                      <div className="guide-cards-row">
+                        {item.exampleCards.map((c, cIdx) => (
+                          <span
+                            key={`c-${item.rank}-${cIdx}`}
+                            className="guide-mini-card"
+                            style={{ color: SUIT_COLORS[c.suit] }}
+                          >
+                            <span className="g-card-rank">{c.rank}</span>
+                            <span className="g-card-suit">{SUIT_SYMBOLS[c.suit]}</span>
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    <span className="guide-hand-desc">{item.desc}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
       {/* ========================================================= */}
-      {/* 4. HISTORIAL DE DISPUTA Y ROTACIÓN DE FICHAS (ABAJO)      */}
+      {/* 4. DISPUTE & TOKEN ROTATION FEED (BOTTOM)                 */}
       {/* ========================================================= */}
       <footer className="cel-card-deep dispute-feed-card">
         <div className="feed-header-line">
           <Zap size={13} className="gold-icon" />
-          <strong className="feed-title-text">HISTORIAL DE DISPUTA Y ROTACIÓN DE FICHAS:</strong>
+          <strong className="feed-title-text">TOKEN DISPUTE & ROTATION FEED:</strong>
           <span className="feed-badge-count">{(state.actionLog || []).length}</span>
         </div>
 
         <div className="feed-scroll-list" ref={feedScrollRef}>
           {!state.actionLog || state.actionLog.length === 0 ? (
-            <span className="feed-row-empty">Sin movimientos registrados aún...</span>
+            <span className="feed-row-empty">No moves recorded yet...</span>
           ) : (
             state.actionLog.map((entry) => (
               <div key={entry.id} className="feed-row-item">
@@ -653,34 +1023,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
       </footer>
 
       {/* ========================================================= */}
-      {/* MODAL DE REGLAS                                           */}
-      {/* ========================================================= */}
-      {showRulesModal && (
-        <div className="modal-overlay" onClick={() => setShowRulesModal(false)}>
-          <div className="modal-content rules-modal-window" onClick={(e) => e.stopPropagation()}>
-            <div className="rules-modal-header">
-              <div className="header-title-row">
-                <Pickaxe size={22} className="gold-icon" />
-                <h3 className="woodcut-title">LA MINA MALDITA — MANUAL DE REGLAS</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowRulesModal(false)}
-                className="btn-cel btn-brawl-neutral btn-icon-sq"
-                title="Cerrar"
-              >
-                <X size={16} />
-              </button>
-            </div>
-            <div className="rules-modal-body">
-              <DoomedMineRules />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ========================================================= */}
-      {/* CSS ESPECÍFICO (COMPACTO Y SIN SCROLL)                    */}
+      {/* COMPACT SPECIFIC CSS (NO-SCROLL LAYOUT)                  */}
       {/* ========================================================= */}
       <style>{`
         .doomed-mine-compact-container {
@@ -747,6 +1090,213 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: #1c1511;
           box-shadow: var(--shadow-cel-sm);
         }
+
+        /* 1.25 POKER HANDS HIERARCHY HOVER GUIDE */
+        .compact-hands-guide-wrapper {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+        }
+        .compact-guide-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          background-color: var(--color-parchment-deep);
+          color: var(--color-text-main);
+          border: 1.5px solid var(--color-ink-stroke);
+          border-radius: 6px;
+          padding: 3px 8px;
+          font-family: var(--font-accent);
+          font-size: 10.5px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: background-color 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+          box-shadow: 1px 1px 0 var(--color-ink-stroke);
+          user-select: none;
+        }
+        .compact-guide-btn:hover {
+          background-color: var(--color-golden-buttercup);
+          transform: translateY(-1px);
+          box-shadow: 2px 2px 0 var(--color-ink-stroke);
+        }
+        .compact-guide-btn:active {
+          transform: translateY(1px);
+          box-shadow: none;
+        }
+        .guide-btn-label {
+          font-size: 10px;
+          letter-spacing: 0.03em;
+        }
+
+        .miners-header-title-box {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .miners-hands-guide-trigger {
+          position: relative;
+          display: inline-flex;
+          align-items: center;
+        }
+
+        .hands-guide-miners-overlay,
+        .hands-guide-popover {
+          position: absolute;
+          top: 36px;
+          left: 6px;
+          right: 6px;
+          bottom: 6px;
+          z-index: 100;
+          background-color: var(--color-glove-ivory);
+          border: 2px solid var(--color-ink-stroke);
+          border-radius: var(--radius-cel-box);
+          box-shadow: 4px 6px 0 rgba(28, 21, 17, 0.4);
+          padding: 8px 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          animation: guideFadeSlide 0.16s ease-out;
+          overflow-y: auto;
+          min-height: 220px;
+        }
+        @keyframes guideFadeSlide {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .hands-guide-header {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          padding-bottom: 5px;
+          border-bottom: 1.5px dashed var(--color-ink-stroke);
+        }
+        .guide-header-title-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .guide-popover-title {
+          font-size: 11.5px;
+          letter-spacing: 0.04em;
+          color: var(--color-text-main);
+          margin: 0;
+        }
+        .guide-popover-sub {
+          font-family: var(--font-body);
+          font-size: 8.5px;
+          color: var(--color-text-muted);
+          font-style: italic;
+        }
+        .guide-close-btn {
+          margin-left: auto;
+          background: var(--color-canvas-parchment);
+          border: 1px solid var(--color-ink-stroke);
+          border-radius: 4px;
+          cursor: pointer;
+          padding: 2px 4px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-main);
+          transition: all 0.12s ease;
+        }
+        .guide-close-btn:hover {
+          background-color: var(--color-cuphead-red);
+          color: #ffffff;
+        }
+        .hands-guide-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 4px 8px;
+        }
+        .hands-guide-row {
+          display: flex;
+          flex-direction: column;
+          gap: 1.5px;
+          padding: 3px 6px;
+          background-color: var(--color-canvas-parchment);
+          border: 1px solid rgba(28, 21, 17, 0.18);
+          border-radius: 4px;
+          transition: background-color 0.12s ease;
+        }
+        .hands-guide-row:hover {
+          background-color: #fefce8;
+          border-color: #854d0e;
+        }
+        .guide-rank-header {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        .guide-rank-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-family: var(--font-mono);
+          font-size: 8.5px;
+          font-weight: 800;
+          background-color: var(--color-parchment-deep);
+          color: var(--color-text-main);
+          border: 1px solid var(--color-ink-stroke);
+          border-radius: 3px;
+          padding: 0 3px;
+          min-width: 20px;
+          text-align: center;
+          line-height: 1.2;
+        }
+        .guide-rank-pill.rank-pill-best {
+          background-color: var(--color-golden-buttercup);
+          color: #854d0e;
+          border-color: #854d0e;
+        }
+        .guide-hand-name {
+          font-family: var(--font-heading);
+          font-size: 10.5px;
+          font-weight: 800;
+          color: var(--color-text-main);
+          white-space: nowrap;
+        }
+        .guide-cards-row {
+          display: flex;
+          align-items: center;
+          gap: 2px;
+          margin-left: auto;
+        }
+        .guide-mini-card {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 1px;
+          background-color: #ffffff;
+          border: 1px solid var(--color-ink-stroke);
+          border-radius: 2px;
+          padding: 0 2.5px;
+          font-family: var(--font-mono);
+          font-size: 8.5px;
+          font-weight: bold;
+          line-height: 1.1;
+          box-shadow: 0.5px 0.5px 0 rgba(0, 0, 0, 0.12);
+        }
+        .g-card-rank {
+          font-size: 8.5px;
+          font-weight: 800;
+        }
+        .g-card-suit {
+          font-size: 8.5px;
+        }
+        .guide-hand-desc {
+          font-family: var(--font-body);
+          font-size: 8.5px;
+          color: var(--color-text-muted);
+          line-height: 1.15;
+        }
+
         .compact-timer-badge {
           display: flex;
           align-items: center;
@@ -770,7 +1320,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           padding: 4px 10px;
         }
 
-        /* 1.5 CONTROL DE AVANCE DE RONDA (CAPATAZ) */
+        /* 1.5 ROUND ADVANCEMENT CONTROLS (PIT BOSS) */
         .mine-host-advance-bar {
           padding: 8px 12px;
           display: flex;
@@ -784,6 +1334,11 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
         .mine-host-advance-bar.bar-ready-to-advance {
           background-color: #fef9c3;
           border-color: #854d0e;
+        }
+        .mine-host-advance-bar.bar-game-over-defeat {
+          background-color: #fee2e2;
+          border-color: var(--color-cuphead-red);
+          color: #881337;
         }
         .btn-advance-gold {
           display: inline-flex;
@@ -873,55 +1428,108 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           user-select: none;
         }
 
-        /* Showdown Modal Overlay on Felt */
-        .felt-showdown-modal {
-          z-index: 10;
-          position: absolute;
-          inset: 8px;
-          background-color: var(--color-glove-ivory);
+        /* Barra de Veredicto / Showdown (arriba de la mesa, sin tapar el tapete) */
+        .mine-showdown-bar {
+          padding: 8px 14px;
           border: var(--border-ink-thick);
-          border-radius: 12px;
-          box-shadow: var(--shadow-cel-md);
+          border-radius: var(--radius-cel-box);
+          box-shadow: var(--shadow-cel-sm);
           display: flex;
-          flex-direction: column;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+        .showdown-bar-success {
+          background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+          border-color: #10b981;
+        }
+        .showdown-bar-failure {
+          background: linear-gradient(180deg, #fff1f2 0%, #fee2e2 100%);
+          border-color: var(--color-cuphead-red);
+        }
+        .showdown-bar-left {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          flex: 1;
+          min-width: 240px;
+        }
+        .showdown-bar-icon-box {
+          width: 34px;
+          height: 34px;
+          background: rgba(255, 255, 255, 0.85);
+          border: var(--border-ink-thin);
+          border-radius: 8px;
+          display: flex;
           align-items: center;
           justify-content: center;
-          padding: 12px 18px;
-          text-align: center;
-          gap: 6px;
+          flex-shrink: 0;
+          box-shadow: 1px 1px 0px rgba(0, 0, 0, 0.15);
         }
-        .showdown-box-success { border-color: #ca8a04; }
-        .showdown-box-failure { border-color: var(--color-cuphead-red); }
-        .showdown-modal-header {
+        .showdown-bar-info {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .showdown-bar-title-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .showdown-bar-title {
+          font-size: 13.5px;
+          color: var(--color-text-main);
+          letter-spacing: 0.02em;
+        }
+        .showdown-outcome-chip {
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          padding: 1px 6px;
+          border-radius: 4px;
+          border: var(--border-ink-thin);
+          letter-spacing: 0.03em;
+        }
+        .showdown-outcome-chip.chip-success {
+          background-color: #10b981;
+          color: #ffffff;
+        }
+        .showdown-outcome-chip.chip-failure {
+          background-color: var(--color-cuphead-red);
+          color: #ffffff;
+        }
+        .showdown-bar-desc {
+          margin: 0;
+          font-family: var(--font-body);
+          font-size: 11px;
+          color: var(--color-text-lead);
+          font-weight: 600;
+          line-height: 1.3;
+        }
+        .showdown-bar-right {
+          flex-shrink: 0;
+        }
+        .showdown-advance-btn {
           display: flex;
           align-items: center;
           gap: 6px;
-        }
-        .showdown-modal-title {
-          font-size: 16px;
-          color: var(--color-text-main);
-        }
-        .showdown-modal-msg {
-          font-family: var(--font-body);
+          padding: 6px 14px;
           font-size: 12px;
-          color: var(--color-text-lead);
-          margin: 0;
+          white-space: nowrap;
         }
-        .showdown-violations-list {
-          background-color: var(--color-parchment-deep);
-          border: var(--border-ink-thin);
-          border-radius: 6px;
-          padding: 4px 8px;
-          width: 100%;
-          max-width: 480px;
-          font-family: var(--font-body);
-          font-size: 11px;
-          font-weight: bold;
-          color: var(--color-cuphead-red);
-          text-align: left;
-        }
-        .showdown-advance-btn {
-          margin-top: 4px;
+
+        .felt-center-banner {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-family: var(--font-mono);
+          font-size: 10px;
+          font-weight: 800;
+          color: rgba(255, 255, 255, 0.55);
+          letter-spacing: 0.07em;
+          text-transform: uppercase;
         }
 
         /* 3. PARALLEL SPLIT ARENA: 1/3 (TUS CARTAS) VS 2/3 (MINEROS) */
@@ -960,7 +1568,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: var(--color-text-main);
         }
 
-        /* LADO A: TUS CARTAS Y FICHAS */
+        /* SIDE A: YOUR CARDS & TOKENS */
         .my-hand-panel {
           min-width: 0;
         }
@@ -986,6 +1594,153 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: var(--color-text-muted);
         }
 
+        /* User Panel Showdown States */
+        .my-hand-panel.my-panel-showdown-success {
+          border-color: #10b981 !important;
+          background-color: #f7fee7 !important;
+          box-shadow: 3px 3px 0px #047857 !important;
+        }
+        .my-hand-panel.my-panel-showdown-failed {
+          border-color: var(--color-cuphead-red) !important;
+          background-color: #fff1f2 !important;
+          box-shadow: 3px 3px 0px #9f1239 !important;
+        }
+        .split-title-with-badge {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .my-token-badge-pill {
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          padding: 1px 6px;
+          background: var(--color-golden-buttercup);
+          color: #1c1511;
+          border: var(--border-ink-thin);
+          border-radius: 4px;
+        }
+        .my-showdown-status-tag {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: var(--border-ink-thin);
+        }
+        .my-showdown-status-tag.status-tag-success {
+          background: #d1fae5;
+          color: #047857;
+          border-color: #10b981;
+        }
+        .my-showdown-status-tag.status-tag-danger {
+          background: #ffe4e6;
+          color: #be123c;
+          border-color: var(--color-cuphead-red);
+        }
+        .my-eval-reveal-row {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          margin: 4px 0;
+        }
+        .my-eval-hand-name {
+          font-size: 13px;
+          color: var(--color-text-main);
+          text-align: center;
+          background: var(--color-parchment-deep);
+          padding: 2px 10px;
+          border-radius: 4px;
+          border: var(--border-ink-thin);
+        }
+        .my-break-reason-pill {
+          font-size: 9.5px;
+          font-weight: 700;
+          color: #9f1239;
+          background: #ffe4e6;
+          padding: 2px 6px;
+          border-radius: 4px;
+          border: 1px dashed var(--color-cuphead-red);
+        }
+        /* OUTCOME / INFLUENCE VERDICT CALLOUTS */
+        .my-outcome-pill {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 5px;
+          padding: 3px 8px;
+          border-radius: 4px;
+          font-family: var(--font-body);
+          font-size: 10px;
+          font-weight: 700;
+          line-height: 1.25;
+          text-align: center;
+          max-width: 100%;
+        }
+        .miner-outcome-callout {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 3px;
+          margin-top: 3px;
+          padding: 2px 5px;
+          border-radius: 4px;
+          font-family: var(--font-body);
+          font-size: 9px;
+          font-weight: 700;
+          line-height: 1.2;
+          text-align: center;
+        }
+        .outcome-success {
+          background-color: #dcfce7;
+          color: #166534;
+          border: 1px solid #16a34a;
+        }
+        .outcome-danger {
+          background-color: #ffe4e6;
+          color: #9f1239;
+          border: 1px solid var(--color-cuphead-red);
+        }
+        .outcome-danger.is-first-break {
+          background-color: #fecdd3;
+          border: 1.5px dashed var(--color-cuphead-red);
+          font-weight: 800;
+        }
+        .my-showdown-summary-dock {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+          padding: 6px 10px;
+          background: var(--color-parchment-deep);
+          border: var(--border-ink-thin);
+          border-radius: 6px;
+          margin-top: 6px;
+          text-align: center;
+        }
+        .my-dock-chip-line {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .my-dock-label {
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          color: var(--color-text-lead);
+        }
+        .my-dock-msg {
+          font-family: var(--font-body);
+          font-size: 10px;
+          font-weight: 600;
+          color: var(--color-text-main);
+          margin: 0;
+        }
+
         .my-tokens-claim-box {
           display: flex;
           flex-direction: column;
@@ -1006,7 +1761,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: var(--color-text-lead);
           letter-spacing: 0.04em;
         }
-        /* HISTORIAL DE FICHAS PROPIAS EN RONDAS PREVIAS */
+        /* PLAYER PREVIOUS ROUND TOKEN HISTORY */
         .my-history-strip {
           display: flex;
           align-items: center;
@@ -1022,6 +1777,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           font-size: 8.5px;
           color: var(--color-text-muted);
           letter-spacing: 0.04em;
+          font-weight: bold;
         }
         .history-empty-tag {
           font-family: var(--font-body);
@@ -1029,31 +1785,54 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: var(--color-text-muted);
           font-style: italic;
         }
-        .history-pills-row {
+        /* STACKED ROUND INDICATOR + CHAPA COIN (SHARED BY YOU & TEAMMATES) */
+        .prior-token-stack-row {
           display: flex;
-          gap: 5px;
           align-items: center;
+          gap: 5px;
           flex-wrap: wrap;
         }
-        .token-history-badge {
-          display: inline-flex;
+        .prior-chapa-slot {
+          display: flex;
+          flex-direction: column;
           align-items: center;
-          gap: 3px;
-          background-color: var(--color-canvas-parchment);
-          border: 1px solid var(--color-ink-stroke);
-          border-radius: 4px;
-          padding: 1px 6px;
+          gap: 2px;
+        }
+        .prior-round-num {
           font-family: var(--font-mono);
-          font-size: 10.5px;
-          font-weight: bold;
-        }
-        .badge-round {
+          font-size: 8px;
+          font-weight: 800;
           color: var(--color-text-muted);
-          font-size: 9px;
+          letter-spacing: 0.04em;
+          line-height: 1;
+          background: var(--color-canvas-parchment);
+          border: 1px solid rgba(28, 21, 17, 0.25);
+          border-radius: 3px;
+          padding: 1px 3px;
         }
-        .badge-token {
-          color: #854d0e;
+        .prior-chapa-coin {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: radial-gradient(circle at 35% 35%, #fff1b8 0%, #facc15 50%, #ca8a04 100%);
+          border: 1.5px solid #1c1511;
+          box-shadow: 1px 1px 0 #1c1511, inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: transform 0.12s ease;
+          user-select: none;
+        }
+        .prior-chapa-coin:hover {
+          transform: scale(1.15);
+        }
+        .prior-chapa-val {
+          font-family: var(--font-accent);
+          font-size: 10.5px;
           font-weight: 900;
+          color: #1c1511;
+          line-height: 1;
+          text-shadow: 0.5px 0.5px 0 rgba(255, 255, 255, 0.6);
         }
 
         .compact-tokens-strip {
@@ -1101,7 +1880,9 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
 
         /* LADO B: EL RESTO DE LOS MINEROS */
         .team-miners-panel {
+          position: relative;
           min-width: 0;
+          min-height: 220px;
         }
         .miners-count-pill {
           font-family: var(--font-accent);
@@ -1129,6 +1910,58 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
         .miner-roster-chip.miner-ready {
           border-color: #10b981;
           background-color: var(--color-status-success-bg);
+        }
+        .miner-roster-chip.miner-showdown-success {
+          border-color: #10b981 !important;
+          background-color: #ecfdf5 !important;
+          box-shadow: 2px 2px 0px #047857 !important;
+        }
+        .miner-roster-chip.miner-showdown-failed {
+          border-color: var(--color-cuphead-red) !important;
+          background-color: #fff1f2 !important;
+          box-shadow: 2px 2px 0px #9f1239 !important;
+        }
+        .miner-status-chip-success {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          color: #047857;
+          background: #d1fae5;
+          padding: 1px 5px;
+          border-radius: 4px;
+          border: 1px solid #10b981;
+        }
+        .miner-status-chip-danger {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          font-family: var(--font-mono);
+          font-size: 9.5px;
+          font-weight: 800;
+          color: #be123c;
+          background: #ffe4e6;
+          padding: 1px 5px;
+          border-radius: 4px;
+          border: 1px solid var(--color-cuphead-red);
+        }
+        .miner-status-chip-danger.is-first-break {
+          background: #fecdd3;
+          border: 1.5px solid var(--color-cuphead-red);
+        }
+        .miner-break-callout {
+          margin-top: 3px;
+          padding: 3px 5px;
+          background: rgba(225, 29, 72, 0.08);
+          border: 1px dashed var(--color-cuphead-red);
+          border-radius: 4px;
+          font-size: 9.5px;
+          font-weight: 700;
+          color: #9f1239;
+          text-align: center;
+          line-height: 1.25;
         }
         /* Clickable miner card for stealing tokens */
         .miner-clickable-steal {
@@ -1230,7 +2063,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: var(--color-text-muted);
         }
 
-        /* Historial de fichas de compañeros a simple vista */
+        /* Teammate token history in prior rounds */
         .miner-history-row {
           display: flex;
           align-items: center;
@@ -1257,26 +2090,6 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           gap: 3px;
           flex-wrap: wrap;
         }
-        .miner-past-badge {
-          display: inline-flex;
-          align-items: center;
-          gap: 2px;
-          background-color: var(--color-parchment-deep);
-          border: 1px solid var(--color-ink-stroke);
-          border-radius: 3px;
-          padding: 0 4px;
-          font-family: var(--font-mono);
-          font-size: 9px;
-          font-weight: bold;
-        }
-        .past-round {
-          color: var(--color-text-muted);
-          font-size: 8px;
-        }
-        .past-num {
-          color: #854d0e;
-          font-weight: 800;
-        }
 
         /* Showdown Reveal for Opponents */
         .miner-showdown-reveal {
@@ -1293,10 +2106,13 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
         }
         .miner-eval-text {
           font-family: var(--font-body);
-          font-size: 9px;
+          font-size: 9.5px;
           font-weight: 800;
-          color: var(--color-cuphead-red);
+          color: var(--color-text-main);
           text-align: center;
+          background: rgba(255, 255, 255, 0.6);
+          padding: 1px 4px;
+          border-radius: 3px;
         }
 
         /* 4. DISPUTE / ROTATION COMPACT FEED (SCROLLABLE DOWNWARD) */
@@ -1330,6 +2146,7 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
           color: var(--color-text-muted);
           font-weight: 700;
         }
+
         .feed-scroll-list {
           max-height: 72px;
           overflow-y: auto;
@@ -1582,29 +2399,6 @@ export const DoomedMineEngine: React.FC<BaseGameEngineProps> = ({
         .chip-confirmed {
           border-color: #10b981;
           box-shadow: 0 0 0 2.5px #10b981, 2px 2px 0px #1c1511;
-        }
-
-        /* MODAL */
-        .rules-modal-window {
-          max-width: 680px;
-          padding: 16px;
-        }
-        .rules-modal-header {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 2px solid var(--color-ink-stroke);
-          padding-bottom: 8px;
-          margin-bottom: 12px;
-        }
-        .header-title-row {
-          display: flex;
-          align-items: center;
-          gap: 8px;
-        }
-        .header-title-row h3 {
-          font-size: 16px;
-          color: var(--color-text-main);
         }
       `}</style>
     </div>

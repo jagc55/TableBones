@@ -240,7 +240,7 @@ export const PokerCardView: React.FC<PokerCardViewProps> = ({
         <SuitGraphic suit={card.suit} size={isSm ? 10 : isLg ? 14 : 12} />
       </div>
 
-      {highlighted && <div className="card-best-pill">MEJOR MANO</div>}
+      {highlighted && <div className="card-best-pill">BEST HAND</div>}
     </div>
   );
 };
@@ -285,8 +285,8 @@ export const PressureTokenChip: React.FC<PressureTokenChipProps> = ({
       } ${confirmed ? 'chip-confirmed' : ''} ${holderName ? 'chip-held' : ''}`}
       title={
         holderName
-          ? `Ficha ${token} en poder de ${holderName}`
-          : `Ficha de Presión ${token} (${stars})`
+          ? `Token ${token} held by ${holderName}`
+          : `Pressure Token ${token} (${stars})`
       }
     >
       <div className="chip-outer-rim">

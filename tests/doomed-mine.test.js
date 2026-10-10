@@ -181,7 +181,7 @@ test('Doomed Mine: Match state creation and registration in GAME_ENGINES', () =>
   assert.equal(state.availableTokens.length, 3);
 });
 
-test('Doomed Mine: Token selection, stealing and host-driven round advance', () => {
+test('Doomed Mine: Token selection, stealing and automatic round advance', () => {
   const room = mockRoom();
   const state = games.createMatchState(room, 'mine-match-2');
 
@@ -202,19 +202,14 @@ test('Doomed Mine: Token selection, stealing and host-driven round advance', () 
   assert.equal(state.tokens.player1, 1);
   assert.equal(state.ready.player1, true);
 
-  // Bot picks token 3
-  doomedMineEngine.applyAction(state, 'player3', { type: 'SELECT_TOKEN', token: 3 });
-  assert.equal(state.tokens.player3, 3);
-  assert.equal(state.ready.player3, true);
-
   // Non-host (player2) cannot advance phase
   assert.throws(
     () => doomedMineEngine.applyAction(state, 'player2', { type: 'ADVANCE_PHASE' }),
-    /Solo el Capataz/
+    /Only the Pit Boss/
   );
 
-  // Host (player1) advances to 'flop'!
-  const result = doomedMineEngine.applyAction(state, 'player1', { type: 'ADVANCE_PHASE' });
+  // Bot picks token 3 -> All miners have tokens, round automatically advances to 'flop'!
+  const result = doomedMineEngine.applyAction(state, 'player3', { type: 'SELECT_TOKEN', token: 3 });
   assert.equal(state.phase, 'flop');
   assert.equal(state.communityCards.length, 3);
 
@@ -234,12 +229,11 @@ test('Doomed Mine: Advances through all 4 rounds to showdown', () => {
   const room = mockRoom();
   const state = games.createMatchState(room, 'mine-match-3');
 
-  // Helper to complete phase (all pick tokens, host advances)
+  // Helper to complete phase (all pick tokens, auto-advances)
   const completePhase = () => {
     doomedMineEngine.applyAction(state, 'player1', { type: 'SELECT_TOKEN', token: 1 });
     doomedMineEngine.applyAction(state, 'player2', { type: 'SELECT_TOKEN', token: 2 });
-    doomedMineEngine.applyAction(state, 'player3', { type: 'SELECT_TOKEN', token: 3 });
-    return doomedMineEngine.applyAction(state, 'player1', { type: 'ADVANCE_PHASE' });
+    return doomedMineEngine.applyAction(state, 'player3', { type: 'SELECT_TOKEN', token: 3 });
   };
 
   // 1. Pre-flop -> Flop
@@ -308,8 +302,8 @@ test('Doomed Mine: Generates structured breakdowns for victory podium', () => {
 
   const breakdowns = doomedMineEngine.getPlayerBreakdowns(state);
   assert.ok(breakdowns.player1);
-  assert.equal(breakdowns.player1.sections[0].badge, 'RESCATADOS');
-  assert.equal(breakdowns.player1.sections[0].items[0].label, 'Galerías Aseguradas');
+  assert.equal(breakdowns.player1.sections[0].badge, 'RESCUED');
+  assert.equal(breakdowns.player1.sections[0].items[0].label, 'Shafts Secured');
   assert.equal(breakdowns.player1.sections[0].items[0].value, '3 / 3');
 });
 
@@ -416,7 +410,7 @@ test('Doomed Mine: Enforces no switching while holding token, only freed by stea
   // Player 1 cannot pick another token voluntarily
   assert.throws(
     () => doomedMineEngine.applyAction(state, 'player1', { type: 'SELECT_TOKEN', token: 2 }),
-    /Ya tienes una ficha asignada/
+    /You already have a token/
   );
 
   // Player 2 steals token 1 from Player 1

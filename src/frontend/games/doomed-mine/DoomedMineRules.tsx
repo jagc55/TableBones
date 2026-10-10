@@ -14,7 +14,7 @@ export const DoomedMineRules: React.FC = () => {
           className={`btn-cel btn-sm ${activeTab === 'mission' ? 'btn-brawl-primary' : 'btn-brawl-neutral'}`}
         >
           <Pickaxe size={14} />
-          <span>1. LA MISIÓN</span>
+          <span>1. THE MISSION</span>
         </button>
         <button
           type="button"
@@ -22,7 +22,7 @@ export const DoomedMineRules: React.FC = () => {
           className={`btn-cel btn-sm ${activeTab === 'phases' ? 'btn-brawl-primary' : 'btn-brawl-neutral'}`}
         >
           <Layers size={14} />
-          <span>2. FASES</span>
+          <span>2. PHASES</span>
         </button>
         <button
           type="button"
@@ -30,7 +30,7 @@ export const DoomedMineRules: React.FC = () => {
           className={`btn-cel btn-sm ${activeTab === 'tokens' ? 'btn-brawl-primary' : 'btn-brawl-neutral'}`}
         >
           <Shield size={14} />
-          <span>3. FICHAS</span>
+          <span>3. TOKENS</span>
         </button>
         <button
           type="button"
@@ -38,7 +38,7 @@ export const DoomedMineRules: React.FC = () => {
           className={`btn-cel btn-sm ${activeTab === 'poker' ? 'btn-brawl-primary' : 'btn-brawl-neutral'}`}
         >
           <Trophy size={14} />
-          <span>4. MANOS DE PÓQUER</span>
+          <span>4. POKER HANDS</span>
         </button>
       </div>
 
@@ -46,32 +46,32 @@ export const DoomedMineRules: React.FC = () => {
       <div className="rules-tab-panel">
         {activeTab === 'mission' && (
           <div className="rules-panel-content">
-            <div className="ribbon-banner">OBJETIVO DE LA CUADRILLA</div>
-            <h3 className="woodcut-title panel-heading">APUNTALAR 3 VIGAS ANTES DE 3 DERRUMBES</h3>
+            <div className="ribbon-banner">CREW OBJECTIVE</div>
+            <h3 className="woodcut-title panel-heading">SHORE UP 3 SHAFTS BEFORE 3 CAVE-INS</h3>
 
             <p className="panel-lead-text">
-              Sois una cuadrilla de <strong>esqueletos mineros</strong> atrapados en las profundidades de una vieja
-              mina de oro inestable. Para escapar a la superficie en la vagoneta, debéis cooperar para calibrar la tensión de la roca.
+              You are a crew of <strong>skeleton miners</strong> trapped in the depths of an unstable,
+              collapsing gold mine. To escape safely to the surface, you must cooperate to calibrate rock tension using poker cards.
             </p>
 
             <div className="panel-two-cards-grid">
               <div className="cel-card panel-callout-card victory-callout">
                 <div className="callout-title-row">
                   <Trophy size={18} className="gold-icon" />
-                  <span className="woodcut-title">3 VIGAS ASEGURADAS</span>
+                  <span className="woodcut-title">3 SHAFTS SECURED</span>
                 </div>
                 <p>
-                  Si la cuadrilla estima con total precisión el orden de fuerza en 3 expediciones, las vigas maestras soportan la presión y <strong>ganáis la partida</strong>.
+                  If the crew accurately estimates the relative strength hierarchy in 3 expeditions, the master timber beams hold and <strong>you win the game</strong>.
                 </p>
               </div>
 
               <div className="cel-card panel-callout-card defeat-callout">
                 <div className="callout-title-row">
                   <AlertTriangle size={18} className="crimson-icon" />
-                  <span className="woodcut-title">3 DERRUMBES</span>
+                  <span className="woodcut-title">3 CAVE-INS</span>
                 </div>
                 <p>
-                  Si alguien calcula mal la tensión y las fichas de presión contradicen la fuerza real de las manos, la galería cede. Con 3 derrumbes, <strong>la mina colapsa</strong>.
+                  If anyone misjudges the tension and pressure tokens contradict actual hand strength at showdown, the gallery collapses. 3 cave-ins and <strong>the mine caves in entirely</strong>.
                 </p>
               </div>
             </div>
@@ -79,10 +79,10 @@ export const DoomedMineRules: React.FC = () => {
             <div className="cel-card-deep panel-golden-rule">
               <div className="golden-rule-title">
                 <HelpCircle size={17} />
-                <span className="woodcut-title">LA REGLA DE ORO DEL SILENCIO</span>
+                <span className="woodcut-title">THE GOLDEN RULE OF SILENCE</span>
               </div>
               <p>
-                En el fondo del pozo no se habla ni se revelan las cartas. Tu <strong>única forma de comunicarte</strong> con los compañeros es la <strong>Ficha de Presión</strong> que tomas o intercambias en la mesa en cada fase.
+                Deep in the shaft, there is no speaking and cards are kept secret. Your <strong>only way to communicate</strong> with teammates is through the <strong>Pressure Token</strong> you claim or swap on the table each phase.
               </p>
             </div>
           </div>
@@ -90,47 +90,47 @@ export const DoomedMineRules: React.FC = () => {
 
         {activeTab === 'phases' && (
           <div className="rules-panel-content">
-            <div className="ribbon-banner">ESTRUCTURA DE CADA EXPEDICIÓN</div>
-            <h3 className="woodcut-title panel-heading">LAS 4 FASES DE PROSPECCIÓN (TEXAS HOLD'EM)</h3>
+            <div className="ribbon-banner">EXPEDITION STRUCTURE</div>
+            <h3 className="woodcut-title panel-heading">4 PROSPECTING PHASES (TEXAS HOLD'EM)</h3>
 
             <div className="phases-flow-stack">
               <div className="cel-card phase-flow-card">
                 <div className="phase-num-chip">1</div>
                 <div className="phase-flow-info">
-                  <strong className="phase-flow-title">PRE-FLOP (EL SONDEO INICIAL)</strong>
-                  <p>Cada minero recibe <strong>2 cartas secretas</strong> en su mano. Con esa información preliminar, cada uno elige una Ficha de Presión inicial (1 a N) y pulsa "Confirmar".</p>
+                  <strong className="phase-flow-title">PRE-FLOP (THE SOUNDING)</strong>
+                  <p>Each miner receives <strong>2 private pocket cards</strong>. With this preliminary info, every player claims an initial Pressure Token (1 to N).</p>
                 </div>
               </div>
 
               <div className="cel-card phase-flow-card">
                 <div className="phase-num-chip">2</div>
                 <div className="phase-flow-info">
-                  <strong className="phase-flow-title">EL FLOP (3 ROCAS REVELADAS)</strong>
-                  <p>Se descubren 3 cartas comunitarias en el centro. ¡Reevalúa tu jugada! Si tu mano mejoró o empeoró respecto a lo previsto, puedes <strong>cambiar de ficha</strong>.</p>
+                  <strong className="phase-flow-title">THE FLOP (3 COMMUNITY ROCKS)</strong>
+                  <p>3 community cards are revealed in the center. Re-evaluate your hand! Tokens reset so everyone can claim tokens matching their upgraded strength.</p>
                 </div>
               </div>
 
               <div className="cel-card phase-flow-card">
                 <div className="phase-num-chip">3</div>
                 <div className="phase-flow-info">
-                  <strong className="phase-flow-title">EL TURN (4ª ROCA COMUNITARIA)</strong>
-                  <p>Crujen los soportes con una cuarta carta visible. Se reabre la mesa para que cualquier minero pueda afinar su estimación de presión.</p>
+                  <strong className="phase-flow-title">THE TURN (4TH COMMUNITY ROCK)</strong>
+                  <p>Timbers groan as a 4th community card appears. Fresh token selection allows players to fine-tune the pressure hierarchy.</p>
                 </div>
               </div>
 
               <div className="cel-card phase-flow-card">
                 <div className="phase-num-chip">4</div>
                 <div className="phase-flow-info">
-                  <strong className="phase-flow-title">EL RIVER (5ª ROCA COMUNITARIA)</strong>
-                  <p>Última roca en la mesa. Todas las cartas comunitarias están a la vista. Es la <strong>decisión definitiva</strong> antes de comprobar el resultado.</p>
+                  <strong className="phase-flow-title">THE RIVER (5TH COMMUNITY ROCK)</strong>
+                  <p>Final rock on the table. All 5 community cards are now visible. This is your <strong>definitive estimate</strong> before the verdict.</p>
                 </div>
               </div>
 
               <div className="cel-card phase-flow-card showdown-phase-card">
                 <div className="phase-num-chip showdown-chip">★</div>
                 <div className="phase-flow-info">
-                  <strong className="phase-flow-title">EL SHOWDOWN (EL DESPEJE)</strong>
-                  <p>Se voltean todas las cartas secretas. El sistema evalúa las mejores 5 cartas de cada jugador. Si el orden de menor a mayor coincide con las fichas reclamadas, ¡la viga queda asegurada!</p>
+                  <strong className="phase-flow-title">THE SHOWDOWN (THE VERDICT)</strong>
+                  <p>All private cards flip over. The engine evaluates everyone's best 5-card poker hand. If the order from weakest to strongest matches the tokens, the shaft is secured!</p>
                 </div>
               </div>
             </div>
@@ -139,35 +139,35 @@ export const DoomedMineRules: React.FC = () => {
 
         {activeTab === 'tokens' && (
           <div className="rules-panel-content">
-            <div className="ribbon-banner">ESTRATEGIA COOPERATIVA</div>
-            <h3 className="woodcut-title panel-heading">FICHAS DE PRESIÓN Y CALIBRACIÓN</h3>
+            <div className="ribbon-banner">COOPERATIVE STRATEGY</div>
+            <h3 className="woodcut-title panel-heading">PRESSURE TOKENS & CALIBRATION</h3>
 
             <p className="panel-lead-text">
-              En una mesa de N jugadores, hay fichas numeradas del <strong>1 al N</strong>. Cada número representa la posición relativa de tu mano al final de la ronda:
+              On a table of N players, tokens are numbered <strong>1 to N</strong>. Each number represents your hand's relative ranking at the showdown:
             </p>
 
             <div className="tokens-guide-grid">
               <div className="cel-card token-guide-item">
                 <div className="token-guide-chip chip-low">1</div>
                 <div>
-                  <strong className="woodcut-title">FICHA 1 (MÍNIMA TENSIÓN)</strong>
-                  <p>Para la mano más débil de la cuadrilla (ej. carta alta o pareja baja descolgada).</p>
+                  <strong className="woodcut-title">TOKEN 1 (MINIMUM TENSION)</strong>
+                  <p>For the weakest hand in the crew (e.g. low high card or disconnected low pair).</p>
                 </div>
               </div>
 
               <div className="cel-card token-guide-item">
                 <div className="token-guide-chip chip-mid">2 ... N-1</div>
                 <div>
-                  <strong className="woodcut-title">FICHAS INTERMEDIAS</strong>
-                  <p>Para combinaciones moderadas (parejas altas, dobles parejas, proyectos fuertes).</p>
+                  <strong className="woodcut-title">INTERMEDIATE TOKENS</strong>
+                  <p>For moderate combinations (high pairs, two pair, strong draws).</p>
                 </div>
               </div>
 
               <div className="cel-card token-guide-item">
                 <div className="token-guide-chip chip-high">N</div>
                 <div>
-                  <strong className="woodcut-title">FICHA N (MÁXIMA TENSIÓN)</strong>
-                  <p>Reservada para la jugada más poderosa del equipo (tríos, colores, escaleras o full house).</p>
+                  <strong className="woodcut-title">TOKEN N (MAXIMUM TENSION)</strong>
+                  <p>Reserved for the crew's powerhouse hand (three of a kind, straight, flush, or full house).</p>
                 </div>
               </div>
             </div>
@@ -175,7 +175,7 @@ export const DoomedMineRules: React.FC = () => {
             <div className="cel-card-deep panel-hint-box">
               <Sparkles size={16} className="gold-icon" />
               <span>
-                <strong>Consejo de veterano:</strong> Si tienes una ficha y otro compañero la necesita porque su mano es más adecuada, puedes pulsar otra ficha disponible para liberar la tuya al instante.
+                <strong>Veteran Miner Tip:</strong> Once you claim a token, you cannot voluntarily release it. Another miner must steal it from you to free you up!
               </span>
             </div>
           </div>
@@ -183,21 +183,21 @@ export const DoomedMineRules: React.FC = () => {
 
         {activeTab === 'poker' && (
           <div className="rules-panel-content">
-            <div className="ribbon-banner">TABLA OFICIAL DE TEXAS HOLD'EM</div>
-            <h3 className="woodcut-title panel-heading">JERARQUÍA DE MANOS (DE MENOR A MAYOR)</h3>
+            <div className="ribbon-banner">OFFICIAL TEXAS HOLD'EM RANKINGS</div>
+            <h3 className="woodcut-title panel-heading">HAND HIERARCHY (WEAKEST TO STRONGEST)</h3>
 
             <div className="poker-hierarchy-table">
               {[
-                { rank: 1, name: '1. Carta Alta', example: 'A ♦ 10 ♠ 8 ♣ 6 ♥ 2 ♦', desc: 'Sin combinaciones; gana la carta individual de mayor valor.' },
-                { rank: 2, name: '2. Pareja', example: 'J ♠ J ♥ 9 ♣ 5 ♦ 2 ♠', desc: 'Dos cartas del mismo rango.' },
-                { rank: 3, name: '3. Doble Pareja', example: 'K ♠ K ♦ 7 ♣ 7 ♥ 4 ♠', desc: 'Dos parejas distintas.' },
-                { rank: 4, name: '4. Trío', example: '8 ♠ 8 ♥ 8 ♦ K ♣ 3 ♠', desc: 'Tres cartas del mismo rango.' },
-                { rank: 5, name: '5. Escalera', example: '5 ♠ 6 ♦ 7 ♣ 8 ♥ 9 ♠', desc: 'Cinco cartas correlativas de distinto palo.' },
-                { rank: 6, name: '6. Color (Flush)', example: 'K ♠ J ♠ 8 ♠ 6 ♠ 2 ♠', desc: 'Cinco cartas del mismo palo.' },
-                { rank: 7, name: '7. Full House', example: 'Q ♠ Q ♥ Q ♦ 10 ♣ 10 ♠', desc: 'Un trío junto a una pareja.' },
-                { rank: 8, name: '8. Póquer', example: '4 ♠ 4 ♥ 4 ♦ 4 ♣ A ♠', desc: 'Cuatro cartas del mismo rango.' },
-                { rank: 9, name: '9. Escalera de Color', example: '6 ♥ 7 ♥ 8 ♥ 9 ♥ 10 ♥', desc: 'Cinco cartas correlativas del mismo palo.' },
-                { rank: 10, name: '10. Escalera Real', example: '10 ♠ J ♠ Q ♠ K ♠ A ♠', desc: 'La mejor mano posible del póquer: 10 al As del mismo palo.' },
+                { rank: 1, name: '1. High Card', example: 'A ♦ 10 ♠ 8 ♣ 6 ♥ 2 ♦', desc: 'No combinations; highest card value determines strength.' },
+                { rank: 2, name: '2. One Pair', example: 'J ♠ J ♥ 9 ♣ 5 ♦ 2 ♠', desc: 'Two cards of the exact same rank.' },
+                { rank: 3, name: '3. Two Pair', example: 'K ♠ K ♦ 7 ♣ 7 ♥ 4 ♠', desc: 'Two different pairs.' },
+                { rank: 4, name: '4. Three of a Kind', example: '8 ♠ 8 ♥ 8 ♦ K ♣ 3 ♠', desc: 'Three cards of the exact same rank.' },
+                { rank: 5, name: '5. Straight', example: '5 ♠ 6 ♦ 7 ♣ 8 ♥ 9 ♠', desc: 'Five consecutive cards of mixed suits.' },
+                { rank: 6, name: '6. Flush', example: 'K ♠ J ♠ 8 ♠ 6 ♠ 2 ♠', desc: 'Five cards of the same suit.' },
+                { rank: 7, name: '7. Full House', example: 'Q ♠ Q ♥ Q ♦ 10 ♣ 10 ♠', desc: 'Three of a kind combined with a pair.' },
+                { rank: 8, name: '8. Four of a Kind', example: '4 ♠ 4 ♥ 4 ♦ 4 ♣ A ♠', desc: 'Four cards of the same rank.' },
+                { rank: 9, name: '9. Straight Flush', example: '6 ♥ 7 ♥ 8 ♥ 9 ♥ 10 ♥', desc: 'Five consecutive cards of the same suit.' },
+                { rank: 10, name: '10. Royal Flush', example: '10 ♠ J ♠ Q ♠ K ♠ A ♠', desc: 'The unbeatable poker hand: 10 to Ace of the same suit.' },
               ].map((item) => (
                 <div key={item.rank} className="poker-hand-row cel-card">
                   <div className="poker-rank-tag">{item.rank}</div>

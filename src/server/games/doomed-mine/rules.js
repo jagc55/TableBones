@@ -1,24 +1,24 @@
 import { createDeck, shuffleDeck, evaluateBestHand, compareHandScores } from './poker.js';
 import { setDeadline } from '../deadline.js';
 
-export const TARGET_SUCCESSES = 3; // 3 Cámaras Acorazadas / Bóvedas para ganar
-export const MAX_FAILURES = 3;      // 3 Alarmas / Derrumbes = derrota
-export const MAX_EXPEDITIONS = 5;   // De 3 a 5 golpes
+export const TARGET_SUCCESSES = 3; // 3 Shafts to win
+export const MAX_FAILURES = 3;      // 3 Cave-ins = defeat
+export const MAX_EXPEDITIONS = 5;   // 3 to 5 expeditions
 
 export function getPhaseLabel(phase) {
   switch (phase) {
-    case 'pre_flop': return 'El Sondeo (Pre-Flop)';
-    case 'flop': return 'El Flop (3 cartas)';
-    case 'turn': return 'El Turn (4ª carta)';
-    case 'river': return 'El River (5ª carta)';
-    case 'showdown': return 'El Veredicto (Showdown)';
-    case 'game_over': return 'Fin de la Partida';
+    case 'pre_flop': return 'The Sounding (Pre-Flop)';
+    case 'flop': return 'The Flop (3 cards)';
+    case 'turn': return 'The Turn (4th card)';
+    case 'river': return 'The River (5th card)';
+    case 'showdown': return 'The Verdict (Showdown)';
+    case 'game_over': return 'Game Over';
     default: return phase;
   }
 }
 
 /**
- * Initializes a new heist / expedition (Golpe).
+ * Initializes a new shaft expedition.
  */
 export function startExpedition(state, expeditionNumber = 1, seed = undefined) {
   state.expedition = expeditionNumber;
@@ -69,7 +69,7 @@ export function startExpedition(state, expeditionNumber = 1, seed = undefined) {
   state.actionLog.push({
     id: `${Date.now()}-start-${expeditionNumber}`,
     type: 'NEW_EXPEDITION',
-    text: `💣 Comienza la Expedición ${expeditionNumber} de ${state.maxExpeditions}. Cartas secretas repartidas.`,
+    text: `💣 Expedition ${expeditionNumber} of ${state.maxExpeditions} begins. Pocket cards dealt.`,
     timestamp: Date.now(),
   });
 }
@@ -101,7 +101,7 @@ export function releaseToken(state, userId) {
     return;
   }
   const player = state.players.find((p) => p.id === userId);
-  const playerName = player?.name || 'Un minero';
+  const playerName = player?.name || 'A miner';
 
   state.tokens[userId] = null;
   state.ready[userId] = false;
@@ -109,7 +109,7 @@ export function releaseToken(state, userId) {
   state.actionLog.push({
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
     type: 'TOKEN_RELEASE',
-    text: `↩ ${playerName} soltó la Ficha ${prevToken}`,
+    text: `↩ ${playerName} released Token ${prevToken}`,
     timestamp: Date.now(),
     senderId: userId,
     senderName: playerName,
@@ -125,12 +125,12 @@ export function releaseToken(state, userId) {
  */
 export function selectToken(state, userId, token) {
   if (state.phase === 'showdown' || state.phase === 'game_over') {
-    throw new Error('No se pueden seleccionar fichas durante el veredicto o fin de partida.');
+    throw new Error('Cannot select tokens during showdown or game over.');
   }
 
   const numPlayers = state.players.length;
   if (!Number.isInteger(token) || token < 1 || token > numPlayers) {
-    throw new Error(`La ficha debe ser un número entre 1 y ${numPlayers}.`);
+    throw new Error(`Token must be an integer between 1 and ${numPlayers}.`);
   }
 
   const prevToken = state.tokens[userId] || null;
@@ -142,11 +142,11 @@ export function selectToken(state, userId, token) {
 
   // Cannot voluntarily switch or drop your token; only if someone steals it!
   if (prevToken !== null) {
-    throw new Error('Ya tienes una ficha asignada. Solo te puedes librar de ella si otro minero te la quita.');
+    throw new Error('You already have a token assigned. You can only lose it if another miner steals it from you.');
   }
 
   const player = state.players.find((p) => p.id === userId);
-  const playerName = player?.name || 'Un minero';
+  const playerName = player?.name || 'A miner';
   const currentHolderId = Object.keys(state.tokens).find((id) => state.tokens[id] === token);
   const currentHolder = state.players.find((p) => p.id === currentHolderId);
 
@@ -161,7 +161,7 @@ export function selectToken(state, userId, token) {
     state.actionLog.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       type: 'TOKEN_DISPLACE',
-      text: `⚡ ${playerName} le quitó la Ficha ${token} a ${currentHolder?.name || 'otro minero'}`,
+      text: `⚡ ${playerName} stole Token ${token} from ${currentHolder?.name || 'another miner'}`,
       timestamp: Date.now(),
       senderId: userId,
       senderName: playerName,
@@ -173,7 +173,7 @@ export function selectToken(state, userId, token) {
     state.actionLog.push({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       type: 'TOKEN_CLAIM',
-      text: `⛏ ${playerName} eligió la Ficha ${token}`,
+      text: `⛏ ${playerName} claimed Token ${token}`,
       timestamp: Date.now(),
       senderId: userId,
       senderName: playerName,
@@ -196,11 +196,11 @@ export function canAdvancePhase(state) {
  */
 export function confirmToken(state, userId) {
   if (state.phase === 'showdown' || state.phase === 'game_over') {
-    throw new Error('No se pueden confirmar fichas en esta fase.');
+    throw new Error('Cannot confirm tokens in this phase.');
   }
 
   if (state.tokens[userId] === null || state.tokens[userId] === undefined) {
-    throw new Error('Debes seleccionar una ficha antes de apuntalar.');
+    throw new Error('You must select a token before shoring up.');
   }
 
   state.ready[userId] = true;
@@ -230,12 +230,12 @@ export function advancePhase(state, userId = null) {
   if (userId) {
     const hostId = state.hostId || state.players[0]?.id;
     if (userId !== hostId) {
-      throw new Error('Solo el Capataz (anfitrión) puede avanzar a la siguiente ronda.');
+      throw new Error('Only the Pit Boss (host) can advance to the next round.');
     }
   }
 
   if (!canAdvancePhase(state)) {
-    throw new Error('Todos los mineros deben tener una ficha asignada antes de avanzar de ronda.');
+    throw new Error('All miners must have an assigned token before advancing the round.');
   }
 
   const currentTokens = { ...state.tokens };
@@ -299,7 +299,7 @@ function logPhaseChange(state) {
   state.actionLog.push({
     id: `${Date.now()}-phase-${state.phase}`,
     type: 'PHASE_CHANGE',
-    text: `🔄 La cuadrilla avanzó a ${getPhaseLabel(state.phase)}`,
+    text: `🔄 The crew advanced to ${getPhaseLabel(state.phase)}`,
     timestamp: Date.now(),
   });
 }
@@ -380,7 +380,7 @@ export function evaluateShowdown(state) {
             playerBName: pB.name,
             tokenB,
             handBName: evalB.handName,
-            message: `${pA.name} (Ficha ${tokenA}, ${evalA.handName}) superó a ${pB.name} (Ficha ${tokenB}, ${evalB.handName}).`,
+            message: `${pA.name} (Token ${tokenA}, ${evalA.handName}) beat ${pB.name} (Token ${tokenB}, ${evalB.handName}).`,
           });
         }
       }
@@ -389,48 +389,70 @@ export function evaluateShowdown(state) {
 
   const success = violations.length === 0;
 
+  state.actionLog = state.actionLog || [];
+
   if (success) {
     state.successes += 1;
     state.showdownResult = {
       success: true,
-      message: '¡Cámara acorazada abierta! La cuadrilla estimó el orden de presión a la perfección.',
+      message: 'Shaft secured! The crew estimated the pressure hierarchy flawlessly.',
       evaluations,
       violations: [],
     };
+    state.actionLog.push({
+      id: `${Date.now()}-showdown-success-${state.expedition}`,
+      type: 'PHASE_CHANGE',
+      text: `🏆 Expedition ${state.expedition} cleared! Tokens maintained ascending hand order flawlessly.`,
+      timestamp: Date.now(),
+    });
   } else {
     state.failures += 1;
     state.showdownResult = {
       success: false,
-      message: '¡Derrumbe en el pozo! La alarma sonó por estimaciones invertidas entre los mineros.',
+      message: 'Cave-in occurred! The alarm sounded due to inverted hand estimates between miners.',
       evaluations,
       violations,
     };
+    state.actionLog.push({
+      id: `${Date.now()}-showdown-fail-${state.expedition}`,
+      type: 'PHASE_CHANGE',
+      text: `💥 Cave-in in Expedition ${state.expedition}! Inverted token estimates among the crew:`,
+      timestamp: Date.now(),
+    });
+    for (const v of violations) {
+      state.actionLog.push({
+        id: `${Date.now()}-v-${Math.random().toString(36).slice(2, 6)}`,
+        type: 'TOKEN_SWAP',
+        text: `⚡ ${v.message}`,
+        timestamp: Date.now(),
+      });
+    }
   }
 
   // Update scores
   updateScores(state);
 
-  // Give generous 30s deadline for reviewing showdown results
-  setDeadline(state, 30);
+  // Showdown has no auto-expiring timer: crew waits for host to review and start next expedition
+  state.deadline = null;
 
   // Check game over conditions
   if (state.successes >= TARGET_SUCCESSES) {
     state.pendingGameOver = 'victory';
-    state.winReason = `¡Golpe maestro conseguido! La banda abrió ${state.successes} cámaras acorazadas sin ser descubierta.`;
+    state.winReason = `Deep mine conquered! The crew secured ${state.successes} shafts without collapsing.`;
     return { finished: false };
   }
 
   if (state.failures >= MAX_FAILURES) {
     state.pendingGameOver = 'defeat';
-    state.winReason = `¡La alarma sonó 3 veces! La banda fue sorprendida por la policía.`;
+    state.winReason = `3 cave-ins occurred! The mine completely collapsed.`;
     return { finished: false };
   }
 
   if (state.expedition >= state.maxExpeditions) {
     state.pendingGameOver = state.successes >= TARGET_SUCCESSES ? 'victory' : 'defeat';
     state.winReason = state.successes >= TARGET_SUCCESSES
-      ? `¡Victoria! La banda consiguió ${state.successes} cámaras acorazadas en ${state.expedition} golpes.`
-      : `¡Derrota! Se agotaron los ${state.maxExpeditions} golpes sin alcanzar las 3 cámaras acorazadas.`;
+      ? `Victory! The crew secured ${state.successes} shafts in ${state.expedition} expeditions.`
+      : `Defeat! Exhausted all ${state.maxExpeditions} expeditions without reaching 3 secured shafts.`;
     return { finished: false };
   }
 
@@ -458,21 +480,23 @@ export function updateScores(state) {
  */
 export function nextExpedition(state) {
   if (state.phase !== 'showdown') {
-    throw new Error('Solo se puede avanzar de expedición tras completar el veredicto.');
+    throw new Error('Can only advance expedition after completing the showdown.');
   }
 
   if (state.pendingGameOver) {
     state.phase = 'game_over';
     state.winnerId = null;
+    state.teamOutcome = state.pendingGameOver;
     return { finished: true };
   }
 
   if (state.expedition >= state.maxExpeditions || state.successes >= TARGET_SUCCESSES || state.failures >= MAX_FAILURES) {
     state.phase = 'game_over';
     state.winnerId = null;
+    state.teamOutcome = state.successes >= TARGET_SUCCESSES ? 'victory' : 'defeat';
     state.winReason = state.successes >= TARGET_SUCCESSES
-      ? `¡Golpe maestro conseguido! La banda abrió 3 cámaras acorazadas con éxito.`
-      : `¡La alarma sonó 3 veces! La banda fue descubierta por la policía.`;
+      ? 'Deep mine conquered! The crew secured 3 shafts successfully.'
+      : '3 cave-ins occurred! The mine collapsed.';
     return { finished: true };
   }
 
