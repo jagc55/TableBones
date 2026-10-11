@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Lock, Globe, Plus, Check, Clock } from 'lucide-react';
 import { GameId, Room, UserProfile, RoomSettings } from '../types';
 import { soundstage } from '../utils/audio';
@@ -19,13 +19,19 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 }) => {
   const catalog = getAllGameDefinitions();
   const [selectedGameId, setSelectedGameId] = useState<GameId>(catalog[0]?.id || 'bonegle');
-  const [roomTitle, setRoomTitle] = useState(`${currentUser.name}’s Room`);
+  const [roomTitle, setRoomTitle] = useState(`${currentUser.name}'s Room`);
   const [isPrivate, setIsPrivate] = useState(false);
   const [roomSettings, setRoomSettings] = useState<RoomSettings>({
     roundDurationSec: 120,
     turnTimeLimitSec: 30,
     dictionaryLang: 'es',
   });
+
+  useEffect(() => {
+    if (isOpen) {
+      setRoomTitle(`${currentUser.name}'s Room`);
+    }
+  }, [isOpen, currentUser.name]);
 
   const handleUpdateSetting = (key: string, value: any) => {
     setRoomSettings((prev) => ({ ...prev, [key]: value }));
@@ -51,7 +57,7 @@ export const CreateRoomModal: React.FC<CreateRoomModalProps> = ({
 
     const newRoom: Omit<Room, 'id' | 'createdAt'> = {
       code: generateRoomCode(),
-      title: roomTitle.trim() || `${currentUser.name}’s Room`,
+      title: roomTitle.trim() || `${currentUser.name}'s Room`,
       gameId: selectedGameId,
       isPrivate,
       minPlayers: selectedGame.minPlayers,

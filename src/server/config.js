@@ -6,8 +6,6 @@ export const PORT = parseInt(process.env.PORT || '3000', 10);
 
 export const DATABASE_URL = process.env.DATABASE_URL || 'postgresql://tableskull:tableskull@127.0.0.1:5432/tableskull';
 
-export const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
-
 export const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 30;
 
 export const DISCONNECT_GRACE_MS = 4000;

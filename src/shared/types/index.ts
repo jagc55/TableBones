@@ -108,8 +108,8 @@ export interface UserProfile {
   id: string;
   name: string;
   avatarId: string;
-  isGoogleAuth: boolean;
-  googleEmail?: string;
+  isRegistered: boolean;
+  isProtected?: boolean;
   stats: {
     matchesPlayed: number;
     matchesWon: number;

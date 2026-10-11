@@ -9,6 +9,9 @@ import {
 } from './types';
 import {
   loadTheme,
+  loadGuestProfile,
+  saveGuestProfile,
+  clearGuestProfile,
 } from './utils/storage';
 import { soundstage } from './utils/audio';
 import { GameAction, MatchState, networkManager } from './websocket/client';
@@ -99,10 +102,16 @@ export const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<'browser' | 'lobby' | 'arena'>('browser');
 
   // User Profile & Achievements
-  const [userProfile, setUserProfile] = useState<UserProfile>({
-    id: '', name: 'Guest', avatarId: 'boxer', isGoogleAuth: false,
-    stats: { matchesPlayed: 0, matchesWon: 0, wordsFound: 0, walkoverWins: 0 },
-    mutedPlayerIds: [],
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    const saved = loadGuestProfile();
+    return {
+      id: '',
+      name: saved?.name || 'Guest',
+      avatarId: saved?.avatarId || 'boxer',
+      isRegistered: false,
+      stats: saved?.stats || { matchesPlayed: 0, matchesWon: 0, wordsFound: 0, walkoverWins: 0 },
+      mutedPlayerIds: [],
+    };
   });
   const [achievements, setAchievements] = useState<Achievement[]>(INITIAL_ACHIEVEMENTS);
 
@@ -135,7 +144,15 @@ export const App: React.FC = () => {
 
   const refreshAchievements = useCallback(async () => {
     try {
-      setAchievements(mergeAchievementStatus(await api.getAchievements()));
+      const unlocked = await api.getAchievements();
+      setAchievements(mergeAchievementStatus(unlocked));
+      const currentGuest = loadGuestProfile();
+      if (currentGuest) {
+        saveGuestProfile({
+          ...currentGuest,
+          achievements: unlocked,
+        });
+      }
     } catch {
       // Achievement status is refreshed again after the next server-backed event.
     }
@@ -168,6 +185,14 @@ export const App: React.FC = () => {
         if (!active) return;
         setUserProfile(profile);
         setAchievements(mergeAchievementStatus(unlockedAchievements));
+        if (!profile.isRegistered) {
+          saveGuestProfile({
+            name: profile.name,
+            avatarId: profile.avatarId,
+            stats: profile.stats,
+            achievements: unlockedAchievements,
+          });
+        }
         setRooms(availableRooms);
         if (activeRoom) {
           setCurrentRoom(activeRoom);
@@ -711,17 +736,57 @@ export const App: React.FC = () => {
           void api.updateProfile({
             name: updated.name || userProfile.name,
             avatarId: updated.avatarId || userProfile.avatarId,
-          }).then(setUserProfile).catch((error) => {
+          }).then((newProfile) => {
+            setUserProfile(newProfile);
+            if (!newProfile.isRegistered) {
+              const currentGuest = loadGuestProfile();
+              saveGuestProfile({
+                name: newProfile.name,
+                avatarId: newProfile.avatarId,
+                stats: newProfile.stats,
+                achievements: currentGuest?.achievements,
+              });
+            }
+          }).catch((error) => {
             addToast('alert', 'PROFILE FAILED', error instanceof Error ? error.message : 'Unable to update profile.');
           });
         }}
-        onGoogleCredential={async (credential) => {
+        onLogin={async (username, password) => {
           try {
-            setUserProfile(await api.linkGoogle(credential));
-            addToast('info', 'GOOGLE LINKED', 'Your Google account is linked to this profile.');
+            const updatedUser = await api.login(username, password);
+            setUserProfile(updatedUser);
+            const unlockedAchievements = await api.getAchievements();
+            setAchievements(mergeAchievementStatus(unlockedAchievements));
+            networkManager.connect();
+            addToast('info', 'LOGGED IN', `Welcome back, ${updatedUser.name}!`);
           } catch (error) {
-            addToast('alert', 'GOOGLE LINK FAILED', error instanceof Error ? error.message : 'Unable to link Google account.');
+            addToast('alert', 'LOGIN FAILED', error instanceof Error ? error.message : 'Invalid credentials.');
             throw error;
+          }
+        }}
+        onSetPassword={async (password) => {
+          try {
+            const updatedUser = await api.setPassword(password);
+            setUserProfile(updatedUser);
+            addToast('info', 'ALIAS PROTECTED', `"${updatedUser.name}" is now secured with your password.`);
+          } catch (error) {
+            addToast('alert', 'PROTECTION FAILED', error instanceof Error ? error.message : 'Unable to set password.');
+            throw error;
+          }
+        }}
+        onSwitchToGuest={async () => {
+          try {
+            clearGuestProfile();
+            localStorage.removeItem('tableskull_auth_token');
+            document.cookie = 'tableskull_auth_token=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/; SameSite=Lax';
+            const guest = await api.ensureGuestSession();
+            setUserProfile(guest);
+            const unlockedAchievements = await api.getAchievements();
+            setAchievements(mergeAchievementStatus(unlockedAchievements));
+            networkManager.connect();
+            addToast('info', 'GUEST MODE', 'Switched to guest session.');
+          } catch (error) {
+            addToast('alert', 'ERROR', error instanceof Error ? error.message : 'Failed to switch to guest session.');
           }
         }}
       />

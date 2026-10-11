@@ -199,7 +199,7 @@ test('HTTP and WebSocket preserve the room and match lifecycle', {
     const port = await unusedPort();
     child = spawn(process.execPath, ['src/server/index.js'], {
       cwd: ROOT_DIR,
-      env: { ...process.env, PORT: String(port), DATABASE_URL: connectionUrl.href, GOOGLE_CLIENT_ID: '' },
+      env: { ...process.env, PORT: String(port), DATABASE_URL: connectionUrl.href },
       stdio: ['ignore', 'pipe', 'pipe'],
     });
     await waitForStartup(child);

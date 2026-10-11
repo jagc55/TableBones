@@ -5,8 +5,7 @@ export const initializeDatabase = async () => {
       id UUID PRIMARY KEY,
       alias VARCHAR(24) NOT NULL,
       avatar_id VARCHAR(64) NOT NULL DEFAULT 'boxer',
-      google_sub TEXT UNIQUE,
-      google_email TEXT UNIQUE,
+      password_hash TEXT,
       stats JSONB NOT NULL DEFAULT '{}'::jsonb,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -75,6 +74,10 @@ export const initializeDatabase = async () => {
     );
     ALTER TABLE rooms DROP CONSTRAINT IF EXISTS rooms_game_id_check;
     ALTER TABLE matches DROP CONSTRAINT IF EXISTS matches_game_id_check;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS password_hash TEXT;
+    ALTER TABLE users DROP COLUMN IF EXISTS google_sub;
+    ALTER TABLE users DROP COLUMN IF EXISTS google_email;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_registered_alias_idx ON users (LOWER(alias)) WHERE password_hash IS NOT NULL;
   `);
   await pool.query(`
     UPDATE rooms SET status = 'closed', closed_at = NOW()
