@@ -2,6 +2,7 @@ import http from 'node:http';
 import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { PORT } from './config.js';
+import { pool } from './db/pool.js';
 import { initializeDatabase } from './db/schema.js';
 import { createBroadcaster } from './websocket/broadcast.js';
 import { attachWebSocketServer } from './websocket/server.js';
@@ -50,6 +51,13 @@ attachWebSocketServer(server, connections, broadcast, matches, lifecycle);
 
 ensureDatabaseBridge()
   .then(() => initializeDatabase())
+  .then(async () => {
+    try {
+      await pool.query("UPDATE rooms SET status = 'closed', closed_at = NOW() WHERE status IN ('waiting', 'in_progress')");
+    } catch {
+      // Ignore if table not yet populated
+    }
+  })
   .then(() => {
     server.listen(PORT, '0.0.0.0', () => {
       console.log(`TableSkull server running on port ${PORT}`);

@@ -1,7 +1,15 @@
 import { ChatMessage, Room, RoomSettings, UserProfile } from '../types';
 import type { MatchState } from '../websocket/client';
+import {
+  AUTH_TOKEN_KEY,
+  getCookie,
+  setCookie,
+  deleteCookie,
+  loadGuestProfile,
+  saveGuestProfile,
+  clearGuestProfile,
+} from './storage';
 
-const AUTH_TOKEN_KEY = 'tableskull_auth_token';
 const API_BASE = window.location.pathname.startsWith('/tablebones') ? '/tablebones/api' : '/api';
 
 interface ApiErrorBody {
@@ -21,7 +29,7 @@ export class ApiError extends Error {
 
 const getToken = (): string | null => {
   try {
-    return localStorage.getItem(AUTH_TOKEN_KEY);
+    return getCookie(AUTH_TOKEN_KEY) || localStorage.getItem(AUTH_TOKEN_KEY);
   } catch {
     return null;
   }
@@ -29,6 +37,7 @@ const getToken = (): string | null => {
 
 const setToken = (token: string): void => {
   try {
+    setCookie(AUTH_TOKEN_KEY, token, 365);
     localStorage.setItem(AUTH_TOKEN_KEY, token);
   } catch {
     // The session remains usable for this page even when storage is unavailable.
@@ -37,6 +46,7 @@ const setToken = (token: string): void => {
 
 const clearToken = (): void => {
   try {
+    deleteCookie(AUTH_TOKEN_KEY);
     localStorage.removeItem(AUTH_TOKEN_KEY);
   } catch {
     // Ignore inaccessible browser storage.
@@ -55,10 +65,21 @@ const request = async <T>(path: string, options: RequestInit = {}): Promise<T> =
   return body;
 };
 
-const guestIdentity = () => ({
-  alias: `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
-  avatarId: 'boxer',
-});
+const guestIdentity = () => {
+  const saved = loadGuestProfile();
+  if (saved?.name) {
+    return {
+      alias: saved.name,
+      avatarId: saved.avatarId || 'boxer',
+      stats: saved.stats,
+      achievements: saved.achievements,
+    };
+  }
+  return {
+    alias: `Guest ${Math.floor(1000 + Math.random() * 9000)}`,
+    avatarId: 'boxer',
+  };
+};
 
 export const api = {
   getAuthToken: getToken,
@@ -67,7 +88,17 @@ export const api = {
     const token = getToken();
     if (token) {
       try {
-        return (await request<{ user: UserProfile }>('/me')).user;
+        const user = (await request<{ user: UserProfile }>('/me')).user;
+        if (!user.isRegistered) {
+          const currentCookie = loadGuestProfile();
+          saveGuestProfile({
+            name: user.name,
+            avatarId: user.avatarId,
+            stats: user.stats,
+            achievements: currentCookie?.achievements,
+          });
+        }
+        return user;
       } catch (error) {
         if (!(error instanceof ApiError) || error.status !== 401) throw error;
         clearToken();
@@ -79,6 +110,15 @@ export const api = {
       body: JSON.stringify(guestIdentity()),
     });
     setToken(session.token);
+    if (!session.user.isRegistered) {
+      const currentCookie = loadGuestProfile();
+      saveGuestProfile({
+        name: session.user.name,
+        avatarId: session.user.avatarId,
+        stats: session.user.stats,
+        achievements: currentCookie?.achievements,
+      });
+    }
     return session.user;
   },
 
@@ -91,10 +131,20 @@ export const api = {
   },
 
   async updateProfile(profile: Pick<UserProfile, 'name' | 'avatarId'>): Promise<UserProfile> {
-    return (await request<{ user: UserProfile }>('/me', {
+    const user = (await request<{ user: UserProfile }>('/me', {
       method: 'PATCH',
       body: JSON.stringify(profile),
     })).user;
+    if (!user.isRegistered) {
+      const currentCookie = loadGuestProfile();
+      saveGuestProfile({
+        name: user.name,
+        avatarId: user.avatarId,
+        stats: user.stats,
+        achievements: currentCookie?.achievements,
+      });
+    }
+    return user;
   },
 
   async listRooms(): Promise<Room[]> {
@@ -182,11 +232,25 @@ export const api = {
     });
   },
 
-  async linkGoogle(credential: string): Promise<UserProfile> {
-    return (await request<{ user: UserProfile }>('/auth/google', {
+  async login(username: string, password: string): Promise<UserProfile> {
+    const res = await request<{ token: string; user: UserProfile }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ credential }),
-    })).user;
+      body: JSON.stringify({ username, password }),
+    });
+    if (res.token) {
+      setToken(res.token);
+    }
+    clearGuestProfile();
+    return res.user;
+  },
+
+  async setPassword(password: string): Promise<UserProfile> {
+    const res = await request<{ user: UserProfile }>('/me/password', {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
+    clearGuestProfile();
+    return res.user;
   },
 };
 

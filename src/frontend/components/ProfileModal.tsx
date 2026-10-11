@@ -1,58 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { X, Check, Trophy, ShieldCheck, UserCheck, Sparkles, VolumeX, MessageSquare, Key, Swords, Award, Crown } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+  X,
+  Check,
+  Trophy,
+  ShieldCheck,
+  UserCheck,
+  Sparkles,
+  VolumeX,
+  MessageSquare,
+  Key,
+  Swords,
+  Award,
+  Crown,
+  Lock,
+  LogIn,
+  LogOut,
+} from 'lucide-react';
 import { UserProfile, Achievement } from '../types';
 import { AVATAR_LIST, AvatarIcon } from '../utils/avatars';
 import { soundstage } from '../utils/audio';
-
-interface GoogleCredentialResponse {
-  credential?: string;
-}
-
-interface GoogleIdentityServices {
-  initialize: (configuration: {
-    client_id: string;
-    callback: (response: GoogleCredentialResponse) => void;
-  }) => void;
-  renderButton: (parent: HTMLElement, options: Record<string, unknown>) => void;
-}
-
-declare global {
-  interface Window {
-    google?: {
-      accounts?: {
-        id?: GoogleIdentityServices;
-      };
-    };
-  }
-}
-
-const googleClientId = String(import.meta.env.VITE_GOOGLE_CLIENT_ID || '').trim();
-let googleScriptPromise: Promise<void> | null = null;
-
-const loadGoogleIdentityServices = (): Promise<void> => {
-  if (window.google?.accounts?.id) return Promise.resolve();
-  if (googleScriptPromise) return googleScriptPromise;
-
-  googleScriptPromise = new Promise((resolve, reject) => {
-    const existingScript = document.querySelector<HTMLScriptElement>('script[data-google-identity-services]');
-    const script = existingScript || document.createElement('script');
-    const finishLoading = () => window.google?.accounts?.id
-      ? resolve()
-      : reject(new Error('Google Identity Services did not load.'));
-
-    script.addEventListener('load', finishLoading, { once: true });
-    script.addEventListener('error', () => reject(new Error('Google Identity Services could not load.')), { once: true });
-    if (!existingScript) {
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.async = true;
-      script.defer = true;
-      script.dataset.googleIdentityServices = 'true';
-      document.head.appendChild(script);
-    }
-  });
-
-  return googleScriptPromise;
-};
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -60,7 +26,9 @@ interface ProfileModalProps {
   userProfile: UserProfile;
   achievements: Achievement[];
   onUpdateProfile: (updated: Partial<UserProfile>) => void;
-  onGoogleCredential: (credential: string) => Promise<void>;
+  onLogin: (username: string, password: string) => Promise<void>;
+  onSetPassword: (password: string) => Promise<void>;
+  onSwitchToGuest?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -69,57 +37,30 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   userProfile,
   achievements,
   onUpdateProfile,
-  onGoogleCredential,
+  onLogin,
+  onSetPassword,
+  onSwitchToGuest,
 }) => {
   const [alias, setAlias] = useState(userProfile.name);
-  const [isGoogleReady, setIsGoogleReady] = useState(false);
-  const [googleError, setGoogleError] = useState('');
-  const googleButtonRef = useRef<HTMLDivElement>(null);
-  const googleCredentialHandlerRef = useRef(onGoogleCredential);
-  googleCredentialHandlerRef.current = onGoogleCredential;
+  const [authMode, setAuthMode] = useState<'none' | 'register' | 'login'>('none');
+  const [passwordInput, setPasswordInput] = useState('');
+  const [confirmPasswordInput, setConfirmPasswordInput] = useState('');
+  const [loginUsernameInput, setLoginUsernameInput] = useState('');
+  const [loginPasswordInput, setLoginPasswordInput] = useState('');
+  const [authError, setAuthError] = useState('');
+  const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   useEffect(() => {
-    if (!isOpen || userProfile.isGoogleAuth || !googleClientId) return;
-
-    let cancelled = false;
-    setIsGoogleReady(false);
-    setGoogleError('');
-    void loadGoogleIdentityServices()
-      .then(() => {
-        if (cancelled) return;
-        const google = window.google?.accounts?.id;
-        if (!google || !googleButtonRef.current) throw new Error('Google sign-in is unavailable.');
-
-        google.initialize({
-          client_id: googleClientId,
-          callback: ({ credential }) => {
-            if (!credential) {
-              setGoogleError('Google did not provide a credential.');
-              return;
-            }
-            void googleCredentialHandlerRef.current(credential).catch((error: unknown) => {
-              setGoogleError(error instanceof Error ? error.message : 'Unable to link Google account.');
-            });
-          },
-        });
-        googleButtonRef.current.replaceChildren();
-        google.renderButton(googleButtonRef.current, {
-          theme: 'outline',
-          size: 'large',
-          text: 'continue_with',
-          shape: 'rectangular',
-          width: 220,
-        });
-        setIsGoogleReady(true);
-      })
-      .catch((error: unknown) => {
-        if (!cancelled) setGoogleError(error instanceof Error ? error.message : 'Google sign-in is unavailable.');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen, userProfile.isGoogleAuth]);
+    if (isOpen) {
+      setAlias(userProfile.name);
+      setAuthMode('none');
+      setAuthError('');
+      setPasswordInput('');
+      setConfirmPasswordInput('');
+      setLoginUsernameInput('');
+      setLoginPasswordInput('');
+    }
+  }, [isOpen, userProfile.name]);
 
   if (!isOpen) return null;
 
@@ -131,6 +72,48 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   const handleSelectAvatar = (avatarId: string) => {
     soundstage.playTap();
     onUpdateProfile({ avatarId });
+  };
+
+  const handleRegisterPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordInput) return;
+    if (passwordInput.length < 6) {
+      setAuthError('Password must be at least 6 characters.');
+      return;
+    }
+    if (passwordInput !== confirmPasswordInput) {
+      setAuthError('Passwords do not match.');
+      return;
+    }
+    setIsSubmittingAuth(true);
+    setAuthError('');
+    try {
+      await onSetPassword(passwordInput);
+      setAuthMode('none');
+      setPasswordInput('');
+      setConfirmPasswordInput('');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Failed to protect nickname.');
+    } finally {
+      setIsSubmittingAuth(false);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginUsernameInput.trim() || !loginPasswordInput) return;
+    setIsSubmittingAuth(true);
+    setAuthError('');
+    try {
+      await onLogin(loginUsernameInput.trim(), loginPasswordInput);
+      setAuthMode('none');
+      setLoginUsernameInput('');
+      setLoginPasswordInput('');
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : 'Invalid username or password.');
+    } finally {
+      setIsSubmittingAuth(false);
+    }
   };
 
   const unlockedPoints = achievements
@@ -193,35 +176,183 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
 
                 <div className="auth-status-bar">
-                  {userProfile.isGoogleAuth ? (
-                    <div className="google-status-pill">
-                      <ShieldCheck size={16} strokeWidth={2.8} className="verified-shield-icon" />
-                      <div className="google-email-text">
-                        <span>Google Account Linked</span>
-                        <strong>{userProfile.googleEmail}</strong>
+                  {userProfile.isRegistered ? (
+                    <div className="account-status-pill registered">
+                      <div className="status-pill-info">
+                        <ShieldCheck size={18} strokeWidth={2.8} className="shield-icon-active" />
+                        <div className="status-pill-text">
+                          <span className="status-title">PROTECTED IDENTITY</span>
+                          <small className="status-sub">Secured with password</small>
+                        </div>
                       </div>
+                      {onSwitchToGuest && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundstage.playTap();
+                            onSwitchToGuest();
+                          }}
+                          className="btn-cel btn-brawl-neutral btn-sm"
+                          title="Switch back to guest mode"
+                        >
+                          <LogOut size={13} strokeWidth={2.5} />
+                          <span>SIGN OUT</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
-                    <div className="guest-status-pill">
-                      <UserCheck size={16} strokeWidth={2.5} />
-                      <div className="guest-info">
-                        <span>Guest Session</span>
-                        <small>Link Google to preserve your identity</small>
-                      </div>
-                      {!googleClientId ? (
-                        <button disabled className="btn-cel btn-brawl-neutral btn-sm google-link-unavailable">
-                          GOOGLE LINK UNAVAILABLE
-                        </button>
-                      ) : googleError ? (
-                        <button disabled className="btn-cel btn-brawl-neutral btn-sm google-link-unavailable" title={googleError}>
-                          GOOGLE SIGN-IN UNAVAILABLE
-                        </button>
-                      ) : (
-                        <div className="google-signin-control">
-                          <div ref={googleButtonRef} />
-                          {!isGoogleReady && <small>Loading Google sign-in...</small>}
+                    <div className="account-status-pill guest">
+                      <div className="status-pill-info">
+                        <UserCheck size={18} strokeWidth={2.5} className="guest-icon" />
+                        <div className="status-pill-text">
+                          <span className="status-title">GUEST SESSION</span>
+                          <small className="status-sub">Protect nickname with password</small>
                         </div>
-                      )}
+                      </div>
+                      <div className="auth-action-buttons">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundstage.playTap();
+                            setAuthMode(authMode === 'register' ? 'none' : 'register');
+                            setAuthError('');
+                          }}
+                          className={`btn-cel btn-sm ${authMode === 'register' ? 'btn-brawl-secondary' : 'btn-brawl-primary'}`}
+                          title="Protect your current alias"
+                        >
+                          <Lock size={13} strokeWidth={2.5} />
+                          <span>PROTECT</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            soundstage.playTap();
+                            setAuthMode(authMode === 'login' ? 'none' : 'login');
+                            setAuthError('');
+                          }}
+                          className={`btn-cel btn-sm ${authMode === 'login' ? 'btn-brawl-secondary' : 'btn-brawl-neutral'}`}
+                          title="Log into existing account"
+                        >
+                          <LogIn size={13} strokeWidth={2.5} />
+                          <span>LOG IN</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Register Password Form */}
+                  {authMode === 'register' && !userProfile.isRegistered && (
+                    <div className="auth-drawer cel-card">
+                      <div className="drawer-header">
+                        <Lock size={16} strokeWidth={2.8} />
+                        <span className="woodcut-title">SECURE ALIAS: "{alias.trim() || userProfile.name}"</span>
+                      </div>
+                      <p className="drawer-desc">
+                        Set a password to register this name. Once registered, no one else can use it, and your stats and achievements stay safe.
+                      </p>
+                      <form onSubmit={handleRegisterPassword} className="auth-drawer-form">
+                        <div className="drawer-inputs">
+                          <input
+                            type="password"
+                            value={passwordInput}
+                            onChange={(e) => setPasswordInput(e.target.value)}
+                            placeholder="Password (min 6 characters)"
+                            required
+                            minLength={6}
+                            maxLength={128}
+                            className="ink-input drawer-input"
+                          />
+                          <input
+                            type="password"
+                            value={confirmPasswordInput}
+                            onChange={(e) => setConfirmPasswordInput(e.target.value)}
+                            placeholder="Confirm password"
+                            required
+                            minLength={6}
+                            maxLength={128}
+                            className="ink-input drawer-input"
+                          />
+                        </div>
+                        {authError && <p className="auth-drawer-error">{authError}</p>}
+                        <div className="drawer-buttons">
+                          <button
+                            type="submit"
+                            disabled={isSubmittingAuth}
+                            className="btn-cel btn-brawl-primary btn-sm"
+                          >
+                            <ShieldCheck size={14} strokeWidth={2.5} />
+                            <span>{isSubmittingAuth ? 'REGISTERING...' : 'CONFIRM PASSWORD'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              soundstage.playTap();
+                              setAuthMode('none');
+                              setAuthError('');
+                            }}
+                            className="btn-cel btn-brawl-neutral btn-sm"
+                          >
+                            CANCEL
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
+
+                  {/* Login Form */}
+                  {authMode === 'login' && !userProfile.isRegistered && (
+                    <div className="auth-drawer cel-card">
+                      <div className="drawer-header">
+                        <LogIn size={16} strokeWidth={2.8} />
+                        <span className="woodcut-title">LOG IN WITH REGISTERED NAME</span>
+                      </div>
+                      <p className="drawer-desc">
+                        Enter your username and password. Any achievements from this guest session will be merged into your account.
+                      </p>
+                      <form onSubmit={handleLogin} className="auth-drawer-form">
+                        <div className="drawer-inputs">
+                          <input
+                            type="text"
+                            value={loginUsernameInput}
+                            onChange={(e) => setLoginUsernameInput(e.target.value)}
+                            placeholder="Registered username"
+                            required
+                            maxLength={24}
+                            className="ink-input drawer-input"
+                          />
+                          <input
+                            type="password"
+                            value={loginPasswordInput}
+                            onChange={(e) => setLoginPasswordInput(e.target.value)}
+                            placeholder="Password"
+                            required
+                            maxLength={128}
+                            className="ink-input drawer-input"
+                          />
+                        </div>
+                        {authError && <p className="auth-drawer-error">{authError}</p>}
+                        <div className="drawer-buttons">
+                          <button
+                            type="submit"
+                            disabled={isSubmittingAuth}
+                            className="btn-cel btn-brawl-primary btn-sm"
+                          >
+                            <LogIn size={14} strokeWidth={2.5} />
+                            <span>{isSubmittingAuth ? 'LOGGING IN...' : 'LOG IN'}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              soundstage.playTap();
+                              setAuthMode('none');
+                              setAuthError('');
+                            }}
+                            className="btn-cel btn-brawl-neutral btn-sm"
+                          >
+                            CANCEL
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   )}
                 </div>
@@ -229,7 +360,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </div>
           </div>
 
-          {/* Unified Career Record Ledger (Replacing 4 separated AI metric cards) */}
+          {/* Unified Career Record Ledger */}
           <div className="career-stats-section">
             <span className="section-subheading">CAREER RECORD</span>
             <div className="career-ledger cel-card">
@@ -377,7 +508,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
           .auth-status-bar {
             margin-top: 4px;
           }
-          .guest-status-pill, .google-status-pill {
+          .account-status-pill {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -387,40 +518,87 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             border-radius: 7px;
             padding: 6px 10px;
           }
-          .google-status-pill {
+          .account-status-pill.registered {
             background-color: rgba(62, 136, 165, 0.12);
+            border-color: rgba(62, 136, 165, 0.4);
           }
-          .verified-shield-icon {
+          .status-pill-info {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+          }
+          .shield-icon-active {
             color: var(--color-mugman-cyan);
             flex-shrink: 0;
           }
-          .google-email-text, .guest-info {
+          .guest-icon {
+            color: var(--color-text-muted);
+            flex-shrink: 0;
+          }
+          .status-pill-text {
             display: flex;
             flex-direction: column;
-            font-size: 12px;
             line-height: 1.2;
           }
-          .guest-info small {
+          .status-title {
+            font-family: var(--font-comic-fredoka);
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--color-text-main);
+          }
+          .status-sub {
             font-size: 10px;
             color: var(--color-text-muted);
           }
-          .google-email-text strong {
-            font-family: var(--font-typewriter-elite);
-            font-size: 11.5px;
+          .auth-action-buttons {
+            display: flex;
+            align-items: center;
+            gap: 6px;
           }
-          .google-signin-control {
-            flex-shrink: 0;
-            min-width: 220px;
-            min-height: 40px;
+          .auth-drawer {
+            margin-top: 8px;
+            padding: 10px 12px;
+            background-color: var(--color-canvas-parchment);
+            border: var(--border-ink-thick);
+            border-radius: 8px;
           }
-          .google-signin-control small {
-            font-size: 10px;
+          .drawer-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: var(--font-luckiest-guy);
+            font-size: 13px;
+            color: var(--color-text-main);
+            margin-bottom: 3px;
+          }
+          .drawer-desc {
+            font-size: 11px;
+            margin-bottom: 8px;
             color: var(--color-text-muted);
+            line-height: 1.3;
           }
-          .google-link-unavailable {
-            flex-shrink: 0;
-            padding: 4px 8px;
-            font-size: 9.5px;
+          .auth-drawer-form {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+          }
+          .drawer-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .drawer-input {
+            width: 100%;
+          }
+          .drawer-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 6px;
+          }
+          .auth-drawer-error {
+            font-size: 11px;
+            color: var(--color-cuphead-red);
+            font-weight: bold;
           }
           .section-subheading {
             font-family: var(--font-luckiest-guy);
@@ -598,6 +776,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             .career-ledger { grid-template-columns: repeat(2, 1fr); gap: 8px; }
             .ledger-cell:not(:last-child) { border-right: none; }
             .avatar-grid { grid-template-columns: repeat(2, 1fr); }
+            .account-status-pill { flex-direction: column; align-items: stretch; gap: 8px; }
+            .auth-action-buttons { justify-content: flex-end; }
           }
         `}</style>
       </div>
